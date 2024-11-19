@@ -1,0 +1,12 @@
+name = "clima_playground"
+uuid = "366f1826-f195-47e4-a4a5-3fa8cfc1c36d"
+authors = ["Valentina Schüller <valentina.schuller@math.lu.se>"]
+version = "0.1.0"
+
+[deps]
+ClimaCore = "d414da3d-4745-48bb-8d80-42e94e092884"
+ClimaCoupler = "4ade58fe-a8da-486c-bd89-46df092ec0c7"
+ClimaTimeSteppers = "595c0a79-7f3d-439a-bc5a-b232dc3bde79"
+PrettyTables = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
