@@ -68,12 +68,7 @@ Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:height_sfc}) = nothing
 Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:uv_int}) = nothing
 
 
-function Interfacer.update_field!(sim::HeatEquationAtmos, ::Val{:turbulent_fluxes}, fields)
-    (; F_turb_energy, F_turb_moisture, F_turb_ρτxz, F_turb_ρτyz) = fields
-
-    sim.integrator.p.F_turb_energy = F_turb_energy
-
-end
+Interfacer.update_field!(sim::HeatEquationAtmos, ::Val{:turbulent_fluxes}, fields) = nothing
 
 # extensions required by FieldExchanger
 Interfacer.step!(sim::HeatEquationAtmos, t) = Interfacer.step!(sim.integrator, t - sim.integrator.t, true)
