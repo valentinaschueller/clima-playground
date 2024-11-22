@@ -91,10 +91,6 @@ function FluxCalculator.atmos_turbulent_fluxes_most!(atmos_sim::HeatEquationAtmo
     p.turbulent_energy_flux = p.transfer_coefficient * (csf.T_atm - csf.T_oce)
 end
 
-function Checkpointer.get_model_prog_state(sim::HeatEquationAtmos)
-    return sim.integrator.u
-end
-
 
 # function FluxCalculator.water_albedo_from_atmosphere!(
 #     atmos_sim::HeatEquationAtmos,
