@@ -168,6 +168,7 @@ function coupled_heat_equations()
 
     model_sims = (atmos_sim = atmos_sim, ocean_sim = ocean_sim)
     
+    dir_paths = Utilities.setup_output_dirs(output_dir = "output", comms_ctx = comms_ctx)
 
     cs = Interfacer.CoupledSimulation{Float64}(
         comms_ctx,
@@ -179,10 +180,10 @@ function coupled_heat_equations()
         stepping.Δt_coupler,
         model_sims,
         (;), # mode_specifics
-        callbacks,
+        callbacks, # TODO
         dir_paths,
-        turbulent_fluxes,
-        thermo_params,
+        nothing, # turbulent_fluxes
+        nothing, # thermo_params
         nothing, # amip_diags_handler
     );
 
