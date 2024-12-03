@@ -17,30 +17,6 @@ import ClimaCoupler:
     Utilities
 
 
-function initialize_component_model_exchange!(cs::Interfacer.CoupledSimulation)
-    # 1.surface density (`ρ_sfc`): calculated by the coupler by adiabatically extrapolating atmospheric thermal state to the surface.
-    ## For this we need to import surface and atmospheric fields. The model sims are then updated with the new surface density.
-    FieldExchanger.import_combined_surface_fields!(cs.fields, cs.model_sims, cs.turbulent_fluxes)
-    FieldExchanger.import_atmos_fields!(cs.fields, cs.model_sims, cs.boundary_space, cs.turbulent_fluxes)
-    FieldExchanger.update_model_sims!(cs.model_sims, cs.fields, cs.turbulent_fluxes)
-
-    # 2.surface vapor specific humidity (`q_sfc`): step surface models with the new surface density to calculate their respective `q_sfc` internally
-    Interfacer.step!(ocean_sim, Δt_cpl)
-
-    # 3.turbulent fluxes
-    ## import the new surface properties into the coupler (note the atmos state was also imported in step 3.)
-    FieldExchanger.import_combined_surface_fields!(cs.fields, cs.model_sims, cs.turbulent_fluxes) # i.e. T_sfc, albedo, z0, beta, q_sfc
-    ## calculate turbulent fluxes inside the atmos cache based on the combined surface state in each grid box
-    FluxCalculator.combined_turbulent_fluxes!(cs.model_sims, cs.fields, cs.turbulent_fluxes) # this updates the atmos thermo state, sfc_ts
-
-    # 4.reinitialize models + radiative flux: prognostic states and time are set to their initial conditions.
-    FieldExchanger.reinit_model_sims!(cs.model_sims)
-
-    # 5.update all fluxes: coupler re-imports updated atmos fluxes
-    FieldExchanger.import_atmos_fields!(cs.fields, cs.model_sims, cs.boundary_space, cs.turbulent_fluxes)
-    FieldExchanger.update_model_sims!(cs.model_sims, cs.fields, cs.turbulent_fluxes)
-end
-
 function solve_coupler!(cs)
     (; Δt_cpl, tspan, comms_ctx) = cs
 
@@ -186,8 +162,6 @@ function coupled_heat_equations()
         nothing, # thermo_params
         nothing, # amip_diags_handler
     );
-
-    initialize_component_model_exchange!(cs)
 
     integ_atm, integ_oce = solve_coupler!(cs)
 
