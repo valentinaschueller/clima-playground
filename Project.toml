@@ -4,6 +4,7 @@ authors = ["Valentina Schüller <valentina.schuller@math.lu.se>"]
 version = "0.1.0"
 
 [deps]
+ClimaComms = "3a4d1b5c-c61d-41fd-a00a-5873ba7a1b0d"
 ClimaCore = "d414da3d-4745-48bb-8d80-42e94e092884"
 ClimaCoupler = "4ade58fe-a8da-486c-bd89-46df092ec0c7"
 ClimaTimeSteppers = "595c0a79-7f3d-439a-bc5a-b232dc3bde79"
@@ -14,8 +15,9 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 
 [sources]
-ClimaCoupler = {url = "https://github.com/CliMA/ClimaCoupler.jl", rev = "main"}
+ClimaCoupler = {rev = "main", url = "https://github.com/CliMA/ClimaCoupler.jl"}
 
 [compat]
+ClimaComms = "0.6.4"
 Dates = "1.11.0"
 Plots = "1.40.9"
