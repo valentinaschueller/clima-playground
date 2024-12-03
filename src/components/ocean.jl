@@ -19,13 +19,13 @@ function heat_oce_rhs!(dT, T, cache, t)
     C3 = CC.Geometry.WVector
     # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)
     bcs_top = CC.Operators.SetValue(C3(F_sfc))
-    bcs_bottom = CC.Operators.SetValue(C3(FT(0)))
+    bcs_bottom = CC.Operators.SetValue(C3(Float64(0)))
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
     ᶠgradᵥ = CC.Operators.GradientC2F()
     ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom = bcs_bottom, top = bcs_top)
 
-    @. dT = ᶜdivᵥ(cache.params.k_oce * ᶠgradᵥ(T)) / (cache.params.ρ_oce * cache.params.c_oce)
+    @. dT.oce = ᶜdivᵥ(cache.params.k_oce * ᶠgradᵥ(T.oce)) / (cache.params.ρ_oce * cache.params.c_oce)
 end
 
 function ocean_init(
@@ -60,12 +60,12 @@ Interfacer.get_field(sim::HeatEquationOcean, ::Val{:roughness_momentum}) = nothi
 Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_direct_albedo}) = nothing
 Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_diffuse_albedo}) = nothing
 Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_humidity}) = nothing
-Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_temperature}) = sim.integrator.u.T_sfc
+Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_temperature}) = sim.integrator.u.oce
 Interfacer.get_field(sim::HeatEquationOcean, ::Val{:water}) = nothing
 
 
 Interfacer.get_field(sim::HeatEquationOcean, ::Val{:energy}) =
-    sim.integrator.p.params.ρ .* sim.integrator.p.params.c .* sim.integrator.u.T_sfc .* sim.integrator.p.params.h
+    sim.integrator.p.params.ρ .* sim.integrator.p.params.c .* sim.integrator.u.oce .* sim.integrator.p.params.h
 
 Interfacer.update_field!(sim::HeatEquationOcean, ::Val{:area_fraction}, field::CC.Fields.Field) = nothing
 Interfacer.update_field!(sim::HeatEquationOcean, ::Val{:air_density}, field::CC.Fields.Field) = nothing
