@@ -2,6 +2,7 @@ include("components/atmosphere.jl")
 include("components/ocean.jl")
 import Dates
 import SciMLBase
+import ClimaComms
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler
@@ -23,11 +24,6 @@ function solve_coupler!(cs)
     @info("Starting coupling loop")
     ## step in time
     for t in ((tspan[begin] + Δt_cpl):Δt_cpl:tspan[end])
-
-        cs.dates.date[1] = TimeManager.current_date(cs, t)
-
-        ## print date on the first of month
-        cs.dates.date[1] >= cs.dates.date1[1] && @info(cs.dates.date[1])
 
         ClimaComms.barrier(comms_ctx)
 
@@ -113,11 +109,44 @@ function coupled_heat_equations()
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, parameters)
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
-
+    dir_paths = Utilities.setup_output_dirs(output_dir = ".", artifacts_dir = ".", comms_ctx = comms_ctx)
+    
     start_date = "19790301"
     date0 = date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
     dates = (; date = [date], date0 = [date0], date1 = [Dates.firstdayofmonth(date0)], new_month = [false])
+    
+    # For your case, you don't need to extend all the get_field/update_field functions we defined in the Interfacer docs (which makes me think that these should be dependent on the component models rather than the coupler). 
+    #It may still be a useful framework to use, but you should be able to make it simpler.
+    
+    # For now we use the atmosphere's face space as the boundary space, but
+    # eventually we want to specify a separate boundary space within the driver
+    atmos_facespace = CC.Spaces.FaceFiniteDifferenceSpace(center_space_atm)
+    boundary_space = CC.Spaces.level(
+        atmos_facespace,
+        CC.Utilities.PlusHalf(CC.Spaces.nlevels(atmos_facespace) - 1),
+        )
 
+    checkpoint_cb = TimeManager.HourlyCallback(
+        dt = Float64(480),
+        func = Checkpointer.checkpoint_sims,
+        ref_date = [dates.date[1]],
+        active = true,
+    ) # 20 days
+    update_firstdayofmonth!_cb = TimeManager.MonthlyCallback(
+        dt = Float64(1),
+        func = TimeManager.update_firstdayofmonth!,
+        ref_date = [dates.date1[1]],
+        active = true,
+    )
+    albedo_cb = TimeManager.HourlyCallback(
+        dt = Float64(1),
+        func = FluxCalculator.water_albedo_from_atmosphere!,
+        ref_date = [dates.date[1]],
+        active = true,
+    )
+    callbacks =
+        (; checkpoint = checkpoint_cb, update_firstdayofmonth! = update_firstdayofmonth!_cb, water_albedo = albedo_cb)
+        
     coupler_field_names = (
         :T_S,
         :z0m_S,
@@ -144,12 +173,11 @@ function coupled_heat_equations()
 
     model_sims = (atmos_sim = atmos_sim, ocean_sim = ocean_sim)
     
-    dir_paths = Utilities.setup_output_dirs(output_dir = "output", comms_ctx = comms_ctx)
 
     cs = Interfacer.CoupledSimulation{Float64}(
         comms_ctx,
         dates,
-        CC.Spaces.horizontal_space(atmos_sim.domain.face_space),
+        boundary_space,
         coupler_fields,
         nothing, # conservation checks
         stepping.timerange,
