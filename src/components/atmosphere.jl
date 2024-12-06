@@ -69,6 +69,7 @@ Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:uv_int}) = nothing
 
 
 Interfacer.update_field!(sim::HeatEquationAtmos, ::Val{:turbulent_fluxes}, fields) = nothing
+Interfacer.update_field!(sim::HeatEquationAtmos, ::Val{:surface_direct_albedo}, fields) = nothing
 
 # extensions required by FieldExchanger
 Interfacer.step!(sim::HeatEquationAtmos, t) = Interfacer.step!(sim.integrator, t - sim.integrator.t, true)
