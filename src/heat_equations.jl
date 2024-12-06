@@ -63,16 +63,16 @@ end
 
 function coupled_heat_equations()
     parameters = (
-        h_atm=Float64(1),   # depth [m]
-        h_oce=Float64(20),    # depth [m]
-        n_atm=15,
-        n_oce=15,
-        k_atm=Float64(1e-3),
-        k_oce=Float64(1e-3),
+        h_atm=Float64(200),   # depth [m]
+        h_oce=Float64(50),    # depth [m]
+        n_atm=200,
+        n_oce=50,
+        k_atm=Float64(0.02364),
+        k_oce=Float64(0.57),
         c_atm=Float64(1e-3),  # specific heat [J / kg / K]
         c_oce=Float64(800),   # specific heat [J / kg / K]
         ρ_atm=Float64(1),     # density [kg / m3]
-        ρ_oce=Float64(1500),  # density [kg / m3]
+        ρ_oce=Float64(1000),  # density [kg / m3]
         C_AO=Float64(1e-5),
         C_AI=Float64(1e-5),
         C_OI=Float64(1e-5),
@@ -88,7 +88,7 @@ function coupled_heat_equations()
         boundary_names=(:bottom, :top),
     )
     context = CC.ClimaComms.context()
-    mesh_atm = CC.Meshes.IntervalMesh(domain_atm, nelems=parameters.n_atm) # struct, allocates face boundaries to 5,6: atmos
+    mesh_atm = CC.Meshes.IntervalMesh(domain_atm, nelems=parameters.n_atm)
     device = CC.ClimaComms.device(context)
     center_space_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_atm)
 
@@ -98,7 +98,7 @@ function coupled_heat_equations()
         boundary_names=(:bottom, :top),
     )
     context = CC.ClimaComms.context()
-    mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems=parameters.n_oce) # struct, allocates face boundaries to 5,6: atmos
+    mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems=parameters.n_oce)
     device = CC.ClimaComms.device(context)
     center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_oce)
 
@@ -107,8 +107,8 @@ function coupled_heat_equations()
         timerange=(Float64(0.0), Float64(3600.0)),
         Δt_coupler=Float64(3600.0),
         odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
-        nsteps_atm=1, # number of timesteps of atm per coupling cycle
-        nsteps_oce=1, # number of timesteps of lnd per coupling cycle
+        nsteps_atm=50,
+        nsteps_oce=1,
     )
 
     T_atm_0 = CC.Fields.FieldVector(

@@ -10,7 +10,7 @@ end
 Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
 function heat_atm_rhs!(dT, T, cache, t)
-    F_sfc = cache.params.C_AO * (parent(T)[1] - cache.T_sfc)
+    F_sfc = cache.params.C_AO * (T[1] - cache.T_sfc)
 
     ## set boundary conditions
     C3 = CC.Geometry.WVector
@@ -28,15 +28,11 @@ function heat_atm_rhs!(dT, T, cache, t)
 end
 
 function atmos_init(stepping, ics, space, parameters)
-    Δt = Float64(stepping.Δt_min)
+    Δt = Float64(stepping.Δt_min) / stepping.nsteps_atm
 
     cache = (
         params=parameters,
-        F_turb_energy=CC.Fields.zeros(space),
-        F_radiative=CC.Fields.zeros(space),
-        q_sfc=CC.Fields.zeros(space),
-        ρ_sfc=CC.Fields.zeros(space),
-        T_sfc=Float64(0),
+        T_sfc=parameters.T_oce_ini,
     )
 
     ode_function = CTS.ClimaODEFunction((T_exp!)=heat_atm_rhs!)

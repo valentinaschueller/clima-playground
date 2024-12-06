@@ -13,7 +13,7 @@ Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 
 
 function heat_oce_rhs!(dT, T, cache, t)
-    F_sfc = cache.params.C_AO * (cache.T_air - last(parent(T)))
+    F_sfc = cache.params.C_AO * (cache.T_air - T[end])
 
     ## set boundary conditions
     C3 = CC.Geometry.WVector
@@ -31,10 +31,10 @@ function heat_oce_rhs!(dT, T, cache, t)
 end
 
 function ocean_init(stepping, ics, space, parameters)
-    Δt = Float64(stepping.Δt_min)
+    Δt = Float64(stepping.Δt_min) / stepping.nsteps_oce
     saveat = Float64(stepping.Δt_coupler)
 
-    cache = (params=parameters, area_fraction=1 - parameters.a_i, T_air=Float64(0))
+    cache = (params=parameters, area_fraction=1 - parameters.a_i, T_air=parameters.T_atm_ini)
 
     ode_function = CTS.ClimaODEFunction((T_exp!)=heat_oce_rhs!)
 
