@@ -5,14 +5,11 @@ import SciMLBase
 import ClimaComms
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
-import ClimaCoupler
 import ClimaCoupler:
-    ConservationChecker,
     Checkpointer,
     FieldExchanger,
     FluxCalculator,
     Interfacer,
-    Regridder,
     TimeManager,
     Utilities
 
@@ -30,34 +27,23 @@ function solve_coupler!(cs)
 
         ClimaComms.barrier(comms_ctx)
 
-        ## run component models sequentially for one coupling timestep (Δt_cpl)
-        FieldExchanger.update_model_sims!(cs.model_sims, cs.fields, cs.turbulent_fluxes)
-
-        ## step sims
         FieldExchanger.step_model_sims!(cs.model_sims, t)
 
-        ## exchange combined fields and (if specified) calculate fluxes using combined states
-        FieldExchanger.import_combined_surface_fields!(
-            cs.fields,
-            cs.model_sims,
-            cs.turbulent_fluxes,
-        ) # i.e. T_sfc, surface_albedo, z0, beta
-        FluxCalculator.combined_turbulent_fluxes!(
-            cs.model_sims,
-            cs.fields,
-            cs.turbulent_fluxes,
-        )
-
-        FieldExchanger.import_atmos_fields!(
-            cs.fields,
-            cs.model_sims,
-            cs.boundary_space,
-            cs.turbulent_fluxes,
-        ) # radiative and/or turbulent
+        update_model_sims!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim)
 
         cs.dates.date[1] = TimeManager.current_date(cs, t)
         TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
     end
+end
+
+function update_model_sims!(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean)
+    # Get ocean temp and use it to update atmosphere model
+    ocean_T = get_field(ocean_sim, Val(:T_oce_sfc))
+    update_field!(atmos_sim, Val(:T_oce_sfc), Float64(ocean_T))
+
+    # Get atmos temp and use it to update ocean model
+    atmos_T = get_field(atmos_sim, Val(:T_atm_sfc))
+    update_field!(ocean_sim, Val(:T_atm_sfc), atmos_T)
 end
 
 
@@ -102,10 +88,16 @@ function coupled_heat_equations()
     device = CC.ClimaComms.device(context)
     center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_oce)
 
+    atmos_facespace = CC.Spaces.FaceFiniteDifferenceSpace(center_space_atm)
+    boundary_space = CC.Spaces.level(
+        atmos_facespace,
+        CC.Utilities.PlusHalf(CC.Spaces.nlevels(atmos_facespace) - 1),
+    )
+
     stepping = (;
         Δt_min=Float64(1.0),
         timerange=(Float64(0.0), Float64(3600.0)),
-        Δt_coupler=Float64(3600.0),
+        Δt_coupler=Float64(100.0),
         odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
         nsteps_atm=50,
         nsteps_oce=1,
@@ -118,9 +110,10 @@ function coupled_heat_equations()
         oce=CC.Fields.ones(Float64, center_space_oce) .* parameters.T_oce_ini,
     )
 
-    ## atmos copies of coupler variables
-    atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, parameters)
-    ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, parameters)
+    atmos_cache = (; parameters..., T_sfc=parameters.T_oce_ini .* CC.Fields.ones(boundary_space))
+    atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, atmos_cache)
+    ocean_cache = (; parameters..., T_air=parameters.T_atm_ini .* CC.Fields.ones(boundary_space), area_fraction=1 - parameters.a_i)
+    ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
     dir_paths = Utilities.setup_output_dirs(
@@ -130,18 +123,12 @@ function coupled_heat_equations()
     )
 
     start_date = "19790301"
-    date0 = date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
+    date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
     dates = (;
         date=[date],
-        date0=[date0],
-        date1=[Dates.firstdayofmonth(date0)],
+        date0=[date],
+        date1=[Dates.firstdayofmonth(date)],
         new_month=[false],
-    )
-
-    atmos_facespace = CC.Spaces.FaceFiniteDifferenceSpace(center_space_atm)
-    boundary_space = CC.Spaces.level(
-        atmos_facespace,
-        CC.Utilities.PlusHalf(CC.Spaces.nlevels(atmos_facespace) - 1),
     )
 
     checkpoint_cb = TimeManager.HourlyCallback(
@@ -153,30 +140,12 @@ function coupled_heat_equations()
     callbacks = (; checkpoint=checkpoint_cb)
 
     coupler_field_names = (
-        :T_S,
-        :z0m_S,
-        :z0b_S,
-        :ρ_sfc,
-        :q_sfc,
-        :surface_direct_albedo,
-        :surface_diffuse_albedo,
-        :beta,
-        :F_turb_energy,
-        :F_turb_moisture,
-        :F_turb_ρτxz,
-        :F_turb_ρτyz,
-        :F_radiative,
-        :P_liq,
-        :P_snow,
-        :radiative_energy_flux_toa,
-        :P_net,
-        :temp1,
-        :temp2,
+        :T_atm_sfc,
+        :T_oce_sfc,
     )
     coupler_fields = NamedTuple{coupler_field_names}(
         ntuple(i -> CC.Fields.zeros(boundary_space), length(coupler_field_names)),
     )
-
     model_sims = (atmos_sim=atmos_sim, ocean_sim=ocean_sim)
 
 
