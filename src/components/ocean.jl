@@ -57,10 +57,10 @@ Interfacer.get_field(sim::HeatEquationOcean, ::Val{:area_fraction}) = sim.integr
 Interfacer.get_field(sim::HeatEquationOcean, ::Val{:beta}) = nothing
 Interfacer.get_field(sim::HeatEquationOcean, ::Val{:roughness_buoyancy}) = nothing
 Interfacer.get_field(sim::HeatEquationOcean, ::Val{:roughness_momentum}) = nothing
-Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_direct_albedo}) = nothing
-Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_diffuse_albedo}) = nothing
+Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_direct_albedo}) = Float64(0)
+Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_diffuse_albedo}) = Float64(0)
 Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_humidity}) = nothing
-Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_temperature}) = sim.integrator.u.oce
+Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_temperature}) = sim.integrator.u[end]
 Interfacer.get_field(sim::HeatEquationOcean, ::Val{:water}) = nothing
 
 
@@ -70,8 +70,8 @@ Interfacer.get_field(sim::HeatEquationOcean, ::Val{:energy}) =
 Interfacer.update_field!(sim::HeatEquationOcean, ::Val{:area_fraction}, field::CC.Fields.Field) = nothing
 Interfacer.update_field!(sim::HeatEquationOcean, ::Val{:air_density}, field::CC.Fields.Field) = nothing
 Interfacer.update_field!(sim::HeatEquationOcean, ::Val{:radiative_energy_flux_sfc}, field::CC.Fields.Field) = nothing
-Interfacer.update_field!(sim::HeatEquationOcean, ::Val{:turbulent_energy_flux}, field::CC.Fields.Field) = nothing
-Interfacer.update_field!(sim::HeatEquationOcean, ::Val{:surface_direct_albedo}, field::CC.Fields.Field) = nothing
+Interfacer.update_field!(sim::HeatEquationOcean, ::Val{:turbulent_energy_flux}, field::CC.Fields.Field) = Float64(0)
+Interfacer.update_field!(sim::HeatEquationOcean, ::Val{:surface_direct_albedo}, field::CC.Fields.Field) = Float64(0)
 Interfacer.update_field!(sim::HeatEquationOcean, ::Val{:surface_diffuse_albedo}, field::CC.Fields.Field) = nothing
 
 Interfacer.step!(sim::HeatEquationOcean, t) = Interfacer.step!(sim.integrator, t - sim.integrator.t, true)

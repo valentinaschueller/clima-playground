@@ -55,10 +55,10 @@ Checkpointer.get_model_prog_state(sim::HeatEquationAtmos) = sim.integrator.u
 Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:radiative_energy_flux_toa}) = nothing
 Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:energy}) = nothing
 Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:air_density}) = sim.integrator.p.ρ_atm
-Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:air_temperature}) = sim.integrator.u.T[1]
-Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:liquid_precipitation}) = nothing
-Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:snow_precipitation}) = nothing
-Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:radiative_energy_flux_sfc}) = nothing
+Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:air_temperature}) = sim.integrator.u[1]
+Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:liquid_precipitation}) = sim.integrator.u
+Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:snow_precipitation}) = sim.integrator.u
+Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:radiative_energy_flux_sfc}) = sim.integrator.u
 Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:turbulent_energy_flux}) = nothing
 Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:turbulent_moisture_flux}) = nothing
 Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:thermo_state_int}) = nothing
@@ -75,23 +75,10 @@ Interfacer.step!(sim::HeatEquationAtmos, t) = Interfacer.step!(sim.integrator, t
 Interfacer.reinit!(sim::HeatEquationAtmos) = Interfacer.reinit!(sim.integrator)
 
 
-FluxCalculator.calculate_surface_air_density(atmos_sim::HeatEquationAtmos, T_S::CC.Fields.Field) = atmos_sim.integrator.p.ρ
-
-# TODO fix this one:
-# FluxCalculator.get_surface_params(sim::HeatEquationAtmos) = CAP.surface_fluxes_params(sim.integrator.p.params)
-
+FluxCalculator.calculate_surface_air_density(sim::HeatEquationAtmos, T_S::CC.Fields.Field) = T_S
 
 function FluxCalculator.atmos_turbulent_fluxes_most!(atmos_sim::HeatEquationAtmos, csf)
     p = atmos_sim.integrator.p
     p.turbulent_energy_flux = p.transfer_coefficient * (csf.T_atm - csf.T_oce)
 end
 
-
-# function FluxCalculator.water_albedo_from_atmosphere!(
-#     atmos_sim::HeatEquationAtmos,
-#     direct_albedo::CC.Fields.Field,
-#     diffuse_albedo::CC.Fields.Field,
-# )
-#     direct_albedo .= atmos_sim.integrator.p.direct_albedo
-#     diffuse_albedo .= atmos_sim.integrator.p.direct_albedo
-# end

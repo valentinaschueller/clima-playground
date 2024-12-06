@@ -9,7 +9,6 @@ import ClimaCoupler
 import ClimaCoupler:
     ConservationChecker,
     Checkpointer,
-    Diagnostics,
     FieldExchanger,
     FluxCalculator,
     Interfacer,
@@ -46,8 +45,6 @@ function solve_coupler!(cs)
         TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
 
     end
-
-    return nothing
 end
 
 
@@ -94,7 +91,7 @@ function coupled_heat_equations()
 
     stepping = (;
         Δt_min = Float64(0.02),
-        timerange = (Float64(0.0), Float64(6.0)),
+        timerange = (Float64(0.0), Float64(1.0)),
         Δt_coupler = Float64(0.1),
         odesolver = CTS.ExplicitAlgorithm(CTS.RK4()),
         nsteps_atm = 8, # number of timesteps of atm per coupling cycle
@@ -186,15 +183,13 @@ function coupled_heat_equations()
         (;), # mode_specifics
         callbacks, # TODO
         dir_paths,
-        nothing, # turbulent_fluxes
+        FluxCalculator.PartitionedStateFluxes(), # turbulent_fluxes
         nothing, # thermo_params
         nothing, # amip_diags_handler
     );
 
-    integ_atm, integ_oce = solve_coupler!(cs)
+    solve_coupler!(cs)
 
-    # postprocessing
-    sol_atm, sol_lnd = integ_atm.sol, integ_oce.sol;
 end;
 
 
