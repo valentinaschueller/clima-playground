@@ -11,5 +11,5 @@ To run the code:
 > ]instantiate
 # return to REPL
 > using clima_playground
-> clima_playground.coupled_heat_equations()
+> coupled_heat_equations()
 ```
