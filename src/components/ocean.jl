@@ -23,7 +23,7 @@ function heat_oce_rhs!(dT, T, cache, t)
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
     ᶠgradᵥ = CC.Operators.GradientC2F()
-    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom = bcs_bottom, top = bcs_top)
+    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
     @. dT.oce =
         ᶜdivᵥ(cache.params.k_oce * ᶠgradᵥ(T.oce)) /
@@ -34,17 +34,17 @@ function ocean_init(stepping, ics, space, parameters)
     Δt = Float64(stepping.Δt_min)
     saveat = Float64(stepping.Δt_coupler)
 
-    cache = (params = parameters, area_fraction = 1 - parameters.a_i, T_air = Float64(0))
+    cache = (params=parameters, area_fraction=1 - parameters.a_i, T_air=Float64(0))
 
-    ode_function = CTS.ClimaODEFunction(T_exp! = heat_oce_rhs!)
+    ode_function = CTS.ClimaODEFunction((T_exp!)=heat_oce_rhs!)
 
     problem = SciMLBase.ODEProblem(ode_function, ics, stepping.timerange, cache)
     integrator = SciMLBase.init(
         problem,
         stepping.odesolver,
-        dt = Δt,
-        saveat = saveat,
-        adaptive = false,
+        dt=Δt,
+        saveat=saveat,
+        adaptive=false,
     )
 
     sim = HeatEquationOcean(parameters, ics, space, integrator)

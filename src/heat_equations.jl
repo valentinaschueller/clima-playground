@@ -63,59 +63,59 @@ end
 
 function coupled_heat_equations()
     parameters = (
-        h_atm = Float64(1),   # depth [m]
-        h_oce = Float64(20),    # depth [m]
-        n_atm = 15,
-        n_oce = 15,
-        k_atm = Float64(1e-3),
-        k_oce = Float64(1e-3),
-        c_atm = Float64(1e-3),  # specific heat [J / kg / K]
-        c_oce = Float64(800),   # specific heat [J / kg / K]
-        ρ_atm = Float64(1),     # density [kg / m3]
-        ρ_oce = Float64(1500),  # density [kg / m3]
-        C_AO = Float64(1e-5),
-        C_AI = Float64(1e-5),
-        C_OI = Float64(1e-5),
-        T_atm_ini = Float64(265),   # initial temperature [K]
-        T_oce_ini = Float64(271),   # initial temperature [K]
-        a_i = Float64(0),           # ice area fraction [0-1]
+        h_atm=Float64(1),   # depth [m]
+        h_oce=Float64(20),    # depth [m]
+        n_atm=15,
+        n_oce=15,
+        k_atm=Float64(1e-3),
+        k_oce=Float64(1e-3),
+        c_atm=Float64(1e-3),  # specific heat [J / kg / K]
+        c_oce=Float64(800),   # specific heat [J / kg / K]
+        ρ_atm=Float64(1),     # density [kg / m3]
+        ρ_oce=Float64(1500),  # density [kg / m3]
+        C_AO=Float64(1e-5),
+        C_AI=Float64(1e-5),
+        C_OI=Float64(1e-5),
+        T_atm_ini=Float64(265),   # initial temperature [K]
+        T_oce_ini=Float64(271),   # initial temperature [K]
+        a_i=Float64(0),           # ice area fraction [0-1]
     )
 
     # initialize models
     domain_atm = CC.Domains.IntervalDomain(
         CC.Geometry.ZPoint{Float64}(0),
         CC.Geometry.ZPoint{Float64}(parameters.h_atm);
-        boundary_names = (:bottom, :top),
+        boundary_names=(:bottom, :top),
     )
     context = CC.ClimaComms.context()
-    mesh_atm = CC.Meshes.IntervalMesh(domain_atm, nelems = parameters.n_atm) # struct, allocates face boundaries to 5,6: atmos
+    mesh_atm = CC.Meshes.IntervalMesh(domain_atm, nelems=parameters.n_atm) # struct, allocates face boundaries to 5,6: atmos
     device = CC.ClimaComms.device(context)
     center_space_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_atm)
 
     domain_oce = CC.Domains.IntervalDomain(
         CC.Geometry.ZPoint{Float64}(-parameters.h_oce),
         CC.Geometry.ZPoint{Float64}(0);
-        boundary_names = (:bottom, :top),
+        boundary_names=(:bottom, :top),
     )
     context = CC.ClimaComms.context()
-    mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems = parameters.n_oce) # struct, allocates face boundaries to 5,6: atmos
+    mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems=parameters.n_oce) # struct, allocates face boundaries to 5,6: atmos
     device = CC.ClimaComms.device(context)
     center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_oce)
 
     stepping = (;
-        Δt_min = Float64(1.0),
-        timerange = (Float64(0.0), Float64(3600.0)),
-        Δt_coupler = Float64(3600.0),
-        odesolver = CTS.ExplicitAlgorithm(CTS.RK4()),
-        nsteps_atm = 1, # number of timesteps of atm per coupling cycle
-        nsteps_oce = 1, # number of timesteps of lnd per coupling cycle
+        Δt_min=Float64(1.0),
+        timerange=(Float64(0.0), Float64(3600.0)),
+        Δt_coupler=Float64(3600.0),
+        odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
+        nsteps_atm=1, # number of timesteps of atm per coupling cycle
+        nsteps_oce=1, # number of timesteps of lnd per coupling cycle
     )
 
     T_atm_0 = CC.Fields.FieldVector(
-        atm = CC.Fields.ones(Float64, center_space_atm) .* parameters.T_atm_ini,
+        atm=CC.Fields.ones(Float64, center_space_atm) .* parameters.T_atm_ini,
     )
     T_oce_0 = CC.Fields.FieldVector(
-        oce = CC.Fields.ones(Float64, center_space_oce) .* parameters.T_oce_ini,
+        oce=CC.Fields.ones(Float64, center_space_oce) .* parameters.T_oce_ini,
     )
 
     ## atmos copies of coupler variables
@@ -124,25 +124,20 @@ function coupled_heat_equations()
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
     dir_paths = Utilities.setup_output_dirs(
-        output_dir = ".",
-        artifacts_dir = ".",
-        comms_ctx = comms_ctx,
+        output_dir=".",
+        artifacts_dir=".",
+        comms_ctx=comms_ctx,
     )
 
     start_date = "19790301"
     date0 = date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
     dates = (;
-        date = [date],
-        date0 = [date0],
-        date1 = [Dates.firstdayofmonth(date0)],
-        new_month = [false],
+        date=[date],
+        date0=[date0],
+        date1=[Dates.firstdayofmonth(date0)],
+        new_month=[false],
     )
 
-    # For your case, you don't need to extend all the get_field/update_field functions we defined in the Interfacer docs (which makes me think that these should be dependent on the component models rather than the coupler). 
-    #It may still be a useful framework to use, but you should be able to make it simpler.
-
-    # For now we use the atmosphere's face space as the boundary space, but
-    # eventually we want to specify a separate boundary space within the driver
     atmos_facespace = CC.Spaces.FaceFiniteDifferenceSpace(center_space_atm)
     boundary_space = CC.Spaces.level(
         atmos_facespace,
@@ -150,12 +145,12 @@ function coupled_heat_equations()
     )
 
     checkpoint_cb = TimeManager.HourlyCallback(
-        dt = Float64(1),
-        func = Checkpointer.checkpoint_sims,
-        ref_date = [dates.date[1]],
-        active = true,
+        dt=Float64(1),
+        func=Checkpointer.checkpoint_sims,
+        ref_date=[dates.date[1]],
+        active=true,
     )
-    callbacks = (; checkpoint = checkpoint_cb)
+    callbacks = (; checkpoint=checkpoint_cb)
 
     coupler_field_names = (
         :T_S,
@@ -182,7 +177,7 @@ function coupled_heat_equations()
         ntuple(i -> CC.Fields.zeros(boundary_space), length(coupler_field_names)),
     )
 
-    model_sims = (atmos_sim = atmos_sim, ocean_sim = ocean_sim)
+    model_sims = (atmos_sim=atmos_sim, ocean_sim=ocean_sim)
 
 
     cs = Interfacer.CoupledSimulation{Float64}(

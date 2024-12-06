@@ -20,7 +20,7 @@ function heat_atm_rhs!(dT, T, cache, t)
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
     ᶠgradᵥ = CC.Operators.GradientC2F()
-    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom = bcs_bottom, top = bcs_top)
+    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
     @. dT.atm =
         ᶜdivᵥ(cache.params.k_atm * ᶠgradᵥ(T.atm)) /
@@ -31,22 +31,22 @@ function atmos_init(stepping, ics, space, parameters)
     Δt = Float64(stepping.Δt_min)
 
     cache = (
-        params = parameters,
-        F_turb_energy = CC.Fields.zeros(space),
-        F_radiative = CC.Fields.zeros(space),
-        q_sfc = CC.Fields.zeros(space),
-        ρ_sfc = CC.Fields.zeros(space),
-        T_sfc = Float64(0),
+        params=parameters,
+        F_turb_energy=CC.Fields.zeros(space),
+        F_radiative=CC.Fields.zeros(space),
+        q_sfc=CC.Fields.zeros(space),
+        ρ_sfc=CC.Fields.zeros(space),
+        T_sfc=Float64(0),
     )
 
-    ode_function = CTS.ClimaODEFunction(T_exp! = heat_atm_rhs!)
+    ode_function = CTS.ClimaODEFunction((T_exp!)=heat_atm_rhs!)
     problem = SciMLBase.ODEProblem(ode_function, ics, stepping.timerange, cache)
     integrator = SciMLBase.init(
         problem,
         stepping.odesolver,
-        dt = Δt,
-        saveat = Float64(stepping.Δt_coupler),
-        adaptive = false,
+        dt=Δt,
+        saveat=Float64(stepping.Δt_coupler),
+        adaptive=false,
     )
 
     sim = HeatEquationAtmos(parameters, ics, space, integrator)
