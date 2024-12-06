@@ -20,9 +20,13 @@ import ClimaCoupler:
 function solve_coupler!(cs)
     (; Δt_cpl, tspan, comms_ctx) = cs
 
+    cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
+    TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
+
     @info("Starting coupling loop")
-    ## step in time
+
     for t in ((tspan[begin] + Δt_cpl):Δt_cpl:tspan[end])
+        @info(cs.dates.date[1])
 
         ClimaComms.barrier(comms_ctx)
 
@@ -38,19 +42,15 @@ function solve_coupler!(cs)
 
         FieldExchanger.import_atmos_fields!(cs.fields, cs.model_sims, cs.boundary_space, cs.turbulent_fluxes) # radiative and/or turbulent
 
-        ## callback to update the fist day of month if needed
-        TimeManager.trigger_callback!(cs, cs.callbacks.update_firstdayofmonth!)
-
-        ## callback to checkpoint model state
+        cs.dates.date[1] = TimeManager.current_date(cs, t)
         TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
-
     end
 end
 
 
 function coupled_heat_equations()
     parameters = (
-        h_atm = Float64(1.0),   # depth [m]
+        h_atm = Float64(1),   # depth [m]
         h_oce = Float64(20),    # depth [m]
         n_atm = 15,
         n_oce = 15,
@@ -90,11 +90,11 @@ function coupled_heat_equations()
     center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_oce) 
 
     stepping = (;
-        Δt_min = Float64(0.02),
-        timerange = (Float64(0.0), Float64(1.0)),
-        Δt_coupler = Float64(0.1),
+        Δt_min = Float64(1.0),
+        timerange = (Float64(0.0), Float64(3600.0)),
+        Δt_coupler = Float64(3600.0),
         odesolver = CTS.ExplicitAlgorithm(CTS.RK4()),
-        nsteps_atm = 8, # number of timesteps of atm per coupling cycle
+        nsteps_atm = 1, # number of timesteps of atm per coupling cycle
         nsteps_oce = 1, # number of timesteps of lnd per coupling cycle
     );
 
@@ -124,25 +124,13 @@ function coupled_heat_equations()
         )
 
     checkpoint_cb = TimeManager.HourlyCallback(
-        dt = Float64(480),
+        dt = Float64(1),
         func = Checkpointer.checkpoint_sims,
-        ref_date = [dates.date[1]],
-        active = true,
-    ) # 20 days
-    update_firstdayofmonth!_cb = TimeManager.MonthlyCallback(
-        dt = Float64(1),
-        func = TimeManager.update_firstdayofmonth!,
-        ref_date = [dates.date1[1]],
-        active = true,
-    )
-    albedo_cb = TimeManager.HourlyCallback(
-        dt = Float64(1),
-        func = FluxCalculator.water_albedo_from_atmosphere!,
         ref_date = [dates.date[1]],
         active = true,
     )
     callbacks =
-        (; checkpoint = checkpoint_cb, update_firstdayofmonth! = update_firstdayofmonth!_cb, water_albedo = albedo_cb)
+        (; checkpoint = checkpoint_cb)
         
     coupler_field_names = (
         :T_S,
@@ -181,9 +169,9 @@ function coupled_heat_equations()
         stepping.Δt_coupler,
         model_sims,
         (;), # mode_specifics
-        callbacks, # TODO
+        callbacks,
         dir_paths,
-        FluxCalculator.PartitionedStateFluxes(), # turbulent_fluxes
+        FluxCalculator.PartitionedStateFluxes(),
         nothing, # thermo_params
         nothing, # amip_diags_handler
     );
