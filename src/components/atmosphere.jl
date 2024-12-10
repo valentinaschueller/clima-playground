@@ -47,7 +47,7 @@ end
 
 Checkpointer.get_model_prog_state(sim::HeatEquationAtmos) = sim.integrator.u
 
-Interfacer.step!(sim::HeatEquationAtmos, t) = Interfacer.step!(sim.integrator, t - sim.integrator.t, true)
+Interfacer.step!(sim::HeatEquationAtmos, t) = Interfacer.step!(sim.integrator, t - sim.integrator.t)
 Interfacer.reinit!(sim::HeatEquationAtmos) = Interfacer.reinit!(sim.integrator)
 
 get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc}) = sim.integrator.u[1]

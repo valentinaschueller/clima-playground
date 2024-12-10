@@ -55,8 +55,7 @@ function update_field!(sim::HeatEquationOcean, ::Val{:T_atm_sfc}, field)
 end
 
 
-Interfacer.step!(sim::HeatEquationOcean, t) =
-    Interfacer.step!(sim.integrator, t - sim.integrator.t, true)
+Interfacer.step!(sim::HeatEquationOcean, t) = Interfacer.step!(sim.integrator, t - sim.integrator.t)
 Interfacer.reinit!(sim::HeatEquationOcean) = Interfacer.reinit!(sim.integrator)
 
 Checkpointer.get_model_prog_state(sim::HeatEquationOcean) = sim.integrator.u

@@ -67,15 +67,16 @@ function coupled_heat_equations()
         a_i=Float64(0),           # ice area fraction [0-1]
     )
 
+    context = CC.ClimaComms.context()
+    device = CC.ClimaComms.device(context)
+
     # initialize models
     domain_atm = CC.Domains.IntervalDomain(
         CC.Geometry.ZPoint{Float64}(0),
         CC.Geometry.ZPoint{Float64}(parameters.h_atm);
         boundary_names=(:bottom, :top),
     )
-    context = CC.ClimaComms.context()
     mesh_atm = CC.Meshes.IntervalMesh(domain_atm, nelems=parameters.n_atm)
-    device = CC.ClimaComms.device(context)
     center_space_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_atm)
 
     domain_oce = CC.Domains.IntervalDomain(
@@ -83,9 +84,7 @@ function coupled_heat_equations()
         CC.Geometry.ZPoint{Float64}(0);
         boundary_names=(:bottom, :top),
     )
-    context = CC.ClimaComms.context()
     mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems=parameters.n_oce)
-    device = CC.ClimaComms.device(context)
     center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_oce)
 
     atmos_facespace = CC.Spaces.FaceFiniteDifferenceSpace(center_space_atm)
@@ -142,6 +141,7 @@ function coupled_heat_equations()
     coupler_fields = NamedTuple{coupler_field_names}(
         ntuple(i -> CC.Fields.zeros(boundary_space), length(coupler_field_names)),
     )
+
     model_sims = (atmos_sim=atmos_sim, ocean_sim=ocean_sim)
 
 
