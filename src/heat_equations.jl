@@ -14,11 +14,23 @@ import ClimaCoupler:
     Utilities
 
 
+function restart_sims!(cs::Interfacer.CoupledSimulation, _)
+    for sim in cs.model_sims
+        if Checkpointer.get_model_prog_state(sim) !== nothing
+            t = Dates.datetime2epochms(cs.dates.date[1])
+            t0 = Dates.datetime2epochms(cs.dates.date0[1])
+            Checkpointer.restart_model_state!(sim, cs.comms_ctx, Int((t - t0) / 1e3), input_dir=cs.dirs.artifacts)
+        end
+    end
+end
+
+
 function solve_coupler!(cs)
     (; Δt_cpl, tspan, comms_ctx) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
     TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
+    TimeManager.trigger_callback!(cs, cs.callbacks.restart)
 
     @info("Starting coupling loop")
 
@@ -33,6 +45,7 @@ function solve_coupler!(cs)
 
         cs.dates.date[1] = TimeManager.current_date(cs, t)
         TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
+        TimeManager.trigger_callback!(cs, cs.callbacks.restart)
     end
 end
 
@@ -132,7 +145,13 @@ function coupled_heat_equations()
         ref_date=[dates.date[1]],
         active=true,
     )
-    callbacks = (; checkpoint=checkpoint_cb)
+    restart_cb = TimeManager.HourlyCallback(
+        dt=Float64(1),
+        func=restart_sims!,
+        ref_date=[dates.date[1]],
+        active=true,
+    )
+    callbacks = (; checkpoint=checkpoint_cb, restart=restart_cb)
 
     coupler_field_names = (
         :T_atm_sfc,
