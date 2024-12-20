@@ -13,7 +13,7 @@ Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 
 
 function heat_oce_rhs!(dT, T, cache, t)
-    F_sfc = (cache.a_i * cache.C_OI * (cache.T_ice - T[end]) + (1 - cache.a_i) * cache.C_AO * (parent(cache.T_air)[1] - T[end])) / cache.k_oce# divide by k^O?
+    F_sfc = (cache.a_i * cache.C_OI * (parent(cache.T_ice)[1] - T[end]) + (1 - cache.a_i) * cache.C_AO * (parent(cache.T_air)[1] - T[end])) / cache.k_oce# divide by k^O?
 
     ## set boundary conditions
     C3 = CC.Geometry.WVector
@@ -50,8 +50,9 @@ function ocean_init(stepping, ics, space, cache)
 end
 
 get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc}) = sim.integrator.u[end]
-function update_field!(sim::HeatEquationOcean, ::Val{:T_atm_sfc}, field)
-    parent(sim.integrator.p.T_air) .= field
+function update_field!(sim::HeatEquationOcean, ::Val{:T_atm_sfc}, field_1, ::Val{:T_ice}, field_2)
+    parent(sim.integrator.p.T_air) .= field_1
+    parent(sim.integrator.p.T_ice) .= field_2
 end
 
 

@@ -11,7 +11,7 @@ end
 Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
 function heat_atm_rhs!(dT, T, cache, t)
-    F_sfc = (cache.a_i * cache.C_AI * (T[1] - cache.T_ice) + (1 - cache.a_i) * cache.C_AO * (T[1] - parent(cache.T_sfc)[1])) / cache.k_atm # I say we should divide by k^A here?
+    F_sfc = (cache.a_i * cache.C_AI * (T[1] - parent(cache.T_ice)[1]) + (1 - cache.a_i) * cache.C_AO * (T[1] - parent(cache.T_sfc)[1])) / cache.k_atm # I say we should divide by k^A here?
 
     ## set boundary conditions
     C3 = CC.Geometry.WVector
@@ -51,6 +51,7 @@ Interfacer.step!(sim::HeatEquationAtmos, t) = Interfacer.step!(sim.integrator, t
 Interfacer.reinit!(sim::HeatEquationAtmos) = Interfacer.reinit!(sim.integrator)
 
 get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc}) = sim.integrator.u[1]
-function update_field!(sim::HeatEquationAtmos, ::Val{:T_oce_sfc}, field)
-    parent(sim.integrator.p.T_sfc)[1] = field
-end # Where do i make sure that ice is included, cannot find it??
+function update_field!(sim::HeatEquationAtmos, ::Val{:T_oce_sfc}, field_1, ::Val{:T_ice}, field_2)
+    parent(sim.integrator.p.T_sfc)[1] = field_1
+    parent(sim.integrator.p.T_ice)[1] = field_2
+end

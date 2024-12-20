@@ -39,13 +39,14 @@ function solve_coupler!(cs)
 end
 
 function update_model_sims!(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean, ice_sim::ConstantIce)
-    # Get ocean temp and use it to update atmosphere model
+    # Get ocean and ice temp and use it to update atmosphere model
+    ice_T = get_field(ice_sim, Val(:T_ice))
     ocean_T = get_field(ocean_sim, Val(:T_oce_sfc))
-    update_field!(atmos_sim, Val(:T_oce_sfc), Float64(ocean_T))
+    update_field!(atmos_sim, Val(:T_oce_sfc), Float64(ocean_T), Val(:T_ice), Float64(ice_T))
 
     # Get atmos temp and use it to update ocean model
     atmos_T = get_field(atmos_sim, Val(:T_atm_sfc))
-    update_field!(ocean_sim, Val(:T_atm_sfc), Float64(atmos_T))
+    update_field!(ocean_sim, Val(:T_atm_sfc), Float64(atmos_T), Val(:T_ice), Float64(ice_T))
 end
 
 
@@ -125,9 +126,9 @@ function coupled_heat_equations()
         ice=CC.Fields.ones(Float64, point_space_ice) .* parameters.T_ice_ini,
     )
 
-    atmos_cache = (; parameters..., T_sfc=parameters.T_oce_ini .* CC.Fields.ones(boundary_space))
+    atmos_cache = (; parameters..., T_sfc=parameters.T_oce_ini .* CC.Fields.ones(boundary_space), T_ice=T_ice_0)
     atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, atmos_cache)
-    ocean_cache = (; parameters..., T_air=parameters.T_atm_ini .* CC.Fields.ones(boundary_space))
+    ocean_cache = (; parameters..., T_air=parameters.T_atm_ini .* CC.Fields.ones(boundary_space), T_ice=T_ice_0)
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
     ice_cache = (; parameters...)
     ice_sim = ice_init(stepping, T_ice_0, point_space_ice, ice_cache)
