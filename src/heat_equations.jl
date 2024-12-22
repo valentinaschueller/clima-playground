@@ -14,7 +14,14 @@ import ClimaCoupler:
     Utilities
 
 
-function restart_sims!(cs::Interfacer.CoupledSimulation, _)
+function reset_time!(cs::Interfacer.CoupledSimulation, t)
+    for sim in cs.model_sims
+        sim.integrator.t = t
+    end
+end
+
+function restart_sims!(cs::Interfacer.CoupledSimulation)
+    @info "Reading checkpoint!"
     for sim in cs.model_sims
         if Checkpointer.get_model_prog_state(sim) !== nothing
             t = Dates.datetime2epochms(cs.dates.date[1])
@@ -25,37 +32,48 @@ function restart_sims!(cs::Interfacer.CoupledSimulation, _)
 end
 
 
-function solve_coupler!(cs)
-    (; Δt_cpl, tspan, comms_ctx) = cs
+function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
+    (; Δt_cpl, tspan) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
-    TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
-    TimeManager.trigger_callback!(cs, cs.callbacks.restart)
 
     @info("Starting coupling loop")
 
     for t in ((tspan[begin]+Δt_cpl):Δt_cpl:tspan[end])
         @info(cs.dates.date[1])
+        iter = 1
+        while iter <= max_iters
+            @info("Current iter: $(iter)")
 
-        ClimaComms.barrier(comms_ctx)
+            if iter == 1
+                Checkpointer.checkpoint_sims(cs, nothing)
+            end
 
-        FieldExchanger.step_model_sims!(cs.model_sims, t)
+            FieldExchanger.step_model_sims!(cs.model_sims, t)
 
-        update_model_sims!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim)
+            atmos_T, ocean_T = get_coupling_fields(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim)
 
+            iter += 1
+            if iter <= max_iters
+                restart_sims!(cs)
+                reset_time!(cs, t - Δt_cpl)
+            end
+
+            # need to set coupling fields *after* reloading model state for next iteration
+            set_coupling_fields!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, atmos_T, ocean_T)
+        end
         cs.dates.date[1] = TimeManager.current_date(cs, t)
-        TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
-        TimeManager.trigger_callback!(cs, cs.callbacks.restart)
     end
 end
 
-function update_model_sims!(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean)
-    # Get ocean temp and use it to update atmosphere model
-    ocean_T = get_field(ocean_sim, Val(:T_oce_sfc))
-    update_field!(atmos_sim, Val(:T_oce_sfc), Float64(ocean_T))
-
-    # Get atmos temp and use it to update ocean model
+function get_coupling_fields(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean)
     atmos_T = get_field(atmos_sim, Val(:T_atm_sfc))
+    ocean_T = get_field(ocean_sim, Val(:T_oce_sfc))
+    return atmos_T, ocean_T
+end
+
+function set_coupling_fields!(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean, atmos_T, ocean_T)
+    update_field!(atmos_sim, Val(:T_oce_sfc), ocean_T)
     update_field!(ocean_sim, Val(:T_atm_sfc), atmos_T)
 end
 
@@ -139,20 +157,6 @@ function coupled_heat_equations()
         new_month=[false],
     )
 
-    checkpoint_cb = TimeManager.HourlyCallback(
-        dt=Float64(1),
-        func=Checkpointer.checkpoint_sims,
-        ref_date=[dates.date[1]],
-        active=true,
-    )
-    restart_cb = TimeManager.HourlyCallback(
-        dt=Float64(1),
-        func=restart_sims!,
-        ref_date=[dates.date[1]],
-        active=true,
-    )
-    callbacks = (; checkpoint=checkpoint_cb, restart=restart_cb)
-
     coupler_field_names = (
         :T_atm_sfc,
         :T_oce_sfc,
@@ -174,13 +178,13 @@ function coupled_heat_equations()
         stepping.Δt_coupler,
         model_sims,
         (;), # mode_specifics
-        callbacks,
+        (;), # callbacks
         dir_paths,
         FluxCalculator.PartitionedStateFluxes(),
         nothing, # thermo_params
         nothing, # amip_diags_handler
     )
 
-    solve_coupler!(cs)
+    solve_coupler!(cs, 2)
 
 end;
