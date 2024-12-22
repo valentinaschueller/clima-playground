@@ -25,4 +25,5 @@ Manifest.toml
 
 .vscode
 ClimaCoupler
+ClimaCore
 *.hdf5
