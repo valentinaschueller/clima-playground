@@ -18,7 +18,7 @@ function solve_coupler!(cs)
     (; Δt_cpl, tspan, comms_ctx) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
-    TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
+    Checkpointer.checkpoint_sims(cs)
 
     @info("Starting coupling loop")
 
@@ -32,18 +32,19 @@ function solve_coupler!(cs)
         update_model_sims!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim)
 
         cs.dates.date[1] = TimeManager.current_date(cs, t)
-        TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
+        Checkpointer.checkpoint_sims(cs)
     end
 end
 
 function update_model_sims!(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean)
     # Get ocean temp and use it to update atmosphere model
     ocean_T = get_field(ocean_sim, Val(:T_oce_sfc))
-    update_field!(atmos_sim, Val(:T_oce_sfc), Float64(ocean_T))
+    ice_T = ocean_sim.params.T_ice
+    update_field!(atmos_sim, Val(:T_oce_sfc), Float64(ocean_T), Val(:T_ice), parent(ice_T)[1])
 
     # Get atmos temp and use it to update ocean model
     atmos_T = get_field(atmos_sim, Val(:T_atm_sfc))
-    update_field!(ocean_sim, Val(:T_atm_sfc), Float64(atmos_T))
+    update_field!(ocean_sim, Val(:T_atm_sfc), Float64(atmos_T), Val(:T_ice), parent(ice_T)[1])
 end
 
 
@@ -64,7 +65,7 @@ function coupled_heat_equations()
         C_OI=Float64(1e-5),
         T_atm_ini=Float64(265),   # initial temperature [K]
         T_oce_ini=Float64(265),   # initial temperature [K]
-        T_ice=Float64(260),       # temperature [K]
+        T_ice=[Float64(260)],       # temperature [K]
         a_i=Float64(1),           # ice area fraction [0-1]
     )
 
@@ -130,14 +131,6 @@ function coupled_heat_equations()
         new_month=[false],
     )
 
-    checkpoint_cb = TimeManager.HourlyCallback(
-        dt=Float64(1),
-        func=Checkpointer.checkpoint_sims,
-        ref_date=[dates.date[1]],
-        active=true,
-    )
-    callbacks = (; checkpoint=checkpoint_cb)
-
     coupler_field_names = (
         :T_atm_sfc,
         :T_oce_sfc,
@@ -159,7 +152,7 @@ function coupled_heat_equations()
         stepping.Δt_coupler,
         model_sims,
         (;), # mode_specifics
-        callbacks,
+        (;), # callbacks
         dir_paths,
         FluxCalculator.PartitionedStateFluxes(),
         nothing, # thermo_params

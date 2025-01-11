@@ -5,7 +5,6 @@ import Dates
 import SciMLBase
 import ClimaComms
 import ClimaCore as CC
-import Adapt
 import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer,
@@ -20,7 +19,7 @@ function solve_coupler!(cs)
     (; Δt_cpl, tspan, comms_ctx) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
-    TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
+    Checkpointer.checkpoint_sims(cs)
 
     @info("Starting coupling loop")
 
@@ -34,7 +33,7 @@ function solve_coupler!(cs)
         update_model_sims!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim)
 
         cs.dates.date[1] = TimeManager.current_date(cs, t)
-        TimeManager.trigger_callback!(cs, cs.callbacks.checkpoint)
+        Checkpointer.checkpoint_sims(cs)
     end
 end
 
@@ -148,14 +147,6 @@ function coupled_heat_equations()
         new_month=[false],
     )
 
-    checkpoint_cb = TimeManager.HourlyCallback(
-        dt=Float64(1),
-        func=Checkpointer.checkpoint_sims,
-        ref_date=[dates.date[1]],
-        active=true,
-    )
-    callbacks = (; checkpoint=checkpoint_cb)
-
     coupler_field_names = (
         :T_atm_sfc,
         :T_oce_sfc,
@@ -178,7 +169,7 @@ function coupled_heat_equations()
         stepping.Δt_coupler,
         model_sims,
         (;), # mode_specifics
-        callbacks,
+        (;), # callbacks
         dir_paths,
         FluxCalculator.PartitionedStateFluxes(),
         nothing, # thermo_params
