@@ -36,5 +36,5 @@ Interfacer.reinit!(sim::ConstantIce) = Interfacer.reinit!(sim.integrator)
 
 get_field(sim::ConstantIce, ::Val{:T_ice}) = sim.integrator.u[1]
 function update_field!(sim::ConstantIce, ::Val{:T_ice}, field)
-    sim.params.T_ice = field
+    sim.integrator.u[1] = field
 end

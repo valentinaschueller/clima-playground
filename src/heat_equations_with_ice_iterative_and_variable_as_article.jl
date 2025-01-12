@@ -15,35 +15,68 @@ import ClimaCoupler:
     Utilities
 
 
-function solve_coupler!(cs)
-    (; Δt_cpl, tspan, comms_ctx) = cs
+function reset_time!(cs::Interfacer.CoupledSimulation, t)
+    for sim in cs.model_sims
+        sim.integrator.t = t
+    end
+end
+
+function restart_sims!(cs::Interfacer.CoupledSimulation)
+    @info "Reading checkpoint!"
+    for sim in cs.model_sims
+        if Checkpointer.get_model_prog_state(sim) !== nothing
+            t = Dates.datetime2epochms(cs.dates.date[1])
+            t0 = Dates.datetime2epochms(cs.dates.date0[1])
+            Checkpointer.restart_model_state!(sim, cs.comms_ctx, Int((t - t0) / 1e3), input_dir=cs.dirs.artifacts)
+        end
+    end
+end
+
+function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
+    (; Δt_cpl, tspan) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
 
     @info("Starting coupling loop")
 
     for t in ((tspan[begin]+Δt_cpl):Δt_cpl:tspan[end])
+
         @info(cs.dates.date[1])
+        iter = 1
 
-        ClimaComms.barrier(comms_ctx)
+        while iter <= max_iters
+            @info("Current iter: $(iter)")
 
-        FieldExchanger.step_model_sims!(cs.model_sims, t)
+            if iter == 1
+                Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
+            end
 
-        update_model_sims!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim)
+            FieldExchanger.step_model_sims!(cs.model_sims, t)
 
+            atmos_T, ocean_T, ice_T = get_coupling_fields(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim)
+
+            iter += 1
+            if iter <= max_iters
+                restart_sims!(cs)
+                reset_time!(cs, t - Δt_cpl)
+            end
+            set_coupling_fields!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim, atmos_T, ocean_T, ice_T)
+        end
         cs.dates.date[1] = TimeManager.current_date(cs, t)
     end
 end
 
-function update_model_sims!(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean, ice_sim::ConstantIce)
-    # Get ocean and ice temp and use it to update atmosphere model
-    ice_T = get_field(ice_sim, Val(:T_ice))
-    ocean_T = get_field(ocean_sim, Val(:T_oce_sfc))
-    update_field!(atmos_sim, Val(:T_oce_sfc), Float64(ocean_T), Val(:T_ice), Float64(ice_T))
-
-    # Get atmos temp and use it to update ocean model
+function get_coupling_fields(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean, ice_sim::ConstantIce)
     atmos_T = get_field(atmos_sim, Val(:T_atm_sfc))
-    update_field!(ocean_sim, Val(:T_atm_sfc), Float64(atmos_T), Val(:T_ice), Float64(ice_T))
+    ocean_T = get_field(ocean_sim, Val(:T_oce_sfc))
+    ice_T = get_field(ice_sim, Val(:T_ice))
+    return atmos_T, ocean_T, ice_T
+end
+
+function set_coupling_fields!(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean, ice_sim::ConstantIce, atmos_T, ocean_T, ice_T)
+    update_field!(ice_sim, Val(:T_ice), ice_T)
+    update_field!(atmos_sim, Val(:T_oce_sfc), ocean_T, Val(:T_ice), ice_T)
+    update_field!(ocean_sim, Val(:T_atm_sfc), atmos_T, Val(:T_ice), ice_T)
 end
 
 
@@ -65,7 +98,7 @@ function coupled_heat_equations()
         T_atm_ini=Float64(265),   # initial temperature [K]
         T_oce_ini=Float64(265),   # initial temperature [K]
         T_ice_ini=Float64(260),       # temperature [K]
-        a_i=Float64(1),           # ice area fraction [0-1]
+        a_i=Float64(0),           # ice area fraction [0-1]
     )
 
     context = CC.ClimaComms.context()
@@ -175,6 +208,6 @@ function coupled_heat_equations()
         nothing, # amip_diags_handler
     )
 
-    solve_coupler!(cs)
+    solve_coupler!(cs, 3)
 
 end;
