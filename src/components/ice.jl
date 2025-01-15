@@ -24,7 +24,7 @@ function ice_init(stepping, ics, space, cache)
         problem,
         stepping.odesolver,
         dt=Δt,
-        saveat=Float64(stepping.Δt_coupler),
+        saveat=Float64(stepping.Δt_min),
         adaptive=false,
     )
     sim = ConstantIce(cache, ics, space, integrator)

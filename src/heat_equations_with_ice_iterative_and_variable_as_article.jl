@@ -13,6 +13,7 @@ import ClimaCoupler:
     Interfacer,
     TimeManager,
     Utilities
+# This is not good!!! Or maybe it is, if the otherone cannot checkpoint at the individual steps, which i would want.
 
 
 function reset_time!(cs::Interfacer.CoupledSimulation, t)
@@ -21,64 +22,89 @@ function reset_time!(cs::Interfacer.CoupledSimulation, t)
     end
 end
 
-function restart_sims!(cs::Interfacer.CoupledSimulation)
-    @info "Reading checkpoint!"
-    for sim in cs.model_sims
-        if Checkpointer.get_model_prog_state(sim) !== nothing
-            t = Dates.datetime2epochms(cs.dates.date[1])
-            t0 = Dates.datetime2epochms(cs.dates.date0[1])
-            Checkpointer.restart_model_state!(sim, cs.comms_ctx, Int((t - t0) / 1e3), input_dir=cs.dirs.artifacts)
-        end
-    end
-end
+# function restart_sims!(cs::Interfacer.CoupledSimulation)
+#     @info "Reading checkpoint!"
+#     for sim in cs.model_sims
+#         if Checkpointer.get_model_prog_state(sim) !== nothing
+#             time = Dates.datetime2epochms(cs.dates.date[1])
+#             t0 = Dates.datetime2epochms(cs.dates.date0[1])
+#             Checkpointer.restart_model_state!(sim, cs.comms_ctx, Int((time - t0) / 1e3), input_dir=cs.dirs.artifacts)
+#         end
+#     end
+# end
 
 function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
     (; Δt_cpl, tspan) = cs
 
-    cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
+    t_range = ((tspan[begin]+Δt_cpl):Δt_cpl:tspan[end])
+    bound_temps = [fill(get_field(cs.model_sims.atmos_sim, Val(:T_atm_sfc)), length(t_range) + 1), fill(get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc)), length(t_range) + 1), fill(get_field(cs.model_sims.ice_sim, Val(:T_ice)), length(t_range) + 1)]
 
     @info("Starting coupling loop")
+    iter = 1
+    time_vec = [0]
 
-    for t in ((tspan[begin]+Δt_cpl):Δt_cpl:tspan[end])
+    while iter <= max_iters
+        @info("Current iter: $(iter)")
+        cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
 
-        @info(cs.dates.date[1])
-        iter = 1
+        time = Dates.datetime2epochms(cs.dates.date[1])
+        t0 = Dates.datetime2epochms(cs.dates.date0[1])
+        Checkpointer.checkpoint_model_state(cs.model_sims.atmos_sim, cs.comms_ctx, Int((time - t0) / 1e3), output_dir=cs.dirs.artifacts)
+        Checkpointer.checkpoint_model_state(cs.model_sims.ocean_sim, cs.comms_ctx, Int((time - t0) / 1e3), output_dir=cs.dirs.artifacts)
 
-        while iter <= max_iters
-            @info("Current iter: $(iter)")
+        for (i, t) in enumerate(t_range)
 
-            if iter == 1
-                Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
-            end
+            update_field!(cs.model_sims.atmos_sim, Val(:T_oce_sfc), bound_temps[2][i], Val(:T_ice), bound_temps[3][i])
 
-            FieldExchanger.step_model_sims!(cs.model_sims, t)
+            Interfacer.step!(cs.model_sims.atmos_sim, t)
 
-            atmos_T, ocean_T, ice_T = get_coupling_fields(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim)
+            atmos_T = get_field(cs.model_sims.atmos_sim, Val(:T_atm_sfc))
 
-            iter += 1
-            if iter <= max_iters
-                restart_sims!(cs)
-                reset_time!(cs, t - Δt_cpl)
-            end
-            set_coupling_fields!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim, atmos_T, ocean_T, ice_T)
+            bound_temps[1][i+1] = atmos_T
+
+            cs.dates.date[1] = TimeManager.current_date(cs, t)
+
+            time = Dates.datetime2epochms(cs.dates.date[1])
+            t0 = Dates.datetime2epochms(cs.dates.date0[1])
+            push!(time_vec, Int((time - t0) / 1e3))
+            Checkpointer.checkpoint_model_state(cs.model_sims.atmos_sim, cs.comms_ctx, Int((time - t0) / 1e3), output_dir=cs.dirs.artifacts)
         end
-        cs.dates.date[1] = TimeManager.current_date(cs, t)
+
+        for (i, t) in enumerate(t_range)
+            update_field!(cs.model_sims.ocean_sim, Val(:T_atm_sfc), bound_temps[1][i], Val(:T_ice), bound_temps[3][i])
+
+            Interfacer.step!(cs.model_sims.ocean_sim, t)
+
+            ocean_T = get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
+
+            println(ocean_T)
+
+            bound_temps[2][i+1] = ocean_T
+
+            cs.dates.date[1] = TimeManager.current_date(cs, t)
+
+            Checkpointer.checkpoint_model_state(cs.model_sims.ocean_sim, cs.comms_ctx, time_vec[i+1], output_dir=cs.dirs.artifacts)
+        end
+
+        for i in 1:1:length(t_range)+1
+            t = time_vec[i]
+            original_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.ocean_sim) * "_$t.hdf5")
+            new_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.ocean_sim) * "_$iter" * "_$t.hdf5")
+            print(i)
+            mv(original_file, new_file, force=true)
+            println("hello")
+            original_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.atmos_sim) * "_$t.hdf5")
+            new_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.atmos_sim) * "_$iter" * "_$t.hdf5")
+            mv(original_file, new_file, force=true)
+        end
+
+        iter += 1
+        if iter <= max_iters
+            # restart_sims!(cs)
+            reset_time!(cs, tspan[begin])
+        end
     end
 end
-
-function get_coupling_fields(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean, ice_sim::ConstantIce)
-    atmos_T = get_field(atmos_sim, Val(:T_atm_sfc))
-    ocean_T = get_field(ocean_sim, Val(:T_oce_sfc))
-    ice_T = get_field(ice_sim, Val(:T_ice))
-    return atmos_T, ocean_T, ice_T
-end
-
-function set_coupling_fields!(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean, ice_sim::ConstantIce, atmos_T, ocean_T, ice_T)
-    update_field!(ice_sim, Val(:T_ice), ice_T)
-    update_field!(atmos_sim, Val(:T_oce_sfc), ocean_T, Val(:T_ice), ice_T)
-    update_field!(ocean_sim, Val(:T_atm_sfc), atmos_T, Val(:T_ice), ice_T)
-end
-
 
 function coupled_heat_equations()
     parameters = (
@@ -95,8 +121,8 @@ function coupled_heat_equations()
         C_AO=Float64(1e-5),
         C_AI=Float64(1e-5),
         C_OI=Float64(1e-5),
-        T_atm_ini=Float64(265),   # initial temperature [K]
-        T_oce_ini=Float64(265),   # initial temperature [K]
+        T_atm_ini=Float64(268),   # initial temperature [K]
+        T_oce_ini=Float64(264),   # initial temperature [K]
         T_ice_ini=Float64(260),       # temperature [K]
         a_i=Float64(0),           # ice area fraction [0-1]
     )
@@ -162,9 +188,6 @@ function coupled_heat_equations()
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
     ice_cache = (; parameters...)
     ice_sim = ice_init(stepping, T_ice_0, point_space_ice, ice_cache)
-    # println(parent(atmos_sim.integrator.p.T_sfc)[1])
-    # println(typeof(atmos_sim.integrator.p))
-    # println(fieldnames(typeof(atmos_sim.integrator.p)))
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
     dir_paths = (output=".", artifacts=".", regrid=".")
