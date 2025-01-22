@@ -52,6 +52,9 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
             rename_file(cs, 0, time)
         end
     end
+    Interfacer.reinit!(cs.model_sims.atmos_sim.integrator, cs.model_sims.atmos_sim.Y_init)
+    Interfacer.reinit!(cs.model_sims.ocean_sim.integrator, cs.model_sims.ocean_sim.Y_init)
+    Interfacer.reinit!(cs.model_sims.ice_sim.integrator, cs.model_sims.ice_sim.Y_init)
 end
 
 function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
@@ -71,12 +74,22 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
         rename_file(cs, 0, time)
 
         times = []
+        numeric_z_range_ocean = []
+        numeric_z_range_atmos = []
         while iter <= max_iters
             @info("Current iter: $(iter)")
 
             FieldExchanger.step_model_sims!(cs.model_sims, t)
             if iter == 1
                 times = cs.model_sims.ocean_sim.integrator.sol.t
+                z_range_ocean = cs.model_sims.ocean_sim.domain.grid.topology.mesh.faces
+                z_range_atmos = cs.model_sims.atmos_sim.domain.grid.topology.mesh.faces
+                for i in 1:1:length(z_range_atmos)
+                    push!(numeric_z_range_atmos, z_range_atmos[i].z)
+                end
+                for i in 1:1:length(z_range_ocean)
+                    push!(numeric_z_range_ocean, z_range_ocean[i].z)
+                end
             end
             # TODO: Insert these temperatures as vectors for the next iterations, 
             # such that the iterations actually differ. Problem: These are vectors evaluated at every
@@ -87,16 +100,9 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
             atmos_states = cs.model_sims.atmos_sim.integrator.sol.u
             ocean_states = cs.model_sims.ocean_sim.integrator.sol.u
             ice_states = cs.model_sims.ice_sim.integrator.sol.u
-            z_range_ocean = cs.model_sims.ocean_sim.domain.grid.topology.mesh.faces
-            z_range_atmos = cs.model_sims.atmos_sim.domain.grid.topology.mesh.faces
-            numeric_z_range_ocean = []
-            numeric_z_range_atmos = []
-            for i in 1:1:length(z_range_atmos)
-                push!(numeric_z_range_atmos, z_range_atmos[i].z)
-            end
-            for i in 1:1:length(z_range_ocean)
-                push!(numeric_z_range_ocean, z_range_ocean[i].z)
-            end
+            # println(fieldnames(typeof(cs.model_sims.atmos_sim.integrator.sol.prob)))
+            # println(cs.model_sims.atmos_sim.integrator.sol.prob)
+            # println(cs.model_sims.atmos_sim.integrator.sol.interp)
 
             save_temp(atmos_states, "atm", iter, numeric_z_range_atmos[1:end-1], times)
             save_temp(ocean_states, "oce", iter, numeric_z_range_ocean[2:end], times)
@@ -107,6 +113,8 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
             rename_file(cs, iter, time)
 
             atmos_T, ocean_T, ice_T = get_coupling_fields(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim)
+            println(atmos_states[end][1])
+            println(atmos_T)
             iter += 1
             if iter <= max_iters
                 restart_sims!(cs)
@@ -153,15 +161,17 @@ function coupled_heat_equations()
         n_atm=200,
         n_oce=50,
         k_atm=Float64(0.02364),
-        k_oce=Float64(0.57),
-        c_atm=Float64(1e-3),  # specific heat [J / kg / K]
-        c_oce=Float64(800),   # specific heat [J / kg / K]
+        k_oce=Float64(0.01),
+        c_atm=Float64(1000),  # specific heat [J / kg / K]
+        c_oce=Float64(4180),   # specific heat [J / kg / K]
         ρ_atm=Float64(1),     # density [kg / m3]
         ρ_oce=Float64(1000),  # density [kg / m3]
+        u_atm=Float64(30),  # [m/s]
+        u_oce=Float64(5),   #[m/s]
         C_AO=Float64(1e-5),
         C_AI=Float64(1e-5),
-        C_OI=Float64(1e-5),
-        T_atm_ini=Float64(262),   # initial temperature [K]
+        C_OI=Float64(5e-5),
+        T_atm_ini=Float64(260),   # initial temperature [K]
         T_oce_ini=Float64(268),   # initial temperature [K]
         T_ice_ini=Float64(260),       # temperature [K]
         a_i=Float64(0),           # ice area fraction [0-1]
@@ -204,9 +214,9 @@ function coupled_heat_equations()
     )
 
     stepping = (;
-        Δt_min=Float64(1.0),
-        timerange=(Float64(0.0), Float64(100)),
-        Δt_coupler=Float64(100.0),
+        Δt_min=Float64(10.0),
+        timerange=(Float64(0.0), Float64(1000)),
+        Δt_coupler=Float64(1000.0),
         odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
         nsteps_atm=50,
         nsteps_oce=1,
@@ -275,9 +285,7 @@ function coupled_heat_equations()
         nothing, # amip_diags_handler
     )
 
-    solve_coupler!(cs, 3)
-    global ocean_iter = 1
-    global atmos_iter = 1
+    solve_coupler!(cs, 10)
 
 end;
 

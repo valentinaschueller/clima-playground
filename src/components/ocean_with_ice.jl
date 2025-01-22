@@ -14,7 +14,7 @@ end
 Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 
 function heat_oce_rhs!(dT, T, cache, t)
-    F_sfc = (cache.a_i * cache.C_OI * (parent(cache.T_ice)[1] - T[end]) + (1 - cache.a_i) * cache.C_AO * (parent(cache.T_air)[1] - T[end])) / cache.k_oce# divide by k^O?
+    F_sfc = (cache.a_i * cache.C_OI * cache.ρ_oce * cache.c_oce * cache.u_oce * (parent(cache.T_ice)[1] - T[end]) + (1 - cache.a_i) * cache.C_AO * cache.ρ_atm * cache.c_atm * cache.u_atm * (parent(cache.T_air)[1] - T[end])) / cache.k_oce# divide by k^O?
     ## set boundary conditions
     C3 = CC.Geometry.WVector
     # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)

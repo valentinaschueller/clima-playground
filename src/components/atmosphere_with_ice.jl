@@ -13,8 +13,8 @@ end
 
 Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
-function heat_atm_rhs!(dT, T, cache, t) # Apparently this is called 4 times... per time point
-    F_sfc = (cache.a_i * cache.C_AI * (T[1] - parent(cache.T_ice)[1]) + (1 - cache.a_i) * cache.C_AO * (T[1] - parent(cache.T_sfc)[1])) / cache.k_atm # I say we should divide by k^A here?
+function heat_atm_rhs!(dT, T, cache, t)
+    F_sfc = (cache.a_i * cache.C_AI * cache.ρ_atm * cache.c_atm * cache.u_atm * (T[1] - parent(cache.T_ice)[1]) + (1 - cache.a_i) * cache.C_AO * cache.ρ_atm * cache.c_atm * cache.u_atm * (T[1] - parent(cache.T_sfc)[1])) / cache.k_atm # I say we should divide by k^A here?
     # set boundary conditions
     C3 = CC.Geometry.WVector
     # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)

@@ -6,10 +6,12 @@ plotly()
 
 function create_interactive_plot(conv_fac_atm, conv_fac_oce, t, z_atm, z_oce)
     # Create grids for plotting
-    z = vcat(z_oce, z_atm)
+
+    z = vcat(z_oce[1:end-1], z_atm)
+    println(z)
 
     # Concatenate the 2D temperature arrays for both atmosphere and ocean
-    combined_data = vcat(conv_fac_oce, conv_fac_atm)  # Concatenate vertically (combine atmosphere and ocean data)
+    combined_data = vcat(conv_fac_oce[1:end-1, :], conv_fac_atm)  # Concatenate vertically (combine atmosphere and ocean data)
 
     println(size(combined_data))
     println(size(t))
@@ -24,6 +26,7 @@ function create_interactive_plot(conv_fac_atm, conv_fac_oce, t, z_atm, z_oce)
         ylabel="Depth",       # y-axis label
         zlabel="Temperature", # z-axis label
         title="Atmosphere and Ocean - Time vs Depth",  # Plot title
+        zlim=(0, 0.000000001),
     )
 
     # Display the plot
@@ -75,6 +78,8 @@ function main()
     # println(size(data_oce))
     opt_sol_atm = data_atm[:, :, end]
     opt_sol_oce = data_oce[:, :, end]
+    println(opt_sol_atm[1, end])
+    println(data_atm[:, :, 1][1, end])
 
     error_atm = 0
     error_oce = 0
