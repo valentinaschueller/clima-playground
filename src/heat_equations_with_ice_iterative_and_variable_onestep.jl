@@ -14,11 +14,6 @@ import ClimaCoupler:
     TimeManager,
     Utilities
 
-global ocean_iter = 1
-global atmos_iter = 1
-global num_steps_ocean = 0
-global num_steps_atmos = 0
-
 function rename_file(cs::Interfacer.CoupledSimulation, iter, time, reverse=false)
     original_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.ocean_sim) * "_$time.hdf5")
     new_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.ocean_sim) * "_$iter" * "_$time.hdf5")
@@ -82,9 +77,13 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
             FieldExchanger.step_model_sims!(cs.model_sims, t)
             if iter == 1
                 times = cs.model_sims.ocean_sim.integrator.sol.t
-                print(times)
             end
-
+            # TODO: Insert these temperatures as vectors for the next iterations, 
+            # such that the iterations actually differ. Problem: These are vectors evaluated at every
+            # delta_t_min, while what we have now are single numbers for each iteration
+            # Need to change update_field in some way and also right_hand_side_eq
+            # such that it uses the correct boundary values. This will be a different 
+            # Schwarz than what i have analyzed in my report, but the result is prbly not different
             atmos_states = cs.model_sims.atmos_sim.integrator.sol.u
             ocean_states = cs.model_sims.ocean_sim.integrator.sol.u
             ice_states = cs.model_sims.ice_sim.integrator.sol.u
@@ -115,8 +114,6 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
             end
 
             set_coupling_fields!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim, atmos_T, ocean_T, ice_T)
-            global num_steps_ocean = 0
-            global num_steps_atmos = 0
         end
         cs.dates.date[1] = TimeManager.current_date(cs, t)
     end
