@@ -6,7 +6,6 @@ plotly()
 
 function create_interactive_plot(conv_fac_atm, conv_fac_oce, t, z_atm, z_oce)
     # Create grids for plotting
-
     z = vcat(z_oce[1:end-1], z_atm)
     println(z)
 
@@ -16,6 +15,7 @@ function create_interactive_plot(conv_fac_atm, conv_fac_oce, t, z_atm, z_oce)
     println(size(combined_data))
     println(size(t))
     println(size(z))
+
     # Create the surface plot using PlotlyJS for interactivity
     plot_surface = Plots.surface(
         t,  # Time data for x-axis
@@ -24,7 +24,7 @@ function create_interactive_plot(conv_fac_atm, conv_fac_oce, t, z_atm, z_oce)
         label="Conv. Factor",  # Label for the plot
         xlabel="Time",        # x-axis label
         ylabel="Depth",       # y-axis label
-        zlabel="Temperature", # z-axis label
+        zlabel="Conv. Factor", # z-axis label
         title="Atmosphere and Ocean - Time vs Depth",  # Plot title
         zlim=(0, 0.000000001),
     )
@@ -73,9 +73,7 @@ function main()
     data_atm = cat(atm_data_frames..., dims=3)
     data_oce = cat(oce_data_frames..., dims=3)
 
-    # Print the shape of the resulting 3D arrays
-    # println(size(data_atm))
-    # println(size(data_oce))
+    # Extracting exact solution from last iteration
     opt_sol_atm = data_atm[:, :, end]
     opt_sol_oce = data_oce[:, :, end]
     println(opt_sol_atm[1, end])
@@ -101,7 +99,6 @@ function main()
         fourier_error_oce = hcat(map(fft, eachrow(error_oce))...)'
         if i > 1
             # Adding real convergence factors
-            # print(size(error_atm ./ pre_error_atm))
             push!(conv_fac_atm_real, abs.(error_atm ./ (pre_error_atm .+ 1)))
             push!(conv_fac_oce_real, abs.(error_oce ./ (pre_error_oce .+ 1)))
 

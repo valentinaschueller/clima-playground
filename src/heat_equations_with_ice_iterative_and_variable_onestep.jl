@@ -15,6 +15,9 @@ import ClimaCoupler:
     Utilities
 
 function rename_file(cs::Interfacer.CoupledSimulation, iter, time, reverse=false)
+    """When a file is saved, its always called the same thing.
+    Had to rename it for each iteration to not overwrite"""
+
     original_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.ocean_sim) * "_$time.hdf5")
     new_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.ocean_sim) * "_$iter" * "_$time.hdf5")
     if !reverse
@@ -32,6 +35,7 @@ function rename_file(cs::Interfacer.CoupledSimulation, iter, time, reverse=false
 end
 
 function reset_time!(cs::Interfacer.CoupledSimulation, t)
+    """resets integrator time"""
     for sim in cs.model_sims
         sim.integrator.t = t
     end
@@ -52,6 +56,8 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
             rename_file(cs, 0, time)
         end
     end
+    # Had to add this to restart the integrator and get access to the new temperatures in 
+    # each iteration.
     Interfacer.reinit!(cs.model_sims.atmos_sim.integrator, cs.model_sims.atmos_sim.Y_init)
     Interfacer.reinit!(cs.model_sims.ocean_sim.integrator, cs.model_sims.ocean_sim.Y_init)
     Interfacer.reinit!(cs.model_sims.ice_sim.integrator, cs.model_sims.ice_sim.Y_init)
@@ -78,8 +84,10 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
         numeric_z_range_atmos = []
         while iter <= max_iters
             @info("Current iter: $(iter)")
-
+            # Update models
             FieldExchanger.step_model_sims!(cs.model_sims, t)
+
+            # Save the z- and t-ranges
             if iter == 1
                 times = cs.model_sims.ocean_sim.integrator.sol.t
                 z_range_ocean = cs.model_sims.ocean_sim.domain.grid.topology.mesh.faces
@@ -91,19 +99,13 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
                     push!(numeric_z_range_ocean, z_range_ocean[i].z)
                 end
             end
-            # TODO: Insert these temperatures as vectors for the next iterations, 
-            # such that the iterations actually differ. Problem: These are vectors evaluated at every
-            # delta_t_min, while what we have now are single numbers for each iteration
-            # Need to change update_field in some way and also right_hand_side_eq
-            # such that it uses the correct boundary values. This will be a different 
-            # Schwarz than what i have analyzed in my report, but the result is prbly not different
+
+            # Temperature values for this iteration.
             atmos_states = cs.model_sims.atmos_sim.integrator.sol.u
             ocean_states = cs.model_sims.ocean_sim.integrator.sol.u
             ice_states = cs.model_sims.ice_sim.integrator.sol.u
-            # println(fieldnames(typeof(cs.model_sims.atmos_sim.integrator.sol.prob)))
-            # println(cs.model_sims.atmos_sim.integrator.sol.prob)
-            # println(cs.model_sims.atmos_sim.integrator.sol.interp)
 
+            # Save temperatures
             save_temp(atmos_states, "atm", iter, numeric_z_range_atmos[1:end-1], times)
             save_temp(ocean_states, "oce", iter, numeric_z_range_ocean[2:end], times)
             save_temp(ice_states, "ice", iter, [0], times)
@@ -125,6 +127,13 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
         end
         cs.dates.date[1] = TimeManager.current_date(cs, t)
     end
+    # Thought: the Schwarz iteration I do here is not the same as in my analysis right? It's the "simultaneous version"
+
+    # Todo ideas: I guess it would be interesting to run for a very long time, as we then might have heat
+    # propagating further into the domain. Now there is no difference right, it has not propagated yet
+    # Change with iterations. I saw something that might imply that we would increase and then decrease with increased iterations.
+    # Also change in initial conditions to maybe see a larger difference in other areas of the domain.
+    # Check the boundary condition at z=0 with valentina. Write down stuff. try adding an update formula for the ice.
 end
 
 function get_coupling_fields(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean, ice_sim::ConstantIce)
