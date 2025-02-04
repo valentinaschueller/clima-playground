@@ -61,6 +61,28 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
     end
 end
 
+function psi(xi, atm, stable, heat)
+    if atm && stable && heat
+        return -2 / 3 * (xi - (5 / 0.35)) * exp(-0.35 * xi) - (1 + (2 * xi / 3))^1.5 - (10 / 1.05) + 1
+    elseif atm && stable && !heat
+        return -2 / 3 * (xi - (5 / 0.35)) * exp(-0.35 * xi) - xi - (10 / 1.05)
+    elseif atm && !stable && heat
+        return 2 * log((1 + (1 - 16 * xi)^(1 / 2)) / 2)
+    elseif atm && !stable && !heat
+        x = (1 - 16 * xi)^(1 / 4)
+        return pi / 2 - 2 * atan(x) + log((1 + x)^2 * (1 + x^2) / 8)
+    elseif !atm && stable
+        return 1 + 5 * xi
+    elseif !atm && !stable
+        if heat
+            x = (1 - 25 * xi)^(1 / 3)
+        else
+            x = (1 - 14 * xi)^(1 / 3)
+        end
+        return sqrt(3) * (atan(sqrt(3)) - atan(1 / sqrt(3)) * (2 * x + 1)) + (3 / 2) * log((x^2 + x + 1) / 3)
+    end
+end
+
 function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv, return_conv)
     (; Δt_cpl, tspan) = cs
 
