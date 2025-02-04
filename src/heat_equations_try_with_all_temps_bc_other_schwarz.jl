@@ -61,7 +61,7 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
     end
 end
 
-function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv)
+function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv, return_conv)
     (; Δt_cpl, tspan) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
@@ -73,7 +73,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
         time = Int(t - Δt_cpl)
         @info(cs.dates.date[1])
 
-        Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
+        Checkpointer.checkpoint_sims(cs)
         rename_file(cs, 0, time)
 
         times = []
@@ -100,11 +100,18 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
 
         while diff_oce > tol && diff_atm > tol
             @info("Current iter: $(iter)")
-            # Update models
-            FieldExchanger.step_model_sims!(cs.model_sims, t)
+            # Step with ice and ocean simulation
+            Interfacer.step!(cs.model_sims.ice_sim, t)
+            Interfacer.step!(cs.model_sims.ocean_sim, t)
 
-            atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
+            # Update atmosphere simulation
+            ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
             ocean_states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
+            update_field!(cs.model_sims.atmos_sim, ocean_states, ice_T)
+
+            # Step with atmosphere simulation and save atmosphere states
+            Interfacer.step!(cs.model_sims.atmos_sim, t)
+            atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
 
             # Temperature values for this iteration.
             pre_atmos_vals = atmos_vals
@@ -127,16 +134,16 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
 
             rename_file(cs, iter, time)
 
-            ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
-
             restart_sims!(cs)
             reset_time!(cs, t - Δt_cpl)
-            set_coupling_fields!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim, atmos_states, ocean_states, ice_T)
             iter = iter + 1
+
+            # Update ocean simulation
+            update_field!(cs.model_sims.ocean_sim, atmos_states, ice_T)
         end
         cs.dates.date[1] = TimeManager.current_date(cs, t)
 
-        if print_conv || plot_conv
+        if print_conv || plot_conv || return_conv
             conv_fac_atm = []
             conv_fac_oce = []
             error_atm = 0
@@ -148,7 +155,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
                 error_atm = maximum([abs(full_error_atm[1]) for full_error_atm in full_errors_atm])
                 full_errors_oce = ocean_vals_list[i] .- ocean_vals_list[end]
                 error_oce = maximum([abs(full_error_oce[end]) for full_error_oce in full_errors_oce])
-                if i > 1
+                if i > 1 && pre_error_atm != 0 && pre_error_oce != 0
                     push!(conv_fac_atm, error_atm / pre_error_atm)
                     push!(conv_fac_oce, error_oce / pre_error_oce)
                 end
@@ -158,11 +165,14 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
                 println("Convergence factor atmosphere: $conv_fac_atm")
             end
             if plot_conv
-                k = 2:iter-1
+                k = 2:length(conv_fac_atm)+1
                 scatter(k, conv_fac_atm, label="atm", color=:blue, markersize=5, xlabel="Iteration for last used temperature", ylabel="Convergence factor")
                 scatter!(k, conv_fac_oce, label="oce", color=:green, markersize=5)
                 display(current())
-            end # Allow for computation, plot and print of convergence factor in this script.
+            end
+            if return_conv
+                return conv_fac_atm, conv_fac_oce
+            end
         end # Use mean of convergence factors over iteration? plot as a function of deltat...
     end
     # Thought: the Schwarz iteration I do here is not the same as in my analysis right? It's the "simultaneous version"
@@ -172,12 +182,6 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
     # Change with iterations. I saw something that might imply that we would increase and then decrease with increased iterations.
     # Also change in initial conditions to maybe see a larger difference in other areas of the domain.
     # Check the boundary condition at z=0 with valentina. Write down stuff. try adding an update formula for the ice.
-end
-
-function set_coupling_fields!(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean, ice_sim::ConstantIce, atmos_T, ocean_T, ice_T)
-    update_field!(ice_sim, Val(:T_ice), ice_T)
-    update_field!(atmos_sim, ocean_T, ice_T)
-    update_field!(ocean_sim, atmos_T, ice_T)
 end
 
 function extract_matrix(field_vecs, type)
@@ -358,7 +362,7 @@ function coupled_heat_equations()
         nothing, # amip_diags_handler
     )
 
-    solve_coupler!(cs, 1e-10, false, true)
+    solve_coupler!(cs, 1e-10, false, true, false)
 
 end;
 

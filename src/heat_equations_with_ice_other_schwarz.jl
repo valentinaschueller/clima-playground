@@ -1,5 +1,5 @@
-include("components/atmosphere_with_ice_try_bc.jl")
-include("components/ocean_with_ice_try_bc.jl")
+include("components/atmosphere_with_ice.jl")
+include("components/ocean_with_ice.jl")
 include("components/ice.jl")
 import Dates
 import SciMLBase
@@ -18,19 +18,16 @@ function rename_file(cs::Interfacer.CoupledSimulation, iter, time, reverse=false
     """When a file is saved, its always called the same thing.
     Had to rename it for each iteration to not overwrite"""
 
-    original_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.ocean_sim) * "_$time.hdf5")
-    new_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.ocean_sim) * "_$iter" * "_$time.hdf5")
-    if !reverse
-        mv(original_file, new_file, force=true)
-    else
-        mv(new_file, original_file, force=true)
-    end
-    original_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.atmos_sim) * "_$time.hdf5")
-    new_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(cs.model_sims.atmos_sim) * "_$iter" * "_$time.hdf5")
-    if !reverse
-        mv(original_file, new_file, force=true)
-    else
-        mv(new_file, original_file, force=true)
+    for sim in cs.model_sims
+        if !(Interfacer.name(sim) == "ConstantIce")
+            original_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(sim) * "_$time.hdf5")
+            new_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(sim) * "_$iter" * "_$time.hdf5")
+            if !reverse
+                mv(original_file, new_file, force=true)
+            else
+                mv(new_file, original_file, force=true)
+            end
+        end
     end
 end
 
@@ -50,7 +47,9 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
             time = Int((t - t0) / 1e3)
 
             rename_file(cs, 0, time, true)
+
             Checkpointer.restart_model_state!(sim, cs.comms_ctx, time, input_dir=cs.dirs.artifacts)
+
             rename_file(cs, 0, time)
         end
     end
@@ -61,7 +60,7 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
     end
 end
 
-function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv)
+function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv, return_conv)
     (; Δt_cpl, tspan) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
@@ -72,6 +71,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
 
         time = Int(t - Δt_cpl)
         @info(cs.dates.date[1])
+        iter = 1
 
         Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
         rename_file(cs, 0, time)
@@ -80,6 +80,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
         numeric_z_range_ocean = []
         numeric_z_range_atmos = []
 
+        # Save the z- and t-ranges
         times = cs.model_sims.ocean_sim.integrator.sol.t
         z_range_ocean = cs.model_sims.ocean_sim.domain.grid.topology.mesh.faces
         z_range_atmos = cs.model_sims.atmos_sim.domain.grid.topology.mesh.faces
@@ -101,10 +102,19 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
         while diff_oce > tol && diff_atm > tol
             @info("Current iter: $(iter)")
             # Update models
-            FieldExchanger.step_model_sims!(cs.model_sims, t)
+            Interfacer.step!(cs.model_sims.ice_sim, t)
+            Interfacer.step!(cs.model_sims.ocean_sim, t)
 
-            atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
+            # Update atmosphere simulation
+            ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
+            ocean_T = get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
             ocean_states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
+            update_field!(cs.model_sims.atmos_sim, Val(:T_oce_sfc), ocean_T, Val(:T_ice), ice_T)
+
+            # Step with atmosphere simulation and save atmosphere states
+            Interfacer.step!(cs.model_sims.atmos_sim, t)
+            atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
+            atmos_T = get_field(cs.model_sims.atmos_sim, Val(:T_atm_sfc))
 
             # Temperature values for this iteration.
             pre_atmos_vals = atmos_vals
@@ -121,18 +131,15 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
             # Save temperatures
             save_temp(atmos_states, "atm", iter, numeric_z_range_atmos[1:end-1], times)
             save_temp(ocean_states, "oce", iter, numeric_z_range_ocean[2:end], times)
-            # save_temp(ice_states, "ice", iter, [0], times)
 
             Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
 
             rename_file(cs, iter, time)
 
-            ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
-
+            iter += 1
             restart_sims!(cs)
             reset_time!(cs, t - Δt_cpl)
-            set_coupling_fields!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim, atmos_states, ocean_states, ice_T)
-            iter = iter + 1
+            update_field!(cs.model_sims.ocean_sim, Val(:T_atm_sfc), atmos_T, Val(:T_ice), ice_T)
         end
         cs.dates.date[1] = TimeManager.current_date(cs, t)
 
@@ -148,22 +155,26 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
                 error_atm = maximum([abs(full_error_atm[1]) for full_error_atm in full_errors_atm])
                 full_errors_oce = ocean_vals_list[i] .- ocean_vals_list[end]
                 error_oce = maximum([abs(full_error_oce[end]) for full_error_oce in full_errors_oce])
-                if i > 1
+                if i > 1 && pre_error_atm != 0 && pre_error_oce != 0
                     push!(conv_fac_atm, error_atm / pre_error_atm)
                     push!(conv_fac_oce, error_oce / pre_error_oce)
                 end
+
             end
             if print_conv
                 println("Convergence factor atmosphere: $conv_fac_atm")
                 println("Convergence factor atmosphere: $conv_fac_atm")
             end
             if plot_conv
-                k = 2:iter-1
-                scatter(k, conv_fac_atm, label="atm", color=:blue, markersize=5, xlabel="Iteration for last used temperature", ylabel="Convergence factor")
+                k = 2:length(conv_fac_atm)+1
+                scatter(k, conv_fac_atm, label="atm", color=:blue, markersize=5, xlabel="Iteration for last used temperature", ylabel="Convergence factor", legend=:bottomright)
                 scatter!(k, conv_fac_oce, label="oce", color=:green, markersize=5)
                 display(current())
             end # Allow for computation, plot and print of convergence factor in this script.
-        end # Use mean of convergence factors over iteration? plot as a function of deltat...
+            if return_conv
+                return conv_fac_atm, conv_fac_oce
+            end
+        end
     end
     # Thought: the Schwarz iteration I do here is not the same as in my analysis right? It's the "simultaneous version"
 
@@ -174,11 +185,32 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
     # Check the boundary condition at z=0 with valentina. Write down stuff. try adding an update formula for the ice.
 end
 
+function get_coupling_fields(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean, ice_sim::ConstantIce)
+    atmos_T = get_field(atmos_sim, Val(:T_atm_sfc))
+    ocean_T = get_field(ocean_sim, Val(:T_oce_sfc))
+    ice_T = get_field(ice_sim, Val(:T_ice))
+    return atmos_T, ocean_T, ice_T
+end
+
 function set_coupling_fields!(atmos_sim::HeatEquationAtmos, ocean_sim::HeatEquationOcean, ice_sim::ConstantIce, atmos_T, ocean_T, ice_T)
     update_field!(ice_sim, Val(:T_ice), ice_T)
-    update_field!(atmos_sim, ocean_T, ice_T)
-    update_field!(ocean_sim, atmos_T, ice_T)
+    update_field!(atmos_sim, Val(:T_oce_sfc), ocean_T, Val(:T_ice), ice_T)
+    update_field!(ocean_sim, Val(:T_atm_sfc), atmos_T, Val(:T_ice), ice_T)
 end
+
+function save_temp(states, domain, iter, numeric_z_range, times)
+    dir = "$domain" * "_temps"
+    if !isdir(dir)
+        mkdir(dir)
+    end
+    data = reduce(vcat, states)'
+    data = reshape(data, length(numeric_z_range), length(times))
+    file_path = joinpath(dir, "iter_$iter.csv")
+    df = DataFrame(data, Symbol.(times))
+    df = insertcols!(df, 1, :RowHeader => numeric_z_range)
+    CSV.write(file_path, df)
+end
+
 
 function extract_matrix(field_vecs, type)
     matrix = []
@@ -194,20 +226,6 @@ function extract_matrix(field_vecs, type)
         end
     end
     return matrix
-end
-
-
-function save_temp(states, domain, iter, numeric_z_range, times)
-    dir = "$domain" * "_temps"
-    if !isdir(dir)
-        mkdir(dir)
-    end
-    data = reduce(vcat, states)'
-    data = reshape(data, length(numeric_z_range), length(times))
-    file_path = joinpath(dir, "iter_$iter.csv")
-    df = DataFrame(data, Symbol.(times))
-    df = insertcols!(df, 1, :RowHeader => numeric_z_range)
-    CSV.write(file_path, df)
 end
 
 
@@ -228,9 +246,9 @@ function coupled_heat_equations()
         C_AO=Float64(1e-5),
         C_AI=Float64(1e-5),
         C_OI=Float64(5e-5),
-        T_atm_ini=Float64(280),   # initial temperature [K]
-        T_oce_ini=Float64(288),   # initial temperature [K]
-        T_ice_ini=Float64(272),       # temperature [K]
+        T_atm_ini=Float64(260),   # initial temperature [K]
+        T_oce_ini=Float64(268),   # initial temperature [K]
+        T_ice_ini=Float64(260),       # temperature [K]
         a_i=Float64(0),           # ice area fraction [0-1]
         Δt_min=Float64(1.0),
     )
@@ -290,25 +308,9 @@ function coupled_heat_equations()
         ice=CC.Fields.ones(Float64, point_space_ice) .* parameters.T_ice_ini,
     )
 
-    time_points_oce_domain = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(stepping.timerange[1] - (stepping.Δt_min / 2)),
-        CC.Geometry.ZPoint{Float64}(stepping.timerange[2] - (stepping.Δt_min / 2));
-        boundary_names=(:start, :end),
-    )
-    time_points_atm_domain = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(stepping.timerange[1] - (stepping.Δt_min / 2)),
-        CC.Geometry.ZPoint{Float64}(stepping.timerange[2] - (stepping.Δt_min / 2));
-        boundary_names=(:start, :end),
-    )
-
-    mesh_time_oce = CC.Meshes.IntervalMesh(time_points_oce_domain, nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1))
-    mesh_time_atm = CC.Meshes.IntervalMesh(time_points_atm_domain, nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1))
-    space_time_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_oce)
-    space_time_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_atm)
-
-    atmos_cache = (; parameters..., T_sfc=parameters.T_oce_ini .* CC.Fields.ones(space_time_oce), T_ice=T_ice_0)
+    atmos_cache = (; parameters..., T_sfc=parameters.T_oce_ini .* CC.Fields.ones(boundary_space), T_ice=T_ice_0)
     atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, atmos_cache)
-    ocean_cache = (; parameters..., T_air=parameters.T_atm_ini .* CC.Fields.ones(space_time_atm), T_ice=T_ice_0)
+    ocean_cache = (; parameters..., T_air=parameters.T_atm_ini .* CC.Fields.ones(boundary_space), T_ice=T_ice_0)
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
     ice_cache = (; parameters...)
     ice_sim = ice_init(stepping, T_ice_0, point_space_ice, ice_cache)
@@ -358,7 +360,7 @@ function coupled_heat_equations()
         nothing, # amip_diags_handler
     )
 
-    solve_coupler!(cs, 1e-10, false, true)
+    solve_coupler!(cs, 1e-10, true, true, false)
 
 end;
 
