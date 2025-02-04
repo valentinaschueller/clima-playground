@@ -60,7 +60,7 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
     end
 end
 
-function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
+function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv)
     (; Δt_cpl, tspan) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
@@ -91,20 +91,38 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
             push!(numeric_z_range_ocean, z_range_ocean[i].z)
         end
 
-        while iter <= max_iters
+        iter = 1
+        atmos_vals_list = []
+        ocean_vals_list = []
+        atmos_vals = Nothing
+        ocean_vals = Nothing
+        diff_atm = typemax(Float64)
+        diff_oce = typemax(Float64)
+
+        while diff_oce > tol && diff_atm > tol
             @info("Current iter: $(iter)")
             # Update models
             FieldExchanger.step_model_sims!(cs.model_sims, t)
 
             # Temperature values for this iteration.
-            atmos_states = cs.model_sims.atmos_sim.integrator.sol.u
-            ocean_states = cs.model_sims.ocean_sim.integrator.sol.u
-            ice_states = cs.model_sims.ice_sim.integrator.sol.u
+            atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
+            ocean_states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
+
+            # Temperature values for this iteration.
+            pre_atmos_vals = atmos_vals
+            pre_ocean_vals = ocean_vals
+            atmos_vals = extract_matrix(atmos_states, "atm")
+            ocean_vals = extract_matrix(ocean_states, "oce")
+            push!(atmos_vals_list, atmos_vals)
+            push!(ocean_vals_list, ocean_vals)
+            if iter > 1
+                diff_atm = norm(atmos_vals .- pre_atmos_vals)
+                diff_oce = norm(ocean_vals .- pre_ocean_vals)
+            end
 
             # Save temperatures
             save_temp(atmos_states, "atm", iter, numeric_z_range_atmos[1:end-1], times)
             save_temp(ocean_states, "oce", iter, numeric_z_range_ocean[2:end], times)
-            save_temp(ice_states, "ice", iter, [0], times)
 
             Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
 
@@ -114,14 +132,40 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
             println(atmos_states[end][1])
             println(atmos_T)
             iter += 1
-            if iter <= max_iters
-                restart_sims!(cs)
-                reset_time!(cs, t - Δt_cpl)
-            end
-
+            restart_sims!(cs)
+            reset_time!(cs, t - Δt_cpl)
             set_coupling_fields!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim, atmos_T, ocean_T, ice_T)
         end
         cs.dates.date[1] = TimeManager.current_date(cs, t)
+
+        if print_conv || plot_conv
+            conv_fac_atm = []
+            conv_fac_oce = []
+            error_atm = 0
+            error_oce = 0
+            for i = 1:iter-1
+                pre_error_atm = error_atm
+                pre_error_oce = error_oce
+                full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end]
+                error_atm = maximum([abs(full_error_atm[1]) for full_error_atm in full_errors_atm])
+                full_errors_oce = ocean_vals_list[i] .- ocean_vals_list[end]
+                error_oce = maximum([abs(full_error_oce[end]) for full_error_oce in full_errors_oce])
+                if i > 1
+                    push!(conv_fac_atm, error_atm / pre_error_atm)
+                    push!(conv_fac_oce, error_oce / pre_error_oce)
+                end
+            end
+            if print_conv
+                println("Convergence factor atmosphere: $conv_fac_atm")
+                println("Convergence factor atmosphere: $conv_fac_atm")
+            end
+            if plot_conv
+                k = 2:iter-1
+                scatter(k, conv_fac_atm, label="atm", color=:blue, markersize=5, xlabel="Iteration for last used temperature", ylabel="Convergence factor")
+                scatter!(k, conv_fac_oce, label="oce", color=:green, markersize=5)
+                display(current())
+            end # Allow for computation, plot and print of convergence factor in this script.
+        end
     end
     # Thought: the Schwarz iteration I do here is not the same as in my analysis right? It's the "simultaneous version"
 
@@ -156,6 +200,23 @@ function save_temp(states, domain, iter, numeric_z_range, times)
     df = DataFrame(data, Symbol.(times))
     df = insertcols!(df, 1, :RowHeader => numeric_z_range)
     CSV.write(file_path, df)
+end
+
+
+function extract_matrix(field_vecs, type)
+    matrix = []
+    for field_vec in field_vecs
+        if type == "atm"
+            field = field_vec.atm
+            values = parent(field)
+            push!(matrix, values)
+        else
+            field = field_vec.oce
+            values = parent(field)
+            push!(matrix, values)
+        end
+    end
+    return matrix
 end
 
 
@@ -290,7 +351,7 @@ function coupled_heat_equations()
         nothing, # amip_diags_handler
     )
 
-    solve_coupler!(cs, 10)
+    solve_coupler!(cs, 1e-10, false, true)
 
 end;
 
