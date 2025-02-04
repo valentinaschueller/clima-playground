@@ -128,10 +128,6 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
                 diff_oce = norm(ocean_vals .- pre_ocean_vals)
             end
 
-            # Save temperatures
-            save_temp(atmos_states, "atm", iter, numeric_z_range_atmos[1:end-1], times)
-            save_temp(ocean_states, "oce", iter, numeric_z_range_ocean[2:end], times)
-
             Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
 
             rename_file(cs, iter, time)
@@ -163,7 +159,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
             end
             if print_conv
                 println("Convergence factor atmosphere: $conv_fac_atm")
-                println("Convergence factor atmosphere: $conv_fac_atm")
+                println("Convergence factor ocean: $conv_fac_oce")
             end
             if plot_conv
                 k = 2:length(conv_fac_atm)+1
@@ -228,8 +224,62 @@ function extract_matrix(field_vecs, type)
     return matrix
 end
 
+function psi(xi, atm, stable, heat)
+    if atm && stable && heat
+        return -2 / 3 * (xi - (5 / 0.35)) * exp(-0.35 * xi) - (1 + (2 * xi / 3))^1.5 - (10 / 1.05) + 1
+    elseif atm && stable && !heat
+        return -2 / 3 * (xi - (5 / 0.35)) * exp(-0.35 * xi) - xi - (10 / 1.05)
+    elseif atm && !stable && heat
+        return 2 * log((1 + (1 - 16 * xi)^(1 / 2)) / 2)
+    elseif atm && !stable && !heat
+        x = (1 - 16 * xi)^(1 / 4)
+        return pi / 2 - 2 * atan(x) + log((1 + x)^2 * (1 + x^2) / 8)
+    elseif !atm && stable
+        return 1 + 5 * xi
+    elseif !atm && !stable
+        if heat
+            x = (1 - 25 * xi)^(1 / 3)
+        else
+            x = (1 - 14 * xi)^(1 / 3)
+        end
+        return sqrt(3) * (atan(sqrt(3)) - atan(1 / sqrt(3)) * (2 * x + 1)) + (3 / 2) * log((x^2 + x + 1) / 3)
+    end
+end
 
 function coupled_heat_equations()
+    # Later used parameters
+    ρ_atm = Float64(1)
+    ρ_oce = Float64(1000)
+    a_i = Float64(0)
+    c_atm = Float64(1000)
+    c_oce = Float64(4180)
+
+    # Monin-Obukhov parameters
+    kappa = 0.4
+    z_0numA = 10 # numerical zero height atmosphere [m]
+    z_0numO = 1 # numerical zero height atmosphere [m]
+    z_ruAO = 2 * 10^-4
+    z_ruAI = maximum([10^-3, 0.93 * 10^-3 * (1 - a_i) + 6.05 * 10^-3 * exp(-17 * (a_i - 0.5)^2)])
+    z_rTAO = 2 * 10^-4
+    z_rTAI = 10^-3
+    z_ruOI = z_ruAI
+    z_rTOI = z_rTAI
+    L_AO = 1
+    L_OI = 1
+    L_AI = 1
+    L_OA = 1
+    nu_O = 1e-6
+    nu_A = 1.5 * 1e-5
+    mu = nu_O / nu_A
+    lambda_u = sqrt(ρ_atm / ρ_oce)
+    lambda_T = sqrt(ρ_atm / ρ_oce) * c_atm / c_oce
+    C_AO = kappa^2 / ((log(z_0numA / z_ruAO) - psi(z_0numA / L_AO, true, true, false) + lambda_u * (log(lambda_u * z_0numO / (z_ruAO * mu)) - psi(z_0numO / L_OA, false, true, false))) * (log(z_0numA / z_rTAO) - psi(z_0numA / L_AO, true, true, true) + lambda_T * (log(lambda_T * z_0numO / (z_rTAO * mu)) - psi(z_0numO / L_OA, false, true, true))))
+    C_AI = kappa^2 / (log(z_0numA / z_ruAI) - psi(z_0numA / L_AI, true, true, false)) * (log(z_0numA / z_rTAI) - psi(z_0numA / L_AI, true, true, true))
+    C_OI = kappa^2 / (log(z_0numO / z_ruOI) - psi(z_0numO / L_OI, false, true, false)) * (log(z_0numO / z_rTOI) - psi(z_0numO / L_OI, false, true, true))
+    println(C_AO)
+    println(C_AI)
+    println(C_OI)
+
     parameters = (
         h_atm=Float64(200),   # depth [m]
         h_oce=Float64(50),    # depth [m]
@@ -237,19 +287,19 @@ function coupled_heat_equations()
         n_oce=50,
         k_atm=Float64(0.02364),
         k_oce=Float64(0.01),
-        c_atm=Float64(1000),  # specific heat [J / kg / K]
-        c_oce=Float64(4180),   # specific heat [J / kg / K]
-        ρ_atm=Float64(1),     # density [kg / m3]
-        ρ_oce=Float64(1000),  # density [kg / m3]
+        c_atm=c_atm,  # specific heat [J / kg / K]
+        c_oce=c_oce,   # specific heat [J / kg / K]
+        ρ_atm=ρ_atm,     # density [kg / m3]
+        ρ_oce=ρ_oce,  # density [kg / m3]
         u_atm=Float64(30),  # [m/s]
         u_oce=Float64(5),   #[m/s]
-        C_AO=Float64(1e-5),
-        C_AI=Float64(1e-5),
-        C_OI=Float64(5e-5),
+        C_AO=Float64(C_AO),
+        C_AI=Float64(C_AI),
+        C_OI=Float64(C_OI),
         T_atm_ini=Float64(260),   # initial temperature [K]
         T_oce_ini=Float64(268),   # initial temperature [K]
         T_ice_ini=Float64(260),       # temperature [K]
-        a_i=Float64(0),           # ice area fraction [0-1]
+        a_i=a_i,           # ice area fraction [0-1]
         Δt_min=Float64(1.0),
     )
 
