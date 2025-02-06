@@ -165,15 +165,17 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
             conv_fac_oce = []
             error_atm = 0
             error_oce = 0
-            for i = 1:iter-1
+            for i = 1:iter-2
                 pre_error_atm = error_atm
                 pre_error_oce = error_oce
                 full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end]
                 error_atm = maximum([abs(full_error_atm[1]) for full_error_atm in full_errors_atm])
                 full_errors_oce = ocean_vals_list[i] .- ocean_vals_list[end]
                 error_oce = maximum([abs(full_error_oce[end]) for full_error_oce in full_errors_oce])
-                if i > 1 && pre_error_atm != 0 && pre_error_oce != 0
+                if pre_error_atm != 0
                     push!(conv_fac_atm, error_atm / pre_error_atm)
+                end
+                if pre_error_oce != 0
                     push!(conv_fac_oce, error_oce / pre_error_oce)
                 end
             end
@@ -182,8 +184,8 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
                 println("Convergence factor ocean: $conv_fac_oce")
             end
             if plot_conv
-                k = 2:length(conv_fac_atm)+1
-                scatter(k, conv_fac_atm, label="atm", color=:blue, markersize=5, xlabel="Iteration for last used temperature", ylabel="Convergence factor")
+                k = 3:iter-2
+                scatter(k, conv_fac_atm, label="atm", position=:bottomleft, color=:blue, markersize=5, xlabel="k", ylabel="ρₖ", ylim=(0, 0.0045))
                 scatter!(k, conv_fac_oce, label="oce", color=:green, markersize=5)
                 display(current())
             end
@@ -261,10 +263,7 @@ function coupled_heat_equations()
     lambda_T = sqrt(ρ_atm / ρ_oce) * c_atm / c_oce
     C_AO = kappa^2 / ((log(z_0numA / z_ruAO) - psi(z_0numA / L_AO, true, true, false) + lambda_u * (log(lambda_u * z_0numO / (z_ruAO * mu)) - psi(z_0numO / L_OA, false, true, false))) * (log(z_0numA / z_rTAO) - psi(z_0numA / L_AO, true, true, true) + lambda_T * (log(lambda_T * z_0numO / (z_rTAO * mu)) - psi(z_0numO / L_OA, false, true, true))))
     C_AI = kappa^2 / (log(z_0numA / z_ruAI) - psi(z_0numA / L_AI, true, true, false)) * (log(z_0numA / z_rTAI) - psi(z_0numA / L_AI, true, true, true))
-    C_OI = kappa^2 / (log(z_0numO / z_ruOI) - psi(z_0numO / L_OI, false, true, false)) * (log(z_0numO / z_rTOI) - psi(z_0numO / L_OI, false, true, true))
-    println(C_AO)
-    println(C_AI)
-    println(C_OI)
+    C_OI = 5 * 1e-3 #kappa^2 / (log(z_0numO / z_ruOI) - psi(z_0numO / L_OI, false, true, false)) * (log(z_0numO / z_rTOI) - psi(z_0numO / L_OI, false, true, true))
 
     parameters = (
         h_atm=Float64(200),   # depth [m]
@@ -285,7 +284,7 @@ function coupled_heat_equations()
         T_atm_ini=Float64(260),   # initial temperature [K]
         T_oce_ini=Float64(268),   # initial temperature [K]
         T_ice_ini=Float64(260),       # temperature [K]
-        a_i=a_i,           # ice area fraction [0-1]
+        a_i=Float64(a_i),           # ice area fraction [0-1]
         Δt_min=Float64(1.0),
     )
 

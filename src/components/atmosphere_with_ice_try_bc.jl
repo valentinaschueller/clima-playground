@@ -15,7 +15,8 @@ Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
 function heat_atm_rhs!(dT, T, cache, t)
     # println(parent(CC.Fields.coordinate_field(cache.T_sfc)))
-    index = findlast(x -> x <= t, parent(CC.Fields.coordinate_field(cache.T_sfc)))
+    index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_sfc)) .- t))
+    # index = findlast(x -> x <= t, parent(CC.Fields.coordinate_field(cache.T_sfc)))
     F_sfc = (cache.a_i * cache.C_AI * cache.ρ_atm * cache.c_atm * cache.u_atm * (T[1] - parent(cache.T_ice)[1]) + (1 - cache.a_i) * cache.C_AO * cache.ρ_atm * cache.c_atm * cache.u_atm * (T[1] - parent(cache.T_sfc)[index]))# I say we should divide by k^A here?
     # set boundary conditions
     C3 = CC.Geometry.WVector

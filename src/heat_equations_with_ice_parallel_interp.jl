@@ -83,7 +83,7 @@ function psi(xi, atm, stable, heat)
     end
 end
 
-function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv)
+function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv, return_conv, plot_combined)
     (; Δt_cpl, tspan) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
@@ -158,20 +158,22 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
         end
         cs.dates.date[1] = TimeManager.current_date(cs, t)
 
-        if print_conv || plot_conv
+        if print_conv || plot_conv || return_conv
             conv_fac_atm = []
             conv_fac_oce = []
             error_atm = 0
             error_oce = 0
-            for i = 1:iter-1
+            for i = 1:iter-2
                 pre_error_atm = error_atm
                 pre_error_oce = error_oce
                 full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end]
                 error_atm = maximum([abs(full_error_atm[1]) for full_error_atm in full_errors_atm])
                 full_errors_oce = ocean_vals_list[i] .- ocean_vals_list[end]
                 error_oce = maximum([abs(full_error_oce[end]) for full_error_oce in full_errors_oce])
-                if i > 1
+                if pre_error_atm != 0
                     push!(conv_fac_atm, error_atm / pre_error_atm)
+                end
+                if pre_error_oce != 0
                     push!(conv_fac_oce, error_oce / pre_error_oce)
                 end
             end
@@ -180,10 +182,25 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
                 println("Convergence factor ocean: $conv_fac_oce")
             end
             if plot_conv
-                k = 2:iter-1
-                scatter(k, conv_fac_atm, label="atm", color=:blue, markersize=5, xlabel="Iteration for last used temperature", ylabel="Convergence factor")
-                scatter!(k, conv_fac_oce, label="oce", color=:green, markersize=5)
+                if plot_combined
+                    if isodd(length(conv_fac_atm))
+                        conv_fac_atm = conv_fac_atm[2:end]
+                    end
+                    if isodd(length(conv_fac_oce))
+                        conv_fac_oce = conv_fac_oce[1:end-1]
+                    end
+                    conv_fac_atm = conv_fac_atm[1:2:end] .* conv_fac_atm[2:2:end]
+                    conv_fac_oce = conv_fac_oce[1:2:end] .* conv_fac_oce[2:2:end]
+                    title = "ρₖ₊₁×ρₖ"
+                else
+                    title = "ρₖ"
+                end
+                k_atm = 3:length(conv_fac_atm)+2
+                k_oce = 3:length(conv_fac_oce)+2
+                scatter(k_atm, conv_fac_atm, label="atm", position=:bottomleft, color=:blue, markersize=5, xlabel="k", ylabel=title)
+                scatter!(k_oce, conv_fac_oce, label="oce", color=:green, markersize=5)
                 display(current())
+                # k = 3:iter-1
             end # Allow for computation, plot and print of convergence factor in this script.
         end # Use mean of convergence factors over iteration? plot as a function of deltat...
     end
@@ -412,7 +429,7 @@ function coupled_heat_equations()
         nothing, # amip_diags_handler
     )
 
-    solve_coupler!(cs, 1e-10, false, true)
+    solve_coupler!(cs, 1e-10, false, true, true, false)
 
 end;
 

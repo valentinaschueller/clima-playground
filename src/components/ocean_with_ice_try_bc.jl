@@ -14,7 +14,8 @@ end
 Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 
 function heat_oce_rhs!(dT, T, cache, t)
-    index = findlast(x -> x <= t, parent(CC.Fields.coordinate_field(cache.T_air)))
+    index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_air)) .- t))
+    # index = findlast(x -> x <= t, parent(CC.Fields.coordinate_field(cache.T_air)))
     F_sfc = (cache.a_i * cache.C_OI * cache.ρ_oce * cache.c_oce * cache.u_oce * (parent(cache.T_ice)[1] - T[end]) + (1 - cache.a_i) * cache.C_AO * cache.ρ_atm * cache.c_atm * cache.u_atm * (parent(cache.T_air)[index] - T[end]))# divide by k^O?
     ## set boundary conditions
     C3 = CC.Geometry.WVector
