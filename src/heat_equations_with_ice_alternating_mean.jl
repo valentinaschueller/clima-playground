@@ -60,29 +60,7 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
     end
 end
 
-function psi(xi, atm, stable, heat)
-    if atm && stable && heat
-        return -2 / 3 * (xi - (5 / 0.35)) * exp(-0.35 * xi) - (1 + (2 * xi / 3))^1.5 - (10 / 1.05) + 1
-    elseif atm && stable && !heat
-        return -2 / 3 * (xi - (5 / 0.35)) * exp(-0.35 * xi) - xi - (10 / 1.05)
-    elseif atm && !stable && heat
-        return 2 * log((1 + (1 - 16 * xi)^(1 / 2)) / 2)
-    elseif atm && !stable && !heat
-        x = (1 - 16 * xi)^(1 / 4)
-        return pi / 2 - 2 * atan(x) + log((1 + x)^2 * (1 + x^2) / 8)
-    elseif !atm && stable
-        return 1 + 5 * xi
-    elseif !atm && !stable
-        if heat
-            x = (1 - 25 * xi)^(1 / 3)
-        else
-            x = (1 - 14 * xi)^(1 / 3)
-        end
-        return sqrt(3) * (atan(sqrt(3)) - atan(1 / sqrt(3)) * (2 * x + 1)) + (3 / 2) * log((x^2 + x + 1) / 3)
-    end
-end
-
-function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv, return_conv, plot_combined)
+function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv, return_conv)
     (; Δt_cpl, tspan) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
@@ -118,17 +96,25 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
         ocean_vals_list = []
         atmos_vals = Nothing
         ocean_vals = Nothing
-        diff_atmos = typemax(Float64)
-        diff_ocean = typemax(Float64)
+        diff_atm = typemax(Float64)
+        diff_oce = typemax(Float64)
 
-        while diff_ocean > tol && diff_atmos > tol
+        while diff_oce > tol && diff_atm > tol
             @info("Current iter: $(iter)")
             # Update models
-            FieldExchanger.step_model_sims!(cs.model_sims, t)
+            Interfacer.step!(cs.model_sims.ice_sim, t)
+            Interfacer.step!(cs.model_sims.ocean_sim, t)
 
-            # Temperature values for this iteration.
-            atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
+            # Update atmosphere simulation
+            ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
             ocean_states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
+            ocean_T = mean([ocean_state[end] for ocean_state in ocean_states])
+            update_field!(cs.model_sims.atmos_sim, Val(:T_oce_sfc), ocean_T, Val(:T_ice), ice_T)
+
+            # Step with atmosphere simulation and save atmosphere states
+            Interfacer.step!(cs.model_sims.atmos_sim, t)
+            atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
+            atmos_T = mean([atmos_state[1] for atmos_state in atmos_states])
 
             # Temperature values for this iteration.
             pre_atmos_vals = atmos_vals
@@ -138,21 +124,18 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
             push!(atmos_vals_list, atmos_vals)
             push!(ocean_vals_list, ocean_vals)
             if iter > 1
-                diff_atmos = norm(atmos_vals .- pre_atmos_vals)
-                diff_ocean = norm(ocean_vals .- pre_ocean_vals)
+                diff_atm = norm(atmos_vals .- pre_atmos_vals)
+                diff_oce = norm(ocean_vals .- pre_ocean_vals)
             end
 
             Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
 
             rename_file(cs, iter, time)
 
-            atmos_T = mean([atmos_state[1] for atmos_state in atmos_states])
-            ocean_T = mean([ocean_state[end] for ocean_state in ocean_states])
-            ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
             iter += 1
             restart_sims!(cs)
             reset_time!(cs, t - Δt_cpl)
-            set_coupling_fields!(cs.model_sims.atmos_sim, cs.model_sims.ocean_sim, cs.model_sims.ice_sim, atmos_T, ocean_T, ice_T)
+            update_field!(cs.model_sims.ocean_sim, Val(:T_atm_sfc), atmos_T, Val(:T_ice), ice_T)
         end
         cs.dates.date[1] = TimeManager.current_date(cs, t)
 
@@ -163,6 +146,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
             error_oce = 0
             for i = 1:iter-2
                 pre_error_atm = error_atm
+                println(pre_error_atm)
                 pre_error_oce = error_oce
                 full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end]
                 error_atm = maximum([abs(full_error_atm[1]) for full_error_atm in full_errors_atm])
@@ -174,30 +158,22 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
                 if pre_error_oce != 0
                     push!(conv_fac_oce, error_oce / pre_error_oce)
                 end
+
             end
             if print_conv
                 println("Convergence factor atmosphere: $conv_fac_atm")
                 println("Convergence factor ocean: $conv_fac_oce")
             end
             if plot_conv
-                if plot_combined
-                    if isodd(length(conv_fac_atm))
-                        conv_fac_atm = conv_fac_atm[1:end-1]
-                    end
-                    if isodd(length(conv_fac_oce))
-                        conv_fac_oce = conv_fac_oce[1:end-1]
-                    end
-                    conv_fac_atm = conv_fac_atm[1:2:end] .* conv_fac_atm[2:2:end]
-                    conv_fac_oce = conv_fac_oce[1:2:end] .* conv_fac_oce[2:2:end]
-                    title = "ρₖ₊₁×ρₖ"
-                else
-                    title = "ρₖ"
-                end
-                k_atm = 3:length(conv_fac_atm)+2
-                k_oce = 3:length(conv_fac_oce)+2
-                scatter(k_atm, conv_fac_atm, label="atm", position=:bottomleft, color=:blue, markersize=5, xlabel="k", ylabel=title, ylim=(0, 0.0045))
-                scatter!(k_oce, conv_fac_oce, label="oce", color=:green, markersize=5)
+                println(conv_fac_atm)
+                println(conv_fac_oce)
+                println(iter)
+                k = 3:iter-1
+                gr()
+                scatter(k, conv_fac_atm, label="atm", color=:blue, markersize=5, xlabel="k", ylabel="ρₖ", legend=:bottomleft, ylim=(0, 0.0045))
+                scatter!(k, conv_fac_oce, label="oce", color=:green, markersize=5)
                 display(current())
+
             end # Allow for computation, plot and print of convergence factor in this script.
             if return_conv
                 return conv_fac_atm, conv_fac_oce
@@ -256,12 +232,42 @@ function extract_matrix(field_vecs, type)
     return matrix
 end
 
+function psi(xi, atm, stable, heat)
+    if atm && stable && heat
+        return -2 / 3 * (xi - (5 / 0.35)) * exp(-0.35 * xi) - (1 + (2 * xi / 3))^1.5 - (10 / 1.05) + 1
+    elseif atm && stable && !heat
+        return -2 / 3 * (xi - (5 / 0.35)) * exp(-0.35 * xi) - xi - (10 / 1.05)
+    elseif atm && !stable && heat
+        return 2 * log((1 + (1 - 16 * xi)^(1 / 2)) / 2)
+    elseif atm && !stable && !heat
+        x = (1 - 16 * xi)^(1 / 4)
+        return pi / 2 - 2 * atan(x) + log((1 + x)^2 * (1 + x^2) / 8)
+    elseif !atm && stable
+        return 1 + 5 * xi
+    elseif !atm && !stable
+        if heat
+            x = (1 - 25 * xi)^(1 / 3)
+        else
+            x = (1 - 14 * xi)^(1 / 3)
+        end
+        return sqrt(3) * (atan(sqrt(3)) - atan(1 / sqrt(3)) * (2 * x + 1)) + (3 / 2) * log((x^2 + x + 1) / 3)
+    end
+end
 
 function coupled_heat_equations()
+    a_is = 0:0.1:1
     a_is = 0
+    # t_maxs = [100, 500, 1000, 5000, 10000, 50000, 100000]
+    # n_atms = [40, 400, 2000, 4000]
+    # n_oces = [10, 100, 500, 1000]
     conv_facs_atm = []
     conv_facs_oce = []
-    for a_i in a_is
+    # conv_facs_atm = zeros(length(a_is), length(t_maxs))
+    # conv_facs_oce = zeros(length(a_is), length(t_maxs)) # n_atm=200, n_oce=50
+    # conv_facs_atm = zeros(length(a_is), length(n_atms))
+    # conv_facs_oce = zeros(length(a_is), length(n_atms)) #t_max=1000
+    for (k, a_i) in enumerate(a_is)
+        # for (j, t_max) in enumerate(t_maxs) # remove if you only want rho as function of a_i
         # Later used parameters
         ρ_atm = Float64(1)
         ρ_oce = Float64(1000)
@@ -287,7 +293,7 @@ function coupled_heat_equations()
         lambda_T = sqrt(ρ_atm / ρ_oce) * c_atm / c_oce
         C_AO = kappa^2 / ((log(z_0numA / z_ruAO) - psi(z_0numA / L_AO, true, true, false) + lambda_u * (log(lambda_u * z_0numO / (z_ruAO * mu)) - psi(z_0numO / L_OA, false, true, false))) * (log(z_0numA / z_rTAO) - psi(z_0numA / L_AO, true, true, true) + lambda_T * (log(lambda_T * z_0numO / (z_rTAO * mu)) - psi(z_0numO / L_OA, false, true, true))))
         C_AI = kappa^2 / (log(z_0numA / z_ruAI) - psi(z_0numA / L_AI, true, true, false)) * (log(z_0numA / z_rTAI) - psi(z_0numA / L_AI, true, true, true))
-        C_OI = 5 * 1e-3 # kappa^2 / (log(z_0numO / z_ruOI) - psi(z_0numO / L_OI, false, true, false)) * (log(z_0numO / z_rTOI) - psi(z_0numO / L_OI, false, true, true))
+        C_OI = 5 * 1e-3 # This yields very weird results: kappa^2 / (log(z_0numO / z_ruOI) - psi(z_0numO / L_OI, false, true, false)) * (log(z_0numO / z_rTOI) - psi(z_0numO / L_OI, false, true, true))
 
         parameters = (
             h_atm=Float64(200),   # depth [m]
@@ -350,7 +356,7 @@ function coupled_heat_equations()
         stepping = (;
             Δt_min=Float64(10.0),
             timerange=(Float64(0.0), Float64(1000)),
-            Δt_coupler=Float64(1000.0),
+            Δt_coupler=Float64(1000),
             odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
             nsteps_atm=50,
             nsteps_oce=1,
@@ -419,11 +425,27 @@ function coupled_heat_equations()
             nothing, # amip_diags_handler
         )
 
-        solve_coupler!(cs, 1e-10, true, true, false, true)
-        # push!(conv_facs_atm, conv_fac_atm)
-        # push!(conv_facs_oce, conv_fac_oce)
+        conv_fac_atm, conv_fac_oce = solve_coupler!(cs, 1e-10, false, true, true)
+        # if !isempty(conv_fac_atm)
+        #     push!(conv_facs_atm, conv_fac_atm[1])
+        #     # println(conv_fac_atm)
+        #     # conv_facs_atm[k, j] = conv_fac_atm[1]
+        # end
+        # if !isempty(conv_fac_oce)
+        #     push!(conv_facs_oce, conv_fac_oce[1])
+        #     # println(conv_facs_oce)
+        #     # conv_facs_oce[k, j] = conv_fac_oce[1]
+        # end
+        # # end
     end
     # println(conv_facs_atm)
     # println(conv_facs_oce)
+    # println([a_i for a_i in a_is])
+    # plotly()
+    # println(conv_facs_atm[:, 1])
+    # surface(a_is[1:length(conv_facs_atm[:, 1])], t_maxs[1:length(conv_facs_atm[1, :])], conv_facs_atm', label="atm", color=:blue, markersize=5, xlabel="aᵢ", ylabel="Δt_cₚₗ", zlabel="ρ", legend=:topright)
+    # surface!(a_is[1:length(conv_facs_oce[:, 1])], t_maxs[1:length(conv_facs_oce[1, :])], conv_facs_oce', label="oce", color=:green, markersize=5)
+    # display(current())
+
 end;
 
