@@ -164,10 +164,21 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
             for i = 1:iter-2
                 pre_error_atm = error_atm
                 pre_error_oce = error_oce
-                full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end]
-                error_atm = maximum([abs(full_error_atm[1]) for full_error_atm in full_errors_atm])
+                # full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end]
+                # # I guess taking maximum here is the same as taking the last t-value...
+                # error_atm = [abs(full_error_atm[1]) for full_error_atm in full_errors_atm]
+                # full_errors_oce = ocean_vals_list[i] .- ocean_vals_list[end]
+                # error_oce = [abs(full_error_oce[end]) for full_error_oce in full_errors_oce]
+                # if !all(pre_error_atm .== 0)
+                #     push!(conv_fac_atm, maximum(error_atm[pre_error_atm.!=0] ./ pre_error_atm[pre_error_atm.!=0]))
+                # end
+                # if !all(pre_error_oce .== 0)
+                #     push!(conv_fac_oce, maximum(error_oce[pre_error_oce.!=0] ./ pre_error_oce[pre_error_oce.!=0]))
+                # end
+                full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end] # Change here.
+                error_atm = [abs(full_error_atm[1]) for full_error_atm in full_errors_atm][end]
                 full_errors_oce = ocean_vals_list[i] .- ocean_vals_list[end]
-                error_oce = maximum([abs(full_error_oce[end]) for full_error_oce in full_errors_oce])
+                error_oce = [abs(full_error_oce[end]) for full_error_oce in full_errors_oce][end]
                 if pre_error_atm != 0
                     push!(conv_fac_atm, error_atm / pre_error_atm)
                 end
@@ -181,23 +192,21 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
             end
             if plot_conv
                 if plot_combined
-                    if isodd(length(conv_fac_atm))
-                        conv_fac_atm = conv_fac_atm[1:end-1]
-                    end
-                    if isodd(length(conv_fac_oce))
-                        conv_fac_oce = conv_fac_oce[1:end-1]
-                    end
-                    conv_fac_atm = conv_fac_atm[1:2:end] .* conv_fac_atm[2:2:end]
-                    conv_fac_oce = conv_fac_oce[1:2:end] .* conv_fac_oce[2:2:end]
+                    conv_fac_atm = conv_fac_atm[1:end-1] .* conv_fac_atm[2:end]
+                    conv_fac_oce = conv_fac_oce[1:end-1] .* conv_fac_oce[2:end]
+                    conv_fac_atm[1:2:end] .= NaN
+                    conv_fac_oce[2:2:end] .= NaN
+
                     title = "ρₖ₊₁×ρₖ"
                 else
                     title = "ρₖ"
                 end
-                k_atm = 3:length(conv_fac_atm)+2
-                k_oce = 3:length(conv_fac_oce)+2
-                scatter(k_atm, conv_fac_atm, label="atm", position=:bottomleft, color=:blue, markersize=5, xlabel="k", ylabel=title, ylim=(0, 0.0045))
+                k_atm = 2:length(conv_fac_atm)+1
+                k_oce = 2:length(conv_fac_oce)+1
+                scatter(k_atm, conv_fac_atm, label="atm", position=:bottomleft, color=:blue, markersize=5, xlabel="k", ylabel=title, ylim=(0, 0.0007))
                 scatter!(k_oce, conv_fac_oce, label="oce", color=:green, markersize=5)
                 display(current())
+                # k = 3:iter-1
             end # Allow for computation, plot and print of convergence factor in this script.
             if return_conv
                 return conv_fac_atm, conv_fac_oce
@@ -279,15 +288,25 @@ function coupled_heat_equations()
         z_rTAI = 10^-3
         L_AO = 50
         L_AI = 50
-        L_OA = 50
+        L_OA = 100
         nu_O = 1e-6
         nu_A = 1.5 * 1e-5
         mu = nu_O / nu_A
         lambda_u = sqrt(ρ_atm / ρ_oce)
         lambda_T = sqrt(ρ_atm / ρ_oce) * c_atm / c_oce
-        C_AO = kappa^2 / ((log(z_0numA / z_ruAO) - psi(z_0numA / L_AO, true, true, false) + lambda_u * (log(lambda_u * z_0numO / (z_ruAO * mu)) - psi(z_0numO / L_OA, false, true, false))) * (log(z_0numA / z_rTAO) - psi(z_0numA / L_AO, true, true, true) + lambda_T * (log(lambda_T * z_0numO / (z_rTAO * mu)) - psi(z_0numO / L_OA, false, true, true))))
-        C_AI = kappa^2 / (log(z_0numA / z_ruAI) - psi(z_0numA / L_AI, true, true, false)) * (log(z_0numA / z_rTAI) - psi(z_0numA / L_AI, true, true, true))
-        C_OI = 5 * 1e-3 # kappa^2 / (log(z_0numO / z_ruOI) - psi(z_0numO / L_OI, false, true, false)) * (log(z_0numO / z_rTOI) - psi(z_0numO / L_OI, false, true, true))
+        if L_AO > 0
+            stable_atm = true
+        else
+            stable_atm = false
+        end
+        if L_OA > 0
+            stable_oce = true
+        else
+            stable_oce = false
+        end
+        C_AO = kappa^2 / ((log(z_0numA / z_ruAO) - psi(z_0numA / L_AO, true, stable_atm, false) + lambda_u * (log(lambda_u * z_0numO / (z_ruAO * mu)) - psi(z_0numO / L_OA, false, stable_oce, false))) * (log(z_0numA / z_rTAO) - psi(z_0numA / L_AO, true, stable_atm, true) + lambda_T * (log(lambda_T * z_0numO / (z_rTAO * mu)) - psi(z_0numO / L_OA, false, stable_oce, true))))
+        C_AI = kappa^2 / (log(z_0numA / z_ruAI) - psi(z_0numA / L_AI, true, stable_atm, false)) * (log(z_0numA / z_rTAI) - psi(z_0numA / L_AI, true, stable_atm, true))
+        C_OI = 5 * 1e-3 # This yields very weird results: kappa^2 / (log(z_0numO / z_ruOI) - psi(z_0numO / L_OI, false, true, false)) * (log(z_0numO / z_rTOI) - psi(z_0numO / L_OI, false, true, true))
 
         parameters = (
             h_atm=Float64(200),   # depth [m]
@@ -300,16 +319,15 @@ function coupled_heat_equations()
             c_oce=c_oce,   # specific heat [J / kg / K]
             ρ_atm=ρ_atm,     # density [kg / m3]
             ρ_oce=ρ_oce,  # density [kg / m3]
-            u_atm=Float64(30),  # [m/s]
+            u_atm=Float64(5),  # [m/s]
             u_oce=Float64(5),   #[m/s]
             C_AO=Float64(C_AO),
             C_AI=Float64(C_AI),
             C_OI=Float64(C_OI),
-            T_atm_ini=Float64(260),   # initial temperature [K]
-            T_oce_ini=Float64(268),   # initial temperature [K]
-            T_ice_ini=Float64(260),       # temperature [K]
+            T_atm_ini=Float64(267),   # initial temperature [K]
+            T_oce_ini=Float64(276),   # initial temperature [K]
+            T_ice_ini=Float64(270),       # temperature [K]
             a_i=a_i,           # ice area fraction [0-1]
-            Δt_min=Float64(1.0),
         )
 
         context = CC.ClimaComms.context()
