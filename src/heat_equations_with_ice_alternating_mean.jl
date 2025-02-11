@@ -60,7 +60,7 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
     end
 end
 
-function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv, return_conv)
+function solve_coupler!(cs::Interfacer.CoupledSimulation, print_conv, plot_conv, return_conv)
     (; Δt_cpl, tspan) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
@@ -94,12 +94,10 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
         iter = 1
         atmos_vals_list = []
         ocean_vals_list = []
-        atmos_vals = Nothing
-        ocean_vals = Nothing
-        diff_atm = typemax(Float64)
-        diff_oce = typemax(Float64)
+        bound_atmos_vals = Nothing
+        bound_ocean_vals = Nothing
 
-        while diff_oce > tol && diff_atm > tol
+        while true
             @info("Current iter: $(iter)")
             # Update models
             Interfacer.step!(cs.model_sims.ice_sim, t)
@@ -117,16 +115,27 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
             atmos_T = mean([atmos_state[1] for atmos_state in atmos_states])
 
             # Temperature values for this iteration.
-            pre_atmos_vals = atmos_vals
-            pre_ocean_vals = ocean_vals
+            pre_bound_atmos_vals = bound_atmos_vals
+            pre_bound_ocean_vals = bound_ocean_vals
             atmos_vals = extract_matrix(atmos_states, "atm")
             ocean_vals = extract_matrix(ocean_states, "oce")
-            push!(atmos_vals_list, atmos_vals)
-            push!(ocean_vals_list, ocean_vals)
+            bound_atmos_vals = [atmos_val[1] for atmos_val in atmos_vals]
+            bound_ocean_vals = [ocean_val[end] for ocean_val in ocean_vals]
             if iter > 1
-                diff_atm = norm(atmos_vals .- pre_atmos_vals)
-                diff_oce = norm(ocean_vals .- pre_ocean_vals)
+                bound_errors_atm_iter = abs.(bound_atmos_vals .- pre_bound_atmos_vals)
+                bound_errors_oce_iter = abs.(bound_ocean_vals .- pre_bound_ocean_vals)
+                tols_atm = 100 * eps.(max.(abs.(bound_atmos_vals), abs.(pre_bound_atmos_vals)))
+                tols_oce = 100 * eps.(max.(abs.(bound_ocean_vals), abs.(pre_bound_ocean_vals)))
+                if all(bound_errors_atm_iter .< tols_atm)
+                    println("Stopped at iter $iter for the atmosphere")
+                    break
+                elseif all(bound_errors_oce_iter .< tols_oce)
+                    println("Stopped at iter $iter for the ocean")
+                    break
+                end
             end
+            push!(atmos_vals_list, bound_atmos_vals)
+            push!(ocean_vals_list, bound_ocean_vals)
 
             Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
 
@@ -142,31 +151,33 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
         if print_conv || plot_conv || return_conv
             conv_fac_atm = []
             conv_fac_oce = []
-            error_atm = 0
-            error_oce = 0
-            for i = 1:iter-2
-                pre_error_atm = error_atm
-                # println(pre_error_atm)
-                pre_error_oce = error_oce
-                full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end]
-                # I guess taking maximum here is the same as taking the last t-value...
-                error_atm = [abs(full_error_atm[1]) for full_error_atm in full_errors_atm]
-                full_errors_oce = ocean_vals_list[i] .- ocean_vals_list[end]
-                error_oce = [abs(full_error_oce[end]) for full_error_oce in full_errors_oce]
-                if !all(pre_error_atm .== 0)
-                    push!(conv_fac_atm, maximum(error_atm[pre_error_atm.!=0] ./ pre_error_atm[pre_error_atm.!=0]))
+            bound_error_atm = 0
+            bound_error_oce = 0
+            for i = 1:iter
+                pre_bound_error_atm = bound_error_atm
+                pre_bound_error_oce = bound_error_oce
+                bound_error_atm = abs.(atmos_vals_list[i] .- atmos_vals_list[end])
+                bound_error_oce = abs.(ocean_vals_list[i] .- ocean_vals_list[end])
+                tols_atm = 100 * eps.(max.(abs.(atmos_vals_list[i]), abs.(atmos_vals_list[end])))
+                tols_oce = 100 * eps.(max.(abs.(ocean_vals_list[i]), abs.(ocean_vals_list[end])))
+                if all(bound_error_atm .< tols_atm) || all(bound_error_oce .< tols_oce)
+                    println("Too small values, cannot compute convergence factors.")
+                    break
                 end
-                if !all(pre_error_oce .== 0)
-                    push!(conv_fac_oce, maximum(error_oce[pre_error_oce.!=0] ./ pre_error_oce[pre_error_oce.!=0]))
+                if i > 1
+                    indices_atm = findall((pre_bound_error_atm .>= tols_atm) .& (bound_error_atm .>= tols_atm))
+                    indices_oce = findall((pre_bound_error_oce .>= tols_oce) .& (pre_bound_error_oce .>= tols_oce))# This is maybe not good. Dont want the nominator to be less than the precision either, right. Should change and redo. Obs that the velocities are changed to -5:5!
+                    conv_fac_atm_value = maximum(bound_error_atm[indices_atm] ./ pre_bound_error_atm[indices_atm])
+                    conv_fac_oce_value = maximum(bound_error_oce[indices_oce] ./ pre_bound_error_oce[indices_oce])
+                    push!(conv_fac_atm, conv_fac_atm_value)
+                    push!(conv_fac_oce, conv_fac_oce_value)
                 end
                 # full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end] # Change here.
                 # error_atm = [abs(full_error_atm[1]) for full_error_atm in full_errors_atm][end]
                 # full_errors_oce = ocean_vals_list[i] .- ocean_vals_list[end]
                 # error_oce = [abs(full_error_oce[end]) for full_error_oce in full_errors_oce][end]
-                # if pre_error_atm != 0
+                # if i > 1
                 #     push!(conv_fac_atm, error_atm / pre_error_atm)
-                # end
-                # if pre_error_oce != 0
                 #     push!(conv_fac_oce, error_oce / pre_error_oce)
                 # end
 
@@ -182,7 +193,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
                 k_atm = 2:length(conv_fac_atm)+1
                 k_oce = 2:length(conv_fac_oce)+1
                 gr()
-                scatter(k_atm, conv_fac_atm, label="atm", color=:blue, markersize=5, xlabel="k", ylabel="ρₖ", legend=:bottomleft, ylim=(0, 0.002))
+                scatter(k_atm, conv_fac_atm, label="atm", legend=:topright, color=:blue, markersize=5, xlabel="k", ylabel="ρₖ", ylim=(0, 0.0007))
                 scatter!(k_oce, conv_fac_oce, label="oce", color=:green, markersize=5)
                 display(current())
 
@@ -267,54 +278,82 @@ function psi(xi, atm, stable, heat)
 end
 
 function coupled_heat_equations()
-    a_is = 0
-    # a_is = 0.1:0.1:1
-    # t_maxs = [100, 500, 1000, 5000, 10000, 50000, 100000]
+    # Parameters
+    ρ_atm = Float64(1)
+    ρ_oce = Float64(1000)
+    c_atm = Float64(1000)
+    c_oce = Float64(4180)
+    lambda_u = sqrt(ρ_atm / ρ_oce)
+    lambda_T = sqrt(ρ_atm / ρ_oce) * c_atm / c_oce
+    nu_O = Float64(1e-6)
+    nu_A = Float64(1.5 * 1e-5)
+    mu = nu_O / nu_A
+    kappa = Float64(0.4)
+
+    # roughness lengths and C_OI
+    z_0numA = Float64(10) # numerical zero height atmosphere [m]
+    z_0numO = Float64(1) # numerical zero height atmosphere [m]
+    z_ruAO = Float64(2 * 10^-4)
+    z_rTAO = Float64(2 * 10^-4)
+    z_rTAI = Float64(10^-3)
+    C_OI = 5 * 1e-3
+
+
+    # Variables
+    # a_is = 0
+    a_is = 0:0.1:1
+    # a_is = [0.25, 0.5, 0.75]
+    t_max = 1000
+    # t_maxs = [10, 100, 1000, 10000, 100000, 1000000]
+
+    H_A = 210
+    # H_As = [50, 100, 200, 300, 500, 1500] # Have to change n_atm here also
+    H_O = 51
+    # H_Os = [10, 50, 100, 200, 300, 500, 1000] # Have to change n_oce here also
+    n_atm = 200
     # n_atms = [40, 400, 2000, 4000]
+    n_oce = 50
     # n_oces = [10, 100, 500, 1000]
+
+    L_AO = 50
+    L_AI = 50
+    L_OA = 100
     # L_As = [-200, -100, -50, 50, 100, 200]
     # L_Os = [-200, -100, -50, 50, 100, 200]
-    # H_As = [50, 100, 200, 300, 500, 1000]
-    # H_Os = [10, 50, 100, 200, 300, 500, 1000]
 
+    u_A = 5
+    u_O = 1
+    # u_As=[0.1,1,2,3,4,5]
+    # u_Os=[0.1,1,2,3,4,5]
+
+    T_atm_ini = 267
+    T_oce_ini = 276
+    T_ice = 270
+    # T_atm_ini=[260, 262, 264, 266, 268, 270, 273]
+    # T_oce_ini=[270, 271, 272, 273, 274, 275, 276]
+    # T_ice=[260, 262, 264, 266, 268, 270, 273]
 
     conv_facs_atm = []
     conv_facs_oce = []
     # conv_facs_atm = zeros(length(a_is), length(t_maxs))
-    # conv_facs_oce = zeros(length(a_is), length(t_maxs)) # n_atm=200, n_oce=50, L_A=50, L_O=50
-    # conv_facs_atm = zeros(length(a_is), length(n_atms))
-    # conv_facs_oce = zeros(length(a_is), length(n_atms)) #t_max=1000, L_A=50, L_O=50
-    # conv_facs_atm = zeros(length(a_is), length(L_Os))
-    # conv_facs_oce = zeros(length(a_is), length(L_Os)) #t_max=1000, n_atm=200, n_oce=50,L_A=50, L_O=50
+    # conv_facs_oce = zeros(length(a_is), length(t_maxs))
     # conv_facs_atm = zeros(length(a_is), length(H_As))
-    # conv_facs_oce = zeros(length(a_is), length(H_As)) #t_max=1000, n_atm=200, n_oce=50,L_A=50, L_O=50
+    # conv_facs_oce = zeros(length(a_is), length(H_As))
+    # conv_facs_atm = zeros(length(a_is), length(n_atms))
+    # conv_facs_oce = zeros(length(a_is), length(n_atms))
+    # conv_facs_atm = zeros(length(a_is), length(L_Os))
+    # conv_facs_oce = zeros(length(a_is), length(L_Os))
     # conv_facs_atm = zeros(length(a_is), length(H_Os))
-    # conv_facs_oce = zeros(length(a_is), length(H_Os)) #t_max=1000, n_atm=200, n_oce=50,L_A=50, L_O=50
+    # conv_facs_oce = zeros(length(a_is), length(H_Os))
     for (k, a_i) in enumerate(a_is)
         # for (j, t_max) in enumerate(t_maxs) # remove if you only want rho as function of a_i
-        # Later used parameters
-        ρ_atm = Float64(1)
-        ρ_oce = Float64(1000)
+        # n_atm = H_A - 10 If varing H_A to not vary deltaz
+        # Variables
         a_i = Float64(a_i)
-        c_atm = Float64(1000)
-        c_oce = Float64(4180)
-
-        # Monin-Obukhov parameters
-        kappa = 0.4
-        z_0numA = 10 # numerical zero height atmosphere [m]
-        z_0numO = 1 # numerical zero height atmosphere [m]
-        z_ruAO = 2 * 10^-4
-        z_ruAI = maximum([10^-3, 0.93 * 10^-3 * (1 - a_i) + 6.05 * 10^-3 * exp(-17 * (a_i - 0.5)^2)])
-        z_rTAO = 2 * 10^-4
-        z_rTAI = 10^-3
-        L_AO = 50
-        L_AI = 50
-        L_OA = 100
-        nu_O = 1e-6
-        nu_A = 1.5 * 1e-5
-        mu = nu_O / nu_A
-        lambda_u = sqrt(ρ_atm / ρ_oce)
-        lambda_T = sqrt(ρ_atm / ρ_oce) * c_atm / c_oce
+        z_ruAI = Float64(maximum([10^-3, 0.93 * 10^-3 * (1 - a_i) + 6.05 * 10^-3 * exp(-17 * (a_i - 0.5)^2)]))
+        L_AO = Float64(L_AO)
+        L_AI = Float64(L_AI)
+        L_OA = Float64(L_OA)
         if L_AO > 0
             stable_atm = true
         else
@@ -327,27 +366,25 @@ function coupled_heat_equations()
         end
         C_AO = kappa^2 / ((log(z_0numA / z_ruAO) - psi(z_0numA / L_AO, true, stable_atm, false) + lambda_u * (log(lambda_u * z_0numO / (z_ruAO * mu)) - psi(z_0numO / L_OA, false, stable_oce, false))) * (log(z_0numA / z_rTAO) - psi(z_0numA / L_AO, true, stable_atm, true) + lambda_T * (log(lambda_T * z_0numO / (z_rTAO * mu)) - psi(z_0numO / L_OA, false, stable_oce, true))))
         C_AI = kappa^2 / (log(z_0numA / z_ruAI) - psi(z_0numA / L_AI, true, stable_atm, false)) * (log(z_0numA / z_rTAI) - psi(z_0numA / L_AI, true, stable_atm, true))
-        C_OI = 5 * 1e-3 # This yields very weird results: kappa^2 / (log(z_0numO / z_ruOI) - psi(z_0numO / L_OI, false, true, false)) * (log(z_0numO / z_rTOI) - psi(z_0numO / L_OI, false, true, true))
-
         parameters = (
-            h_atm=Float64(200),   # depth [m]
-            h_oce=Float64(50),    # depth [m]
-            n_atm=200,
-            n_oce=50,
+            h_atm=Float64(H_A),   # depth [m]
+            h_oce=Float64(H_O),    # depth [m]
+            n_atm=n_atm,
+            n_oce=n_oce,
             k_atm=Float64(0.02364),
             k_oce=Float64(0.01),
             c_atm=c_atm,  # specific heat [J / kg / K]
             c_oce=c_oce,   # specific heat [J / kg / K]
             ρ_atm=ρ_atm,     # density [kg / m3]
             ρ_oce=ρ_oce,  # density [kg / m3]
-            u_atm=Float64(5),  # [m/s]
-            u_oce=Float64(5),   #[m/s]
+            u_atm=Float64(u_A),  # [m/s]
+            u_oce=Float64(u_O),   #[m/s]
             C_AO=Float64(C_AO),
             C_AI=Float64(C_AI),
             C_OI=Float64(C_OI),
-            T_atm_ini=Float64(267),   # initial temperature [K]
-            T_oce_ini=Float64(276),   # initial temperature [K]
-            T_ice_ini=Float64(270),       # temperature [K]
+            T_atm_ini=Float64(T_atm_ini),   # initial temperature [K]
+            T_oce_ini=Float64(T_oce_ini),   # initial temperature [K]
+            T_ice_ini=Float64(T_ice),       # temperature [K]
             a_i=a_i,           # ice area fraction [0-1]
         )
 
@@ -356,7 +393,7 @@ function coupled_heat_equations()
 
         # initialize models
         domain_atm = CC.Domains.IntervalDomain(
-            CC.Geometry.ZPoint{Float64}(0),
+            CC.Geometry.ZPoint{Float64}(z_0numA),
             CC.Geometry.ZPoint{Float64}(parameters.h_atm);
             boundary_names=(:bottom, :top),
         )
@@ -365,7 +402,7 @@ function coupled_heat_equations()
 
         domain_oce = CC.Domains.IntervalDomain(
             CC.Geometry.ZPoint{Float64}(-parameters.h_oce),
-            CC.Geometry.ZPoint{Float64}(0);
+            CC.Geometry.ZPoint{Float64}(-z_0numO);
             boundary_names=(:bottom, :top),
         )
         mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems=parameters.n_oce)
@@ -388,8 +425,8 @@ function coupled_heat_equations()
 
         stepping = (;
             Δt_min=Float64(10.0),
-            timerange=(Float64(0.0), Float64(1000)),
-            Δt_coupler=Float64(1000),
+            timerange=(Float64(0.0), Float64(t_max)),
+            Δt_coupler=Float64(t_max),
             odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
             nsteps_atm=50,
             nsteps_oce=1,
@@ -458,28 +495,43 @@ function coupled_heat_equations()
             nothing, # amip_diags_handler
         )
 
-        # conv_fac_atm, conv_fac_oce = solve_coupler!(cs, 1e-10, false, false, true)
-        solve_coupler!(cs, 1e-10, false, true, false)
-        # if !isempty(conv_fac_atm)
-        #     push!(conv_facs_atm, conv_fac_atm[1])
-        #     # println(conv_fac_atm)
-        #     # conv_facs_atm[k, j] = conv_fac_atm[1]
+        conv_fac_atm, conv_fac_oce = solve_coupler!(cs, false, false, true)
+        # solve_coupler!(cs, false, true, false)
+        if !isempty(conv_fac_atm)
+            push!(conv_facs_atm, conv_fac_atm[1])
+            #     # println(conv_fac_atm)
+            #     conv_facs_atm[k, j] = conv_fac_atm[1]
+        end
+        if !isempty(conv_fac_oce)
+            push!(conv_facs_oce, conv_fac_oce[1])
+            #     # println(conv_facs_oce)
+            #     println(conv_fac_oce[1])
+            #     conv_facs_oce[k, j] = conv_fac_oce[1]
+        end
         # end
-        # if !isempty(conv_fac_oce)
-        #     push!(conv_facs_oce, conv_fac_oce[1])
-        #     # println(conv_facs_oce)
-        #     # conv_facs_oce[k, j] = conv_fac_oce[1]
-        # end
-        # # end
     end
     # println(conv_facs_atm)
     # println(conv_facs_oce)
     # println([a_i for a_i in a_is])
     # plotly()
     # println(conv_facs_atm[:, 1])
-    # # gr()
-    # plot(a_is[1:length(conv_facs_atm)], conv_facs_atm, label="atm", color=:blue, markersize=5, xlabel="aᵢ", ylabel="ρ", legend=:topright)
-    # plot!(a_is[1:length(conv_facs_oce)], conv_facs_oce, label="oce", color=:green, markersize=5, xlabel="aᵢ", ylabel="ρ", legend=:topright)
+    # gr()
+    plot(a_is[1:length(conv_facs_atm)], log.(conv_facs_atm), label="atm", color=:blue, markersize=5, xlabel="aᴵ", ylabel="log(ρ)", legend=:topright)
+    plot!(a_is[1:length(conv_facs_oce)], log.(conv_facs_oce), label="oce", color=:green, markersize=5, xlabel="aᴵ", ylabel="log(ρ)", legend=:topright)
+    # colors = [:blue, :red, :green]
+    # for (i, ai) in enumerate(a_is)
+    #     if i == 1
+    #         scatter(t_maxs[1:length(conv_facs_atm[1, :])], conv_facs_atm[i, :], xscale=:log10, label="aᴵ=$ai", markersize=5, xlabel="tₘₐₓ", ylabel="ρᴬ", legend=:topright, color=colors[i])
+    #         plot!(t_maxs[1:length(conv_facs_atm[1, :])], conv_facs_atm[i, :], xscale=:log10, label="", linewidth=2, color=colors[i])
+    #         # scatter(t_maxs[1:length(conv_facs_oce[1, :])], conv_facs_oce[i, :], xscale=:log10, label="aᴵ=$ai", markersize=5, xlabel="tₘₐₓ", ylabel="ρᴼ", legend=:topright, color=colors[i])
+    #         # plot!(t_maxs[1:length(conv_facs_oce[1, :])], conv_facs_oce[i, :], xscale=:log10, label="", linewidth=2, color=colors[i])
+    #     else
+    #         scatter!(t_maxs[1:length(conv_facs_atm[1, :])], conv_facs_atm[i, :], xscale=:log10, label="aᴵ=$ai", markersize=5, xlabel="tₘₐₓ", ylabel="ρᴬ", legend=:topright, color=colors[i])
+    #         plot!(t_maxs[1:length(conv_facs_atm[1, :])], conv_facs_atm[i, :], xscale=:log10, label="", linewidth=2, color=colors[i])
+    #         # scatter!(t_maxs[1:length(conv_facs_oce[1, :])], conv_facs_oce[i, :], xscale=:log10, label="aᴵ=$ai", markersize=5, xlabel="tₘₐₓ", ylabel="ρᴼ", legend=:topright, color=colors[i])
+    #         # plot!(t_maxs[1:length(conv_facs_oce[1, :])], conv_facs_oce[i, :], xscale=:log10, label="", linewidth=2, color=colors[i])
+    #     end
+    # end
     # # surface(a_is[1:length(conv_facs_atm[:, 1])], t_maxs[1:length(conv_facs_atm[1, :])], conv_facs_atm', label="atm", color=:blue, markersize=5, xlabel="aᵢ", ylabel="", zlabel="ρ", legend=:topright)
     # # surface!(a_is[1:length(conv_facs_oce[:, 1])], t_maxs[1:length(conv_facs_oce[1, :])], conv_facs_oce', label="oce", color=:green, markersize=5)
     # display(current())

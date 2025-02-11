@@ -16,8 +16,8 @@ def plot_data(rho, param, param_name):
     Plot data
     """
     plt.figure()
-    plt.plot(param, rho)
-    plt.ylabel(r"$\rho$" )
+    plt.plot(param, np.log(rho))
+    plt.ylabel(r"$log(\rho)$" )
     plt.xlabel(param_name)
     plt.show()
 
@@ -48,16 +48,16 @@ def define_realistic_vals(a_i):
     c_o=4182
     rho_o=1000
     alpha_o=k_o/(rho_o*c_o)
-    H_O=100
+    H_O=51
     
     k_a=0.024
     c_a=1005
     rho_a=1.225
     alpha_a=k_a/(rho_a*c_a)
-    H_A=100
+    H_A=210
 
-    u_A=15
-    u_O=5
+    u_A=5
+    u_O=1
 
     # Monin-Obukhov parameters
     kappa = 0.4
@@ -67,17 +67,18 @@ def define_realistic_vals(a_i):
     z_ruAI = np.max([10**-3, 0.93 * 10**-3 * (1 - a_i) + 6.05 * 10**-3 * np.exp(-17 * (a_i - 0.5)**2)])
     z_rTAO = 2 * 10**-4
     z_rTAI = 10**-3
-    L_A = 10
-    L_O = 10
+    L_AO = 50
+    L_AI= 50
+    L_OA = 100
     nu_O = 1e-6
     nu_A = 1.5 * 1e-5
     mu = nu_O / nu_A
     lambda_u = np.sqrt(rho_a / rho_o)
     lambda_T = np.sqrt(rho_a / rho_o) * c_a / c_o
-    stable_atm=True if L_A>0 else False
-    stable_oce=True if L_O>0 else False
-    C_AO = kappa**2 / ((np.log(z_0numA / z_ruAO) - psi(z_0numA / L_A, True, stable_atm, False) + lambda_u * (np.log(lambda_u * z_0numO / (z_ruAO * mu)) - psi(z_0numO / L_O, False, stable_oce, False))) * (np.log(z_0numA / z_rTAO) - psi(z_0numA / L_A, True, stable_atm, True) + lambda_T * (np.log(lambda_T * z_0numO / (z_rTAO * mu)) - psi(z_0numO / L_O, False, stable_oce, True))))
-    C_AI = kappa**2 / (np.log(z_0numA / z_ruAI) - psi(z_0numA / L_A, True, stable_atm, False)) * (np.log(z_0numA / z_rTAI) - psi(z_0numA / L_A, True, stable_atm, True))
+    stable_atm=True if L_AO>0 else False
+    stable_oce=True if L_OA>0 else False
+    C_AO = kappa**2 / ((np.log(z_0numA / z_ruAO) - psi(z_0numA / L_AO, True, stable_atm, False) + lambda_u * (np.log(lambda_u * z_0numO / (z_ruAO * mu)) - psi(z_0numO / L_OA, False, stable_oce, False))) * (np.log(z_0numA / z_rTAO) - psi(z_0numA / L_AO, True, stable_atm, True) + lambda_T * (np.log(lambda_T * z_0numO / (z_rTAO * mu)) - psi(z_0numO / L_OA, False, stable_oce, True))))
+    C_AI = kappa**2 / (np.log(z_0numA / z_ruAI) - psi(z_0numA / L_AI, True, stable_atm, False)) * (np.log(z_0numA / z_rTAI) - psi(z_0numA / L_AI, True, stable_atm, True))
     C_OI = 5*1e-3 # From Nemo
     eta_AO=C_AO*np.abs(u_A-u_O)*rho_a*c_a
     eta_AI=C_AI*np.abs(u_A)*rho_a*c_a
@@ -103,4 +104,4 @@ for i, a_i in enumerate(a_is):
 
 rho_max_over_omega=np.max(rhos, axis=1)
 print(rho_max_over_omega[0])
-plot_data(rho_max_over_omega, a_is, r"$a_i$")
+plot_data(rho_max_over_omega, a_is, r"$a^I$")

@@ -6,6 +6,6 @@ using LinearAlgebra
 using Plots
 using Statistics
 using LaTeXStrings
-include("heat_equations_with_ice_other_schwarz.jl")
+include("heat_equations_with_ice_alternating_mean.jl")
 
 end # module clima_playground

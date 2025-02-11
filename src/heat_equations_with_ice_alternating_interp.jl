@@ -83,7 +83,7 @@ function psi(xi, atm, stable, heat)
     end
 end
 
-function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_conv, return_conv)
+function solve_coupler!(cs::Interfacer.CoupledSimulation, print_conv, plot_conv, return_conv)
     (; Δt_cpl, tspan) = cs
 
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
@@ -115,12 +115,10 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
         iter = 1
         atmos_vals_list = []
         ocean_vals_list = []
-        atmos_vals = Nothing
-        ocean_vals = Nothing
-        diff_atm = typemax(Float64)
-        diff_oce = typemax(Float64)
+        bound_atmos_vals = Nothing
+        bound_ocean_vals = Nothing
 
-        while diff_oce > tol && diff_atm > tol
+        while true
             @info("Current iter: $(iter)")
             # Step with ice and ocean simulation
             Interfacer.step!(cs.model_sims.ice_sim, t)
@@ -136,16 +134,27 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
             atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
 
             # Temperature values for this iteration.
-            pre_atmos_vals = atmos_vals
-            pre_ocean_vals = ocean_vals
+            pre_bound_atmos_vals = bound_atmos_vals
+            pre_bound_ocean_vals = bound_ocean_vals
             atmos_vals = extract_matrix(atmos_states, "atm")
             ocean_vals = extract_matrix(ocean_states, "oce")
-            push!(atmos_vals_list, atmos_vals)
-            push!(ocean_vals_list, ocean_vals)
+            bound_atmos_vals = [atmos_val[1] for atmos_val in atmos_vals]
+            bound_ocean_vals = [ocean_val[end] for ocean_val in ocean_vals]
             if iter > 1
-                diff_atm = norm(atmos_vals .- pre_atmos_vals)
-                diff_oce = norm(ocean_vals .- pre_ocean_vals)
+                bound_errors_atm_iter = abs.(bound_atmos_vals .- pre_bound_atmos_vals)
+                bound_errors_oce_iter = abs.(bound_ocean_vals .- pre_bound_ocean_vals)
+                tols_atm = 100 * eps.(max.(abs.(bound_atmos_vals), abs.(pre_bound_atmos_vals)))
+                tols_oce = 100 * eps.(max.(abs.(bound_ocean_vals), abs.(pre_bound_ocean_vals)))
+                if all(bound_errors_atm_iter .< tols_atm)
+                    println("Stopped at iter $iter for the atmosphere")
+                    break
+                elseif all(bound_errors_oce_iter .< tols_oce)
+                    println("Stopped at iter $iter for the ocean")
+                    break
+                end
             end
+            push!(atmos_vals_list, bound_atmos_vals)
+            push!(ocean_vals_list, bound_ocean_vals)
 
             Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
 
@@ -163,32 +172,37 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, tol, print_conv, plot_
         if print_conv || plot_conv || return_conv
             conv_fac_atm = []
             conv_fac_oce = []
-            error_atm = 0
-            error_oce = 0
-            for i = 1:iter-2
-                pre_error_atm = error_atm
-                pre_error_oce = error_oce
-                # full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end]
-                # # I guess taking maximum here is the same as taking the last t-value...
-                # error_atm = [abs(full_error_atm[1]) for full_error_atm in full_errors_atm]
+            bound_error_atm = 0
+            bound_error_oce = 0
+            for i = 1:iter
+                pre_bound_error_atm = bound_error_atm
+                pre_bound_error_oce = bound_error_oce
+                bound_error_atm = abs.(atmos_vals_list[i] .- atmos_vals_list[end])
+                bound_error_oce = abs.(ocean_vals_list[i] .- ocean_vals_list[end])
+                tols_atm = 100 * eps.(max.(abs.(atmos_vals_list[i]), abs.(atmos_vals_list[end])))
+                tols_oce = 100 * eps.(max.(abs.(ocean_vals_list[i]), abs.(ocean_vals_list[end])))
+                if all(bound_error_atm .< tols_atm) || all(bound_error_oce .< tols_oce)
+                    println("Too small values, cannot compute convergence factors.")
+                    break
+                end
+                if i > 1
+                    indices_atm = findall((pre_bound_error_atm .>= tols_atm) .& (bound_error_atm .>= tols_atm))
+                    indices_oce = findall((pre_bound_error_oce .>= tols_oce) .& (pre_bound_error_oce .>= tols_oce))# This is maybe not good. Dont want the nominator to be less than the precision either, right. Should change and redo. Obs that the velocities are changed to -5:5!
+                    println(indices_atm)
+                    # println(indices_oce)
+                    conv_fac_atm_value = maximum(bound_error_atm[indices_atm] ./ pre_bound_error_atm[indices_atm])
+                    conv_fac_oce_value = maximum(bound_error_oce[indices_oce] ./ pre_bound_error_oce[indices_oce])
+                    push!(conv_fac_atm, conv_fac_atm_value)
+                    push!(conv_fac_oce, conv_fac_oce_value)
+                end
+                # full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end] # Change here.
+                # error_atm = [abs(full_error_atm[1]) for full_error_atm in full_errors_atm][end]
                 # full_errors_oce = ocean_vals_list[i] .- ocean_vals_list[end]
-                # error_oce = [abs(full_error_oce[end]) for full_error_oce in full_errors_oce]
-                # if !all(pre_error_atm .== 0)
-                #     push!(conv_fac_atm, maximum(error_atm[pre_error_atm.!=0] ./ pre_error_atm[pre_error_atm.!=0]))
+                # error_oce = [abs(full_error_oce[end]) for full_error_oce in full_errors_oce][end]
+                # if i > 1
+                #     push!(conv_fac_atm, error_atm / pre_error_atm)
+                #     push!(conv_fac_oce, error_oce / pre_error_oce)
                 # end
-                # if !all(pre_error_oce .== 0)
-                #     push!(conv_fac_oce, maximum(error_oce[pre_error_oce.!=0] ./ pre_error_oce[pre_error_oce.!=0]))
-                # end
-                full_errors_atm = atmos_vals_list[i] .- atmos_vals_list[end] # Change here.
-                error_atm = [abs(full_error_atm[1]) for full_error_atm in full_errors_atm][end]
-                full_errors_oce = ocean_vals_list[i] .- ocean_vals_list[end]
-                error_oce = [abs(full_error_oce[end]) for full_error_oce in full_errors_oce][end]
-                if pre_error_atm != 0
-                    push!(conv_fac_atm, error_atm / pre_error_atm)
-                end
-                if pre_error_oce != 0
-                    push!(conv_fac_oce, error_oce / pre_error_oce)
-                end
             end
             if print_conv
                 println("Convergence factor atmosphere: $conv_fac_atm")
@@ -247,189 +261,226 @@ end
 
 
 function coupled_heat_equations()
-    # Later used parameters
+    # Parameters
     ρ_atm = Float64(1)
     ρ_oce = Float64(1000)
-    a_i = Float64(0)
     c_atm = Float64(1000)
     c_oce = Float64(4180)
+    lambda_u = sqrt(ρ_atm / ρ_oce)
+    lambda_T = sqrt(ρ_atm / ρ_oce) * c_atm / c_oce
+    nu_O = Float64(1e-6)
+    nu_A = Float64(1.5 * 1e-5)
+    mu = nu_O / nu_A
+    kappa = Float64(0.4)
 
-    # Monin-Obukhov parameters
-    kappa = 0.4
-    z_0numA = 10 # numerical zero height atmosphere [m]
-    z_0numO = 1 # numerical zero height atmosphere [m]
-    z_ruAO = 2 * 10^-4
-    z_ruAI = maximum([10^-3, 0.93 * 10^-3 * (1 - a_i) + 6.05 * 10^-3 * exp(-17 * (a_i - 0.5)^2)])
-    z_rTAO = 2 * 10^-4
-    z_rTAI = 10^-3
+    # roughness lengths and C_OI
+    z_0numA = Float64(10) # numerical zero height atmosphere [m]
+    z_0numO = Float64(1) # numerical zero height atmosphere [m]
+    z_ruAO = Float64(2 * 10^-4)
+    z_rTAO = Float64(2 * 10^-4)
+    z_rTAI = Float64(10^-3)
+    C_OI = 5 * 1e-3
+
+
+    # Variables
+    a_is = 0
+    # a_is = 0:0.1:1
+    # a_is = [0.25, 0.5, 0.75]
+    t_max = 1000
+    # t_maxs = [10, 100, 1000, 10000, 100000, 1000000]
+
+    H_A = 210
+    # H_As = [11, 100, 200, 300, 500, 1500] # Have to change n_atm here also
+    H_O = 51
+    # H_Os = [10, 50, 100, 200, 300, 500, 1000] # Have to change n_oce here also
+    n_atm = 200
+    # n_atms = [40, 400, 2000, 4000]
+    n_oce = 50
+    # n_oces = [10, 100, 500, 1000]
+
     L_AO = 50
     L_AI = 50
     L_OA = 100
-    nu_O = 1e-6
-    nu_A = 1.5 * 1e-5
-    mu = nu_O / nu_A
-    lambda_u = sqrt(ρ_atm / ρ_oce)
-    lambda_T = sqrt(ρ_atm / ρ_oce) * c_atm / c_oce
-    if L_AO > 0
-        stable_atm = true
-    else
-        stable_atm = false
+    # L_As = [-200, -100, -50, 50, 100, 200]
+    # L_Os = [-200, -100, -50, 50, 100, 200]
+
+    u_A = 5
+    u_O = 1
+    # u_As=[0.1,1,2,3,4,5]
+    # u_Os=[0.1,1,2,3,4,5]
+
+    T_atm_ini = 267
+    T_oce_ini = 276
+    T_ice = 270
+    # T_atm_ini=[260, 262, 264, 266, 268, 270, 273]
+    # T_oce_ini=[270, 271, 272, 273, 274, 275, 276]
+    # T_ice=[260, 262, 264, 266, 268, 270, 273]
+
+    for (k, a_i) in enumerate(a_is)
+        z_ruAI = Float64(maximum([10^-3, 0.93 * 10^-3 * (1 - a_i) + 6.05 * 10^-3 * exp(-17 * (a_i - 0.5)^2)]))
+        L_AO = Float64(L_AO)
+        L_AI = Float64(L_AI)
+        L_OA = Float64(L_OA)
+        if L_AO > 0
+            stable_atm = true
+        else
+            stable_atm = false
+        end
+        if L_OA > 0
+            stable_oce = true
+        else
+            stable_oce = false
+        end
+        C_AO = kappa^2 / ((log(z_0numA / z_ruAO) - psi(z_0numA / L_AO, true, stable_atm, false) + lambda_u * (log(lambda_u * z_0numO / (z_ruAO * mu)) - psi(z_0numO / L_OA, false, stable_oce, false))) * (log(z_0numA / z_rTAO) - psi(z_0numA / L_AO, true, stable_atm, true) + lambda_T * (log(lambda_T * z_0numO / (z_rTAO * mu)) - psi(z_0numO / L_OA, false, stable_oce, true))))
+        C_AI = kappa^2 / (log(z_0numA / z_ruAI) - psi(z_0numA / L_AI, true, stable_atm, false)) * (log(z_0numA / z_rTAI) - psi(z_0numA / L_AI, true, stable_atm, true))
+
+        parameters = (
+            h_atm=Float64(H_A),   # depth [m]
+            h_oce=Float64(H_O),    # depth [m]
+            n_atm=n_atm,
+            n_oce=n_oce,
+            k_atm=Float64(0.02364),
+            k_oce=Float64(0.01),
+            c_atm=c_atm,  # specific heat [J / kg / K]
+            c_oce=c_oce,   # specific heat [J / kg / K]
+            ρ_atm=ρ_atm,     # density [kg / m3]
+            ρ_oce=ρ_oce,  # density [kg / m3]
+            u_atm=Float64(u_A),  # [m/s]
+            u_oce=Float64(u_O),   #[m/s]
+            C_AO=Float64(C_AO),
+            C_AI=Float64(C_AI),
+            C_OI=Float64(C_OI),
+            T_atm_ini=Float64(T_atm_ini),   # initial temperature [K]
+            T_oce_ini=Float64(T_oce_ini),   # initial temperature [K]
+            T_ice_ini=Float64(T_ice),       # temperature [K]
+            a_i=a_i,           # ice area fraction [0-1]
+        )
+
+        context = CC.ClimaComms.context()
+        device = CC.ClimaComms.device(context)
+
+        # initialize models
+        domain_atm = CC.Domains.IntervalDomain(
+            CC.Geometry.ZPoint{Float64}(z_0numA),
+            CC.Geometry.ZPoint{Float64}(parameters.h_atm);
+            boundary_names=(:bottom, :top),
+        )
+        mesh_atm = CC.Meshes.IntervalMesh(domain_atm, nelems=parameters.n_atm)
+        center_space_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_atm)
+
+        domain_oce = CC.Domains.IntervalDomain(
+            CC.Geometry.ZPoint{Float64}(-parameters.h_oce),
+            CC.Geometry.ZPoint{Float64}(-z_0numO);
+            boundary_names=(:bottom, :top),
+        )
+        mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems=parameters.n_oce)
+        center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_oce)
+
+        # domain_ice = CC.Domains.IntervalDomain(
+        #     CC.Geometry.ZPoint{Float64}(-0.1),
+        #     CC.Geometry.ZPoint{Float64}(0.1);
+        #     boundary_names=(:bottom, :top),
+        # )
+        # mesh_ice = CC.Meshes.IntervalMesh(domain_ice, nelems=1)
+        coord = CC.Geometry.ZPoint{Float64}(0.0)
+        point_space_ice = CC.Spaces.PointSpace(context, coord)
+
+        atmos_facespace = CC.Spaces.FaceFiniteDifferenceSpace(center_space_atm)
+        boundary_space = CC.Spaces.level(
+            atmos_facespace,
+            CC.Utilities.PlusHalf(CC.Spaces.nlevels(atmos_facespace) - 1),
+        )
+
+        stepping = (;
+            Δt_min=Float64(10.0),
+            timerange=(Float64(0.0), Float64(t_max)),
+            Δt_coupler=Float64(t_max),
+            odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
+            nsteps_atm=50,
+            nsteps_oce=1,
+            nsteps_ice=1,
+        )
+
+        T_atm_0 = CC.Fields.FieldVector(
+            atm=CC.Fields.ones(Float64, center_space_atm) .* parameters.T_atm_ini,
+        )
+        T_oce_0 = CC.Fields.FieldVector(
+            oce=CC.Fields.ones(Float64, center_space_oce) .* parameters.T_oce_ini,
+        )
+        T_ice_0 = CC.Fields.FieldVector(
+            ice=CC.Fields.ones(Float64, point_space_ice) .* parameters.T_ice_ini,
+        )
+
+        time_points_oce_domain = CC.Domains.IntervalDomain(
+            CC.Geometry.ZPoint{Float64}(stepping.timerange[1] - (stepping.Δt_min / 2)),
+            CC.Geometry.ZPoint{Float64}(stepping.timerange[2] - (stepping.Δt_min / 2));
+            boundary_names=(:start, :end),
+        )
+        time_points_atm_domain = CC.Domains.IntervalDomain(
+            CC.Geometry.ZPoint{Float64}(stepping.timerange[1] - (stepping.Δt_min / 2)),
+            CC.Geometry.ZPoint{Float64}(stepping.timerange[2] - (stepping.Δt_min / 2));
+            boundary_names=(:start, :end),
+        )
+
+        mesh_time_oce = CC.Meshes.IntervalMesh(time_points_oce_domain, nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1))
+        mesh_time_atm = CC.Meshes.IntervalMesh(time_points_atm_domain, nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1))
+        space_time_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_oce)
+        space_time_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_atm)
+
+        atmos_cache = (; parameters..., T_sfc=parameters.T_oce_ini .* CC.Fields.ones(space_time_oce), T_ice=T_ice_0)
+        atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, atmos_cache)
+        ocean_cache = (; parameters..., T_air=parameters.T_atm_ini .* CC.Fields.ones(space_time_atm), T_ice=T_ice_0)
+        ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
+        ice_cache = (; parameters...)
+        ice_sim = ice_init(stepping, T_ice_0, point_space_ice, ice_cache)
+        # println(parent(atmos_sim.integrator.p.T_sfc)[1])
+        # println(typeof(atmos_sim.integrator.p))
+        # println(fieldnames(typeof(atmos_sim.integrator.p)))
+
+        comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
+        dir_paths = (output=".", artifacts=".", regrid=".")
+
+        start_date = "19790301"
+        date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
+        dates = (;
+            date=[date],
+            date0=[date],
+            date1=[Dates.firstdayofmonth(date)],
+            new_month=[false],
+        )
+
+
+        coupler_field_names = (
+            :T_atm_sfc,
+            :T_oce_sfc,
+            :T_ice,
+        )
+        coupler_fields = NamedTuple{coupler_field_names}(
+            ntuple(i -> CC.Fields.zeros(boundary_space), length(coupler_field_names)),
+        )
+
+        model_sims = (atmos_sim=atmos_sim, ocean_sim=ocean_sim, ice_sim=ice_sim)
+
+
+        cs = Interfacer.CoupledSimulation{Float64}(
+            comms_ctx,
+            dates,
+            boundary_space,
+            coupler_fields,
+            nothing, # conservation checks
+            stepping.timerange,
+            stepping.Δt_coupler,
+            model_sims,
+            (;), # mode_specifics
+            (;),
+            dir_paths,
+            FluxCalculator.PartitionedStateFluxes(),
+            nothing, # thermo_params
+            nothing, # amip_diags_handler
+        )
+
+        solve_coupler!(cs, true, true, false)
     end
-    if L_OA > 0
-        stable_oce = true
-    else
-        stable_oce = false
-    end
-    C_AO = kappa^2 / ((log(z_0numA / z_ruAO) - psi(z_0numA / L_AO, true, stable_atm, false) + lambda_u * (log(lambda_u * z_0numO / (z_ruAO * mu)) - psi(z_0numO / L_OA, false, stable_oce, false))) * (log(z_0numA / z_rTAO) - psi(z_0numA / L_AO, true, stable_atm, true) + lambda_T * (log(lambda_T * z_0numO / (z_rTAO * mu)) - psi(z_0numO / L_OA, false, stable_oce, true))))
-    C_AI = kappa^2 / (log(z_0numA / z_ruAI) - psi(z_0numA / L_AI, true, stable_atm, false)) * (log(z_0numA / z_rTAI) - psi(z_0numA / L_AI, true, stable_atm, true))
-    C_OI = 5 * 1e-3 # This yields very weird results: kappa^2 / (log(z_0numO / z_ruOI) - psi(z_0numO / L_OI, false, true, false)) * (log(z_0numO / z_rTOI) - psi(z_0numO / L_OI, false, true, true))
-
-    parameters = (
-        h_atm=Float64(200),   # depth [m]
-        h_oce=Float64(50),    # depth [m]
-        n_atm=200,
-        n_oce=50,
-        k_atm=Float64(0.02364),
-        k_oce=Float64(0.01),
-        c_atm=c_atm,  # specific heat [J / kg / K]
-        c_oce=c_oce,   # specific heat [J / kg / K]
-        ρ_atm=ρ_atm,     # density [kg / m3]
-        ρ_oce=ρ_oce,  # density [kg / m3]
-        u_atm=Float64(5),  # [m/s]
-        u_oce=Float64(5),   #[m/s]
-        C_AO=Float64(C_AO),
-        C_AI=Float64(C_AI),
-        C_OI=Float64(C_OI),
-        T_atm_ini=Float64(267),   # initial temperature [K]
-        T_oce_ini=Float64(276),   # initial temperature [K]
-        T_ice_ini=Float64(270),       # temperature [K]
-        a_i=a_i,           # ice area fraction [0-1]
-    )
-
-    context = CC.ClimaComms.context()
-    device = CC.ClimaComms.device(context)
-
-    # initialize models
-    domain_atm = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(0),
-        CC.Geometry.ZPoint{Float64}(parameters.h_atm);
-        boundary_names=(:bottom, :top),
-    )
-    mesh_atm = CC.Meshes.IntervalMesh(domain_atm, nelems=parameters.n_atm)
-    center_space_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_atm)
-
-    domain_oce = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(-parameters.h_oce),
-        CC.Geometry.ZPoint{Float64}(0);
-        boundary_names=(:bottom, :top),
-    )
-    mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems=parameters.n_oce)
-    center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_oce)
-
-    # domain_ice = CC.Domains.IntervalDomain(
-    #     CC.Geometry.ZPoint{Float64}(-0.1),
-    #     CC.Geometry.ZPoint{Float64}(0.1);
-    #     boundary_names=(:bottom, :top),
-    # )
-    # mesh_ice = CC.Meshes.IntervalMesh(domain_ice, nelems=1)
-    coord = CC.Geometry.ZPoint{Float64}(0.0)
-    point_space_ice = CC.Spaces.PointSpace(context, coord)
-
-    atmos_facespace = CC.Spaces.FaceFiniteDifferenceSpace(center_space_atm)
-    boundary_space = CC.Spaces.level(
-        atmos_facespace,
-        CC.Utilities.PlusHalf(CC.Spaces.nlevels(atmos_facespace) - 1),
-    )
-
-    stepping = (;
-        Δt_min=Float64(10.0),
-        timerange=(Float64(0.0), Float64(1000)),
-        Δt_coupler=Float64(1000.0),
-        odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
-        nsteps_atm=50,
-        nsteps_oce=1,
-        nsteps_ice=1,
-    )
-
-    T_atm_0 = CC.Fields.FieldVector(
-        atm=CC.Fields.ones(Float64, center_space_atm) .* parameters.T_atm_ini,
-    )
-    T_oce_0 = CC.Fields.FieldVector(
-        oce=CC.Fields.ones(Float64, center_space_oce) .* parameters.T_oce_ini,
-    )
-    T_ice_0 = CC.Fields.FieldVector(
-        ice=CC.Fields.ones(Float64, point_space_ice) .* parameters.T_ice_ini,
-    )
-
-    time_points_oce_domain = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(stepping.timerange[1] - (stepping.Δt_min / 2)),
-        CC.Geometry.ZPoint{Float64}(stepping.timerange[2] - (stepping.Δt_min / 2));
-        boundary_names=(:start, :end),
-    )
-    time_points_atm_domain = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(stepping.timerange[1] - (stepping.Δt_min / 2)),
-        CC.Geometry.ZPoint{Float64}(stepping.timerange[2] - (stepping.Δt_min / 2));
-        boundary_names=(:start, :end),
-    )
-
-    mesh_time_oce = CC.Meshes.IntervalMesh(time_points_oce_domain, nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1))
-    mesh_time_atm = CC.Meshes.IntervalMesh(time_points_atm_domain, nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1))
-    space_time_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_oce)
-    space_time_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_atm)
-
-    atmos_cache = (; parameters..., T_sfc=parameters.T_oce_ini .* CC.Fields.ones(space_time_oce), T_ice=T_ice_0)
-    atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, atmos_cache)
-    ocean_cache = (; parameters..., T_air=parameters.T_atm_ini .* CC.Fields.ones(space_time_atm), T_ice=T_ice_0)
-    ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
-    ice_cache = (; parameters...)
-    ice_sim = ice_init(stepping, T_ice_0, point_space_ice, ice_cache)
-    # println(parent(atmos_sim.integrator.p.T_sfc)[1])
-    # println(typeof(atmos_sim.integrator.p))
-    # println(fieldnames(typeof(atmos_sim.integrator.p)))
-
-    comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
-    dir_paths = (output=".", artifacts=".", regrid=".")
-
-    start_date = "19790301"
-    date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
-    dates = (;
-        date=[date],
-        date0=[date],
-        date1=[Dates.firstdayofmonth(date)],
-        new_month=[false],
-    )
-
-
-    coupler_field_names = (
-        :T_atm_sfc,
-        :T_oce_sfc,
-        :T_ice,
-    )
-    coupler_fields = NamedTuple{coupler_field_names}(
-        ntuple(i -> CC.Fields.zeros(boundary_space), length(coupler_field_names)),
-    )
-
-    model_sims = (atmos_sim=atmos_sim, ocean_sim=ocean_sim, ice_sim=ice_sim)
-
-
-    cs = Interfacer.CoupledSimulation{Float64}(
-        comms_ctx,
-        dates,
-        boundary_space,
-        coupler_fields,
-        nothing, # conservation checks
-        stepping.timerange,
-        stepping.Δt_coupler,
-        model_sims,
-        (;), # mode_specifics
-        (;),
-        dir_paths,
-        FluxCalculator.PartitionedStateFluxes(),
-        nothing, # thermo_params
-        nothing, # amip_diags_handler
-    )
-
-    solve_coupler!(cs, 1e-10, false, true, false)
 
 end;
 

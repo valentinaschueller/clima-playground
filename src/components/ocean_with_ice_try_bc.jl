@@ -16,7 +16,8 @@ Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 function heat_oce_rhs!(dT, T, cache, t)
     index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_air)) .- t))
     # index = findlast(x -> x <= t, parent(CC.Fields.coordinate_field(cache.T_air)))
-    F_sfc = (cache.a_i * cache.C_OI * cache.ρ_oce * cache.c_oce * cache.u_oce * (parent(cache.T_ice)[1] - T[end]) + (1 - cache.a_i) * cache.C_AO * cache.ρ_atm * cache.c_atm * cache.u_atm * (parent(cache.T_air)[index] - T[end]))# divide by k^O?
+    # println(parent(cache.T_air)[index])
+    F_sfc = (cache.a_i * cache.C_OI * cache.ρ_oce * cache.c_oce * abs(cache.u_oce) * (parent(cache.T_ice)[1] - T[end]) + (1 - cache.a_i) * cache.C_AO * cache.ρ_atm * cache.c_atm * abs(cache.u_atm - cache.u_oce) * (parent(cache.T_air)[index] - T[end]))# divide by k^O?
     ## set boundary conditions
     C3 = CC.Geometry.WVector
     # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)
@@ -59,6 +60,7 @@ function update_field!(sim::HeatEquationOcean, field_1, field_2)
 
         # Now you can work with the 'oce_field' (it's a Field), e.g., assign to the sim.integrator.p.T_sfc
         parent(sim.integrator.p.T_air)[i] = parent(atm_field)[1]  # Assuming T_sfc is a Vector or similar
+        # println(parent(atm_field)[1])
     end
     parent(sim.integrator.p.T_ice)[1] = field_2
 end
