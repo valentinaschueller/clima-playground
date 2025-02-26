@@ -14,7 +14,7 @@ end
 Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
 function heat_atm_rhs!(dT, T, cache, t)
-    F_sfc = (cache.a_i * cache.C_AI * cache.ρ_atm * cache.c_atm * abs(cache.u_atm) * (T[1] - parent(cache.T_ice)[1]) + (1 - cache.a_i) * cache.C_AO * cache.ρ_atm * cache.c_atm * abs(cache.u_atm - cache.u_oce) * (T[1] - parent(cache.T_sfc)[1]))# I say we should divide by k^A here?
+    F_sfc = (cache.a_i * cache.C_AI * cache.ρ_atm * cache.c_atm * abs(cache.u_atm) * (T[1] - parent(cache.T_ice)[1]) + (1 - cache.a_i) * cache.C_AO * cache.ρ_atm * cache.c_atm * abs(cache.u_atm - cache.u_oce) * (T[1] - parent(cache.T_sfc)[1]))
     # set boundary conditions
     C3 = CC.Geometry.WVector
     # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)
@@ -23,7 +23,7 @@ function heat_atm_rhs!(dT, T, cache, t)
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
     ᶠgradᵥ = CC.Operators.GradientC2F()
-    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top) # Do we not miss k^A here for the bcs?
+    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
     @. dT.atm =
         ᶜdivᵥ(cache.k_atm * ᶠgradᵥ(T.atm)) /
