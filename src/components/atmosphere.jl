@@ -14,10 +14,12 @@ end
 Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
 function heat_atm_rhs!(dT, T, cache, t)
-    # println(parent(CC.Fields.coordinate_field(cache.T_sfc)))
-    index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_sfc)) .- t))
-    # index = findlast(x -> x <= t, parent(CC.Fields.coordinate_field(cache.T_sfc)))
-    F_sfc = (cache.a_i * cache.C_AI * cache.ρ_atm * cache.c_atm * abs(cache.u_atm) * (T[1] - parent(cache.T_ice)[1]) + (1 - cache.a_i) * cache.C_AO * cache.ρ_atm * cache.c_atm * abs(cache.u_atm - cache.u_oce) * (T[1] - parent(cache.T_sfc)[index]))# I say we should divide by k^A here?
+    if cache.boundary_mapping == "mean"
+        F_sfc = (cache.a_i * cache.C_AI * cache.rho_atm * cache.c_atm * abs(cache.u_atm) * (T[1] - parent(cache.T_ice)[1]) + (1 - cache.a_i) * cache.C_AO * cache.rho_atm * cache.c_atm * abs(cache.u_atm - cache.u_oce) * (T[1] - parent(cache.T_sfc)[1]))
+    else
+        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_sfc)) .- t))
+        F_sfc = (cache.a_i * cache.C_AI * cache.rho_atm * cache.c_atm * abs(cache.u_atm) * (T[1] - parent(cache.T_ice)[1]) + (1 - cache.a_i) * cache.C_AO * cache.rho_atm * cache.c_atm * abs(cache.u_atm - cache.u_oce) * (T[1] - parent(cache.T_sfc)[index]))# I say we should divide by k^A here?
+    end
     # set boundary conditions
     C3 = CC.Geometry.WVector
     # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)
@@ -26,11 +28,11 @@ function heat_atm_rhs!(dT, T, cache, t)
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
     ᶠgradᵥ = CC.Operators.GradientC2F()
-    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top) # Do we not miss k^A here for the bcs?
+    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
     @. dT.atm =
         ᶜdivᵥ(cache.k_atm * ᶠgradᵥ(T.atm)) /
-        (cache.ρ_atm * cache.c_atm)
+        (cache.rho_atm * cache.c_atm)
 end
 
 function atmos_init(stepping, ics, space, cache)
@@ -57,14 +59,13 @@ Interfacer.reinit!(sim::HeatEquationAtmos) = Interfacer.reinit!(sim.integrator)
 
 get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc}) = sim.integrator.u[1]
 function update_field!(sim::HeatEquationAtmos, field_1, field_2)
-    for (i, field_vec) in enumerate(field_1)
-        # Extract 'oce' from the NamedTuple inside each FieldVector
-        oce_field = field_vec.oce
-
-        # Now you can work with the 'oce_field' (it's a Field), e.g., assign to the sim.integrator.p.T_sfc
-        parent(sim.integrator.p.T_sfc)[i] = parent(oce_field)[end]  # Assuming T_sfc is a Vector or similar
+    if sim.params.boundary_mapping == "mean"
+        parent(sim.integrator.p.T_sfc)[1] = field_1
+        parent(sim.integrator.p.T_ice)[1] = field_2
+    else
+        parent(sim.integrator.p.T_sfc) .= field_1
+        parent(sim.integrator.p.T_ice)[1] = field_2
     end
-    parent(sim.integrator.p.T_ice)[1] = field_2
 end
 
 
