@@ -20,16 +20,6 @@ function reset_time!(cs::Interfacer.CoupledSimulation, t)
     end
 end
 
-function restart_sims!(cs::Interfacer.CoupledSimulation)
-    @info "Reading checkpoint!"
-    for sim in cs.model_sims
-        if Checkpointer.get_model_prog_state(sim) !== nothing
-            t = Dates.datetime2epochms(cs.dates.date[1])
-            t0 = Dates.datetime2epochms(cs.dates.date0[1])
-            Checkpointer.restart_model_state!(sim, cs.comms_ctx, Int((t - t0) / 1e3), input_dir=cs.dirs.artifacts)
-        end
-    end
-end
 
 
 function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
@@ -46,7 +36,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
             @info("Current iter: $(iter)")
 
             if iter == 1
-                Checkpointer.checkpoint_sims(cs, nothing)
+                Checkpointer.checkpoint_sims(cs)
             end
 
             FieldExchanger.step_model_sims!(cs.model_sims, t)
@@ -55,7 +45,8 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
 
             iter += 1
             if iter <= max_iters
-                restart_sims!(cs)
+                restart_t = Checkpointer.t_start_from_checkpoint(cs.dirs.checkpoints)
+                Checkpointer.restart!(cs, cs.dirs.checkpoints, restart_t)
                 reset_time!(cs, t - Δt_cpl)
             end
 
@@ -146,7 +137,7 @@ function coupled_heat_equations()
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
-    dir_paths = (output=".", artifacts=".", regrid=".")
+    dir_paths = Utilities.setup_output_dirs(output_dir="output", comms_ctx=comms_ctx)
 
     start_date = "19790301"
     date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
@@ -177,7 +168,6 @@ function coupled_heat_equations()
         stepping.timerange,
         stepping.Δt_coupler,
         model_sims,
-        (;), # mode_specifics
         (;), # callbacks
         dir_paths,
         FluxCalculator.PartitionedStateFluxes(),

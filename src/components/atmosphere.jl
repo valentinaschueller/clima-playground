@@ -37,7 +37,7 @@ function atmos_init(stepping, ics, space, cache)
         problem,
         stepping.odesolver,
         dt=Δt,
-        saveat=Float64(stepping.Δt_coupler),
+        saveat=stepping.timerange[1]:stepping.Δt_coupler:stepping.timerange[end],
         adaptive=false,
     )
 
