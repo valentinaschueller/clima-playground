@@ -45,8 +45,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation, max_iters)
 
             iter += 1
             if iter <= max_iters
-                restart_t = Checkpointer.t_start_from_checkpoint(cs.dirs.checkpoints)
-                Checkpointer.restart!(cs, cs.dirs.checkpoints, restart_t)
+                Checkpointer.restart!(cs, cs.dirs.checkpoints, Int(t - Δt_cpl))
                 reset_time!(cs, t - Δt_cpl)
             end
 
@@ -137,7 +136,7 @@ function coupled_heat_equations()
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
-    dir_paths = Utilities.setup_output_dirs(output_dir="output", comms_ctx=comms_ctx)
+    dir_paths = Utilities.setup_output_dirs(output_dir="output", artifacts_dir="output", comms_ctx=comms_ctx)
 
     start_date = "19790301"
     date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")

@@ -27,3 +27,6 @@ Manifest.toml
 ClimaCoupler
 ClimaCore
 *.hdf5
+*.jld2
+
+output/
