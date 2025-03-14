@@ -10,7 +10,7 @@ import ClimaCoupler:
     Interfacer,
     TimeManager,
     Utilities
-    
+
 function get_coupled_sim(physical_values; boundary_mapping="mean")
     physical_keys = [
         :h_atm, :h_oce, :n_atm, :n_oce, :k_atm, :k_oce, :c_atm, :c_oce,
@@ -109,7 +109,7 @@ function get_coupled_sim(physical_values; boundary_mapping="mean")
     ice_sim = ice_init(stepping, T_ice_0, point_space_ice, ice_cache)
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
-    dir_paths = (output=".", artifacts=".", regrid=".")
+    dir_paths = Utilities.setup_output_dirs(output_dir="output", artifacts_dir="output", comms_ctx=comms_ctx)
 
     start_date = "19790301"
     date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
@@ -142,8 +142,7 @@ function get_coupled_sim(physical_values; boundary_mapping="mean")
         stepping.timerange,
         stepping.Δt_coupler,
         model_sims,
-        (;), # mode_specifics
-        (;),
+        (;), # callbacks
         dir_paths,
         FluxCalculator.PartitionedStateFluxes(),
         nothing, # thermo_params

@@ -25,8 +25,8 @@ function rename_file(cs::Interfacer.CoupledSimulation, iter, time, reverse=false
 
     for sim in cs.model_sims
         if !(Interfacer.name(sim) == "ConstantIce")
-            original_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(sim) * "_$time.hdf5")
-            new_file = joinpath(cs.dirs.artifacts, "checkpoint", "checkpoint_" * Interfacer.name(sim) * "_$iter" * "_$time.hdf5")
+            original_file = joinpath(cs.dirs.artifacts, "checkpoints", "checkpoint_" * Interfacer.name(sim) * "_$time.hdf5")
+            new_file = joinpath(cs.dirs.artifacts, "checkpoints", "checkpoint_" * Interfacer.name(sim) * "_$iter" * "_$time.hdf5")
             if !reverse
                 mv(original_file, new_file, force=true)
             else
