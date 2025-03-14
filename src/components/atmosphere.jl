@@ -37,6 +37,7 @@ end
 
 function atmos_init(stepping, ics, space, cache)
     Δt = Float64(stepping.Δt_min) / stepping.nsteps_atm
+    saveat = stepping.timerange[1]:stepping.Δt_min:stepping.timerange[end]
 
     ode_function = CTS.ClimaODEFunction((T_exp!)=heat_atm_rhs!)
     problem = SciMLBase.ODEProblem(ode_function, ics, stepping.timerange, cache)
@@ -44,7 +45,7 @@ function atmos_init(stepping, ics, space, cache)
         problem,
         stepping.odesolver,
         dt=Δt,
-        saveat=Float64(stepping.Δt_min), # Change here?
+        saveat=saveat,
         adaptive=false,
     )
 

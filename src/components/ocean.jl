@@ -38,7 +38,7 @@ end
 
 function ocean_init(stepping, ics, space, cache)
     Δt = Float64(stepping.Δt_min) / stepping.nsteps_oce
-    saveat = Float64(stepping.Δt_min)
+    saveat = stepping.timerange[1]:stepping.Δt_min:stepping.timerange[end]
 
     ode_function = CTS.ClimaODEFunction((T_exp!)=heat_oce_rhs!)
 

@@ -17,6 +17,7 @@ end
 
 function ice_init(stepping, ics, space, cache)
     Δt = Float64(stepping.Δt_min) / stepping.nsteps_ice
+    saveat = stepping.timerange[1]:stepping.Δt_min:stepping.timerange[end]
 
     ode_function = CTS.ClimaODEFunction((T_exp!)=heat_ice_rhs!)
     problem = SciMLBase.ODEProblem(ode_function, ics, stepping.timerange, cache)
@@ -24,7 +25,7 @@ function ice_init(stepping, ics, space, cache)
         problem,
         stepping.odesolver,
         dt=Δt,
-        saveat=Float64(stepping.Δt_min),
+        saveat=saveat,
         adaptive=false,
     )
     sim = ConstantIce(cache, ics, space, integrator)
