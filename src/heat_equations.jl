@@ -19,7 +19,7 @@ import ClimaCoupler:
     TimeManager,
     Utilities
 
-function rename_file(cs::Interfacer.CoupledSimulation, iter, time, reverse=false)
+function rename_files(cs::Interfacer.CoupledSimulation, iter, time, reverse=false)
     """When a file is saved, its always called the same thing.
     Had to rename it for each iteration to not overwrite"""
 
@@ -33,6 +33,14 @@ function rename_file(cs::Interfacer.CoupledSimulation, iter, time, reverse=false
                 mv(new_file, original_file, force=true)
             end
         end
+    end
+    pid = ClimaComms.mypid(cs.comms_ctx)
+    original_file = joinpath(cs.dirs.artifacts, "checkpoints", "checkpoint_coupler_fields_$(pid)_$time.jld2")
+    new_file = joinpath(cs.dirs.artifacts, "checkpoints", "checkpoint_coupler_fields_$(pid)" * "_$iter" * "_$time.jld2")
+    if !reverse
+        mv(original_file, new_file, force=true)
+    else
+        mv(new_file, original_file, force=true)
     end
 end
 
@@ -48,13 +56,9 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
     t = Dates.datetime2epochms(cs.dates.date[1])
     t0 = Dates.datetime2epochms(cs.dates.date0[1])
     time = Int((t - t0) / 1e3)
-    for sim in cs.model_sims
-        if Checkpointer.get_model_prog_state(sim) !== nothing
-            rename_file(cs, 0, time, true)
-            Checkpointer.restart_model_state!(sim, cs.comms_ctx, time, input_dir=cs.dirs.artifacts)
-            rename_file(cs, 0, time)
-        end
-    end
+    rename_files(cs, 0, time, true)
+    Checkpointer.restart!(cs, cs.dirs.checkpoints, time)
+    rename_files(cs, 0, time)
 end
 
 function solve_coupler!(cs::Interfacer.CoupledSimulation; iterate=10, parallel=false, print_conv=false, plot_conv=false, return_conv=false, analytic_conv_fac_value=nothing, combine=false, atm=true, oce=true, legend=:topright)
@@ -94,7 +98,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation; iterate=10, parallel=f
 
         # Checkpoint to save initial values at this coupling step
         Checkpointer.checkpoint_sims(cs)
-        rename_file(cs, 0, time)
+        rename_files(cs, 0, time)
 
         iter = 1
         atmos_vals_list = []
@@ -164,7 +168,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation; iterate=10, parallel=f
 
                 # Checkpoint to save progress
                 Checkpointer.checkpoint_sims(cs)
-                rename_file(cs, iter, time)
+                rename_files(cs, iter, time)
 
                 # Stop at iterate iterations
                 if iter == iterate
@@ -212,7 +216,7 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation; iterate=10, parallel=f
 
                 # Checkpoint to save progress
                 Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
-                rename_file(cs, iter, time)
+                rename_files(cs, iter, time)
 
                 # Updating the simulations based on the other simulation boundary value.
                 # OBS: Only checking the atmosphere mapping here, but the mappings should be the same.
