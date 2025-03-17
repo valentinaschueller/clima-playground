@@ -124,7 +124,9 @@ function get_coupled_sim(physical_values; boundary_mapping="mean")
     ice_sim = ice_init(stepping, T_ice_0, point_space_ice, ice_cache)
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
-    dir_paths = (output=".", artifacts=".", regrid=".")
+    output_dir = "output"
+    mkpath(output_dir)
+    dir_paths = (output=output_dir, artifacts=output_dir, regrid=output_dir, checkpoints=output_dir)
 
     start_date = "19790301"
     date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
@@ -157,8 +159,7 @@ function get_coupled_sim(physical_values; boundary_mapping="mean")
         stepping.timerange,
         stepping.Δt_coupler,
         model_sims,
-        (;), # mode_specifics
-        (;),
+        (;), # callbacks
         dir_paths,
         FluxCalculator.PartitionedStateFluxes(),
         nothing, # thermo_params
