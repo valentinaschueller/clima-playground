@@ -136,7 +136,9 @@ function coupled_heat_equations()
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
-    dir_paths = Utilities.setup_output_dirs(output_dir="output", artifacts_dir="output", comms_ctx=comms_ctx)
+    output_dir = "output"
+    mkpath(output_dir)
+    dir_paths = (output=output_dir, artifacts=output_dir, regrid=output_dir, checkpoints=output_dir)
 
     start_date = "19790301"
     date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
