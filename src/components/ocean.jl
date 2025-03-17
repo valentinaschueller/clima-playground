@@ -41,7 +41,7 @@ function ocean_init(stepping, ics, space, cache)
         problem,
         stepping.odesolver,
         dt=Δt,
-        saveat=saveat,
+        saveat=stepping.timerange[1]:stepping.Δt_coupler:stepping.timerange[end],
         adaptive=false,
     )
 
