@@ -25,8 +25,8 @@ function rename_files(cs::Interfacer.CoupledSimulation, iter, time, reverse=fals
 
     for sim in cs.model_sims
         if !(Interfacer.name(sim) == "ConstantIce")
-            original_file = joinpath(cs.dirs.artifacts, "checkpoints", "checkpoint_" * Interfacer.name(sim) * "_$time.hdf5")
-            new_file = joinpath(cs.dirs.artifacts, "checkpoints", "checkpoint_" * Interfacer.name(sim) * "_$iter" * "_$time.hdf5")
+            original_file = joinpath(cs.dirs.checkpoints, "checkpoint_" * Interfacer.name(sim) * "_$time.hdf5")
+            new_file = joinpath(cs.dirs.checkpoints, "checkpoint_" * Interfacer.name(sim) * "_$iter" * "_$time.hdf5")
             if !reverse
                 mv(original_file, new_file, force=true)
             else
@@ -35,8 +35,8 @@ function rename_files(cs::Interfacer.CoupledSimulation, iter, time, reverse=fals
         end
     end
     pid = ClimaComms.mypid(cs.comms_ctx)
-    original_file = joinpath(cs.dirs.artifacts, "checkpoints", "checkpoint_coupler_fields_$(pid)_$time.jld2")
-    new_file = joinpath(cs.dirs.artifacts, "checkpoints", "checkpoint_coupler_fields_$(pid)" * "_$iter" * "_$time.jld2")
+    original_file = joinpath(cs.dirs.checkpoints, "checkpoint_coupler_fields_$(pid)_$time.jld2")
+    new_file = joinpath(cs.dirs.checkpoints, "checkpoint_coupler_fields_$(pid)" * "_$iter" * "_$time.jld2")
     if !reverse
         mv(original_file, new_file, force=true)
     else
