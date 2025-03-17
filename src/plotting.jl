@@ -29,13 +29,13 @@ function plot_data(conv_facs_oce, conv_facs_atm, param_numeric, param_name; conv
     end
     if !isnothing(conv_facs_analytic)
         # Plot analytic data and a legend
-        plot!(param_analytic, conv_facs_analytic, label="analytical" * label, color=color, xscale=xscale, linestyle=linestyle, linewidth=2, legend=legend, xticks=xticks, ylim=ylim)
+        plot!(param_analytic, conv_facs_analytic, label="analytical" * label, color=color, xscale=xscale, linestyle=linestyle, linewidth=2, legend=legend, xticks=xticks, ylim=ylim, legend_background_color=RGBA(1,1,1,0.5))
     end
     if oce
-        plot!(param_numeric, conv_facs_oce, label="numerical (oce)" * label, color=color, xscale=xscale, linestyle=linestyle, markershape=:circle, linewidth=2, legend=legend, ylim=ylim)
+        plot!(param_numeric, conv_facs_oce, label="numerical (oce)" * label, color=color, xscale=xscale, linestyle=linestyle, markershape=:circle, linewidth=2, legend=legend, ylim=ylim, legend_background_color=RGBA(1,1,1,0.5))
     end
     if atm
-        plot!(param_numeric, conv_facs_atm, label="numerical (atm)" * label, color=color, xscale=xscale, linestyle=linestyle, markershape=:x, linewidth=2, legend=legend, ylim=ylim)
+        plot!(param_numeric, conv_facs_atm, label="numerical (atm)" * label, color=color, xscale=xscale, linestyle=linestyle, markershape=:x, linewidth=2, legend=legend, ylim=ylim, legend_background_color=RGBA(1,1,1,0.5))
     end
     xlabel!(param_name)
     ylabel!(ylabel)
@@ -65,7 +65,7 @@ function plot_wrt_a_i_and_one_param(conv_facs_oce, conv_facs_atm, a_is, param_nu
         conv_facs_analytic = analytic ? log.(conv_facs_analytic) : nothing
     end
 
-    lowerbound, upperbound = get_bounds(conv_facs_analytic, conv_facs_oce, conv_facs_atm)
+    lowerbound, upperbound = get_bounds(conv_facs_analytic, conv_facs_oce, conv_facs_atm, log_conv_fac)
 
     for (i, ai) in enumerate(a_is)
         conv_facs_oce_i = conv_facs_oce[i, :]
@@ -81,7 +81,7 @@ function plot_wrt_a_i_and_one_param(conv_facs_oce, conv_facs_atm, a_is, param_nu
         y_text_oce = [lowerbound + ((i - text_scaling[1]) * (upperbound - lowerbound) / text_scaling[2]) for _ in x_text_oce]
         y_text_atm = [lowerbound + ((i - text_scaling[1]) * (upperbound - lowerbound) / text_scaling[2]) for _ in setdiff(x_text_atm, x_text_oce)]
 
-        plot_data(conv_facs_oce_i, conv_facs_atm_i, param_numeric_i, param_name, conv_facs_analytic=conv_facs_analytic_i, param_analytic=param_analytic, xscale=xscale, label=(param_name !== L"$a^I$") ? ", aᴵ = " * "$ai" : "", color=colors[i], linestyle=linestyles[i], xticks=xticks, legend=legend, atm=atm, oce=oce)
+        plot_data(conv_facs_oce_i, conv_facs_atm_i, param_numeric_i, param_name, conv_facs_analytic=conv_facs_analytic_i, param_analytic=param_analytic, xscale=xscale, log_conv_fac=log_conv_fac, label=(param_name !== L"$a^I$") ? ", aᴵ = " * "$ai" : "", color=colors[i], linestyle=linestyles[i], xticks=xticks, legend=legend, atm=atm, oce=oce)
         for (k, txt) in enumerate(y_text_oce)
             annotate!(x_text_oce[k], txt, text("oce \u26A1", 12, colors[i], :left, rotation=90))
         end
@@ -92,23 +92,11 @@ function plot_wrt_a_i_and_one_param(conv_facs_oce, conv_facs_atm, a_is, param_nu
     display(current())
 end
 
-function get_bounds(conv_facs_analytic, finite_oce_vals, finite_atm_vals)
-    if !isnothing(conv_facs_analytic)
-        lowerbound = 0
-        upperbound = maximum(conv_facs_analytic)
-    elseif !isempty(finite_oce_vals) && !isempty(finite_atm_vals)
-        lowerbound = 0
-        upperbound = maximum([maximum(finite_oce_vals), maximum(finite_atm_vals)])
-    elseif !isempty(finite_oce_vals)
-        lowerbound = 0
-        upperbound = maximum(finite_oce_vals)
-    elseif !isempty(finite_atm_vals)
-        lowerbound = 0
-        upperbound = maximum(finite_atm_vals)
-    else
-        lowerbound = 0
-        upperbound = 1
-    end
+function get_bounds(conv_facs_analytic, finite_oce_vals, finite_atm_vals, log_conv_fac)
+    matrices=filter(!isnothing, [conv_facs_analytic, finite_oce_vals, finite_atm_vals])
+    filtered_matrices = [filter(!isnan, matrix) for matrix in matrices]
+    upperbound= !isempty(filtered_matrices) ? maximum(maximum.(filtered_matrices)) : 20
+    lowerbound= !isempty(filtered_matrices) ? minimum(minimum.(filtered_matrices)) : -20
     return lowerbound, upperbound
 end
 
@@ -145,7 +133,6 @@ function plot_delta_z_delta_t(unstable_matrix, theoretical_vals_matrix, delta_zs
     end
 
     not_nan_indices = .!isnan.(t_values)
-    println(t_values)
     if not_nan_indices[end]
         last_t = t_values[end]
         index_for_last_t = findall(x -> x == last_t, delta_ts)[1]
@@ -158,24 +145,28 @@ function plot_delta_z_delta_t(unstable_matrix, theoretical_vals_matrix, delta_zs
     end
     plot!(t_values, delta_zs_new, linewidth=2,
         xscale=xscale, yscale=yscale, xticks=xticks, yticks=yticks, xlabel=delta_t_name,
-        ylabel=delta_z_name, label="Divergent regime, aᴵ=$a_i", color=color, fillrange=1e-1,
+        ylabel=delta_z_name, label="Unstable regime, aᴵ=$a_i", color=color, fillrange=minimum(delta_zs),
         fillalpha=0.3, xlim=(xticks[1], xticks[end]), ylim=(yticks[1], yticks[end]), legend=legend
     )
 
     scatter!(t_values, delta_zs_new, markershape=:circle, label="", color=color)
+    if delta_z_name == L"$\Delta z^A$"
+        t1 = 2:1:7
+        t2 = 20:10:70
+        plot!(t1, (t1 .^ (1 / 2)) .* 10^-2.5, color=:black, label="", xscale=xscale, yscale=yscale)
+        plot!(t2, t2 ./ 1000, color=:black, label="", xscale=xscale, yscale=yscale)
+    else
+        t2 = 10 .^ LinRange(log10(5), log10(20), 50)
+        plot!(t2, t2 .* 10 .^ -2.7, color=:black, label="", xscale=xscale, yscale=yscale)
+    end
 
-    θ = 45  # Angle in degrees
-    slope = tan(θ * π / 180)
-    y = slope * delta_ts
-    index1 = round(Int, length(delta_ts) / 5)
-    index2 = round(Int, 2 * length(delta_ts) / 5)
-    index3 = round(Int, index1 + (index2 - index1) / 2)
-    plot!(delta_ts[index1:index2], y[index1:index2], color=:black, label="")
+
     not_nan_indices_theoretical = .!isnan.(t_values_theoretical)
-    plot!(t_values_theoretical[not_nan_indices_theoretical], delta_zs[not_nan_indices_theoretical], linewidth=2,
-        xscale=xscale, yscale=yscale, xticks=xticks, yticks=yticks, xlabel=delta_t_name,
-        ylabel=delta_z_name, label="Theoretical limit, aᴵ=$a_i", color=color
-    )
-    annotate!(delta_ts[index3], y[index3+1], Plots.text(L"slope = 1", 10, :black, rotation=θ - 11))
+    if delta_z_name == L"$\Delta z^A$"
+        annotate!(4, (5 .^ (1 / 2)) .* 10^(-2.5), Plots.text(L"slope = 1/2", 10, :black, rotation=18))
+        annotate!(40, 50 ./ 1000, Plots.text(L"slope = 1", 10, :black, rotation=34))
+    else
+        annotate!(t2[25], t2[25] .* 10^-2.6, Plots.text(L"slope = 1", 10, :black, rotation=34))
+    end
 
 end
