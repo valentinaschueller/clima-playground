@@ -105,12 +105,11 @@ function stability_check(physical_values, n_zs, n_ts, var1_name, var2_name)
 
             cs = get_coupled_sim(physical_values)
 
-            starting_temp_oce = cs.model_sims.atmos_sim.params.T_atm_ini
-            starting_temp_atm = cs.model_sims.ocean_sim.params.T_oce_ini
-            starting_temp_ice = cs.model_sims.atmos_sim.params.T_ice_ini
-            upper_limit_temp = maximum([starting_temp_oce, starting_temp_atm, starting_temp_ice])
-            lower_limit_temp = minimum([starting_temp_oce, starting_temp_atm, starting_temp_ice])
-
+            starting_temp_atm = parent(cs.model_sims.atmos_sim.Y_init)
+            starting_temp_oce = parent(cs.model_sims.ocean_sim.Y_init)
+            starting_temp_ice = parent(cs.model_sims.ice_sim.Y_init)
+            upper_limit_temp = maximum([maximum(starting_temp_oce), maximum(starting_temp_atm), maximum(starting_temp_ice)])
+            lower_limit_temp = minimum([minimum(starting_temp_oce), minimum(starting_temp_atm), minimum(starting_temp_ice)])
             delta_t = physical_values[:delta_t_min] ./ n_t
 
             if domain == "atm"
@@ -118,19 +117,18 @@ function stability_check(physical_values, n_zs, n_ts, var1_name, var2_name)
                 states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
 
                 delta_z = (physical_values[:h_atm] - physical_values[:z_0numA]) ./ n_z
-                theoretical_vals_matrix[i, j] = (2 * physical_values[:k_oce] * delta_t / (physical_values[:c_oce] * physical_values[:rho_oce] * delta_z^2),
-                    2 * (1 - physical_values[:a_i]) * physical_values[:C_AO] * abs(physical_values[:u_atm] - physical_values[:u_oce]) * delta_t ./ delta_z,
-                    2 * physical_values[:a_i] * physical_values[:C_AI] * abs(physical_values[:u_atm]) * delta_t ./ delta_z
+                theoretical_vals_matrix[i, j] = (2 * physical_values[:k_atm] * delta_t / (physical_values[:c_atm] * physical_values[:rho_atm] * delta_z^2),
+                    (1 - physical_values[:a_i]) * physical_values[:C_AO] * abs(physical_values[:u_atm] - physical_values[:u_oce]) * delta_t ./ delta_z,
+                    physical_values[:a_i] * physical_values[:C_AI] * abs(physical_values[:u_atm]) * delta_t ./ delta_z
                 )
             elseif domain == "oce"
                 Interfacer.step!(cs.model_sims.ocean_sim, physical_values[:delta_t_cpl])
                 states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
 
-                # TODO: This is not correct
                 delta_z = (physical_values[:h_oce] - physical_values[:z_0numO]) ./ n_z
                 theoretical_vals_matrix[i, j] = (2 * physical_values[:k_oce] * delta_t / (physical_values[:c_oce] * physical_values[:rho_oce] * delta_z^2),
-                    2 * (1 - physical_values[:a_i]) * physical_values[:C_AO] * abs(physical_values[:u_atm] - physical_values[:u_oce]) * delta_t ./ delta_z,
-                    2 * physical_values[:a_i] * physical_values[:C_AI] * abs(physical_values[:u_atm]) * delta_t ./ delta_z
+                    (1 - physical_values[:a_i]) * physical_values[:C_AO] * abs(physical_values[:u_atm] - physical_values[:u_oce]) * delta_t ./ delta_z,
+                    physical_values[:a_i] * physical_values[:C_OI] * abs(physical_values[:u_oce]) * delta_t ./ delta_z
                 )
             end
 
