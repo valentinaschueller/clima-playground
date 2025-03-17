@@ -57,7 +57,7 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
     end
 end
 
-function solve_coupler!(cs::Interfacer.CoupledSimulation; iterate=10, parallel=false, print_conv=false, plot_conv=false, return_conv=false, analytic_conv_fac_value=nothing, combine=false, atm=true, oce=true, legend=:topright)
+function solve_coupler!(cs::Interfacer.CoupledSimulation; iterate=10, parallel=false, print_conv=false, plot_conv=false, return_conv=false, analytic_conv_fac_value=nothing, combine=false, atm=true, oce=true, legend=:right)
     (; Δt_cpl, tspan) = cs
     """
     Runs the coupled CoupledSimulation
@@ -82,11 +82,11 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation; iterate=10, parallel=f
     @info("Starting coupling loop")
 
     # Extract the initial values to be able to stop the simulation if the model goes unstable
-    starting_temp_oce = cs.model_sims.atmos_sim.params.T_atm_ini
-    starting_temp_atm = cs.model_sims.ocean_sim.params.T_oce_ini
-    starting_temp_ice = cs.model_sims.atmos_sim.params.T_ice_ini
-    upper_limit_temp = maximum([starting_temp_oce, starting_temp_atm, starting_temp_ice])
-    lower_limit_temp = minimum([starting_temp_oce, starting_temp_atm, starting_temp_ice])
+    starting_temp_atm = parent(cs.model_sims.atmos_sim.Y_init)
+    starting_temp_oce = parent(cs.model_sims.ocean_sim.Y_init)
+    starting_temp_ice = parent(cs.model_sims.ice_sim.Y_init)
+    upper_limit_temp = maximum([maximum(starting_temp_oce), maximum(starting_temp_atm), maximum(starting_temp_ice)])
+    lower_limit_temp = minimum([minimum(starting_temp_oce), minimum(starting_temp_atm), minimum(starting_temp_ice)])
 
     for t in ((tspan[begin]+Δt_cpl):Δt_cpl:tspan[end])
         time = Int(t - Δt_cpl)
@@ -371,7 +371,7 @@ end
 # argument. Fix the unstable plot, should be easier now when instability is defined for ocean and atmosphere separately.
 # Use is_stable in the unstable method. Then it should be done. Some additional comments and
 # Test with all combinations. Perhaps put things in new folders as well.
-function coupled_heat_equations(; iterate=10, parallel=false, boundary_mapping="mean", values=Dict{Symbol,Int}(), print_conv_facs_iter=false, plot_conv_facs_iter=false, analytic_conv_fac=false, atm=true, oce=true, combine=false, plot_unstable_range=false, a_is=[], var_name=nothing, xscale=:identity, legend=:topright, log_conv_fac=false, xticks=nothing, text_scaling=(1, 5))
+function coupled_heat_equations(; iterate=10, parallel=false, boundary_mapping="mean", values=Dict{Symbol,Int}(), print_conv_facs_iter=false, plot_conv_facs_iter=false, analytic_conv_fac=false, atm=true, oce=true, combine=false, plot_unstable_range=false, a_is=[], var_name=nothing, xscale=:identity, legend=:right, log_conv_fac=false, xticks=nothing, text_scaling=(1, 5))
     """
     Setup for running the coupled simulation and running it
 
@@ -465,7 +465,7 @@ function coupled_heat_equations(; iterate=10, parallel=false, boundary_mapping="
         color_dict, linestyle_dict = get_color_dict()
         physical_values[:delta_t_min] = 100
 
-        delta_z = 10 .^ LinRange(log10(0.1), log10(10), 50)
+        delta_z = 10 .^ LinRange(log10(0.001), log10(1), 50)
         delta_t = 10 .^ LinRange(log10(1), log10(100), 50)
         n_zs_atm = atm ? Int.(round.((physical_values[:h_atm] - physical_values[:z_0numA]) ./ reverse(delta_z))) : nothing
         n_ts_atm = atm ? Int.(round.(physical_values[:delta_t_min] ./ reverse(delta_t))) : nothing
@@ -475,7 +475,7 @@ function coupled_heat_equations(; iterate=10, parallel=false, boundary_mapping="
         xscale = :log10
         yscale = :log10
         xticks = [1, 10, 100]
-        yticks = [0.1, 1, 10]
+        yticks = [0.001, 0.01, 0.1]
 
         a_is = !isempty(a_is) ? a_is : [physical_values[:a_i]]
 
@@ -505,15 +505,15 @@ function coupled_heat_equations(; iterate=10, parallel=false, boundary_mapping="
                 unstable_matrix_oce, theoretical_vals_matrix_oce = stability_check(physical_values,
                     n_zs_oce, n_ts_oce, "n_oce", "n_t_oce"
                 )
-                delta_z, theoretical_vals_matrix_oce, unstable_matrix_oce, _, _ = handle_variable(
+                delta_z, unstable_matrix_oce, _, _, _ = handle_variable(
                     n_zs_oce, "n_oce", unstable_matrix_oce, nothing, physical_values;
                     dims=1
                 )
-                delta_t, _, unstable_matrix_oce, _, _ = handle_variable(
+                delta_t, unstable_matrix_oce, _, _, _ = handle_variable(
                     n_ts_oce, "n_t_oce", unstable_matrix_oce, nothing, physical_values;
                     dims=2
                 )
-                theoretical_vals_matrix_atm = reverse(theoretical_vals_matrix_oce, dims=(1, 2))
+                theoretical_vals_matrix_oce = reverse(theoretical_vals_matrix_oce, dims=(1, 2))
                 plot_delta_z_delta_t(unstable_matrix_oce, theoretical_vals_matrix_oce, delta_z, delta_t, L"$\Delta z^O$", L"$\Delta t^O$",
                     xscale=xscale, yscale=yscale, xticks=xticks, yticks=yticks,
                     color=color_dict[round(a_i, digits=1)], a_i=a_i, legend=legend
@@ -522,178 +522,6 @@ function coupled_heat_equations(; iterate=10, parallel=false, boundary_mapping="
         end
         display(current())
     end
-
-    # conv_facs_analytic = nothing
-    # param_analytic = nothing
-
-    # # Plot with respect to a_i
-    # var1s = 0:0.1:1
-
-    # # # Plot with respecto to a_i and other parameters
-    # # var1s = [0.1, 0.3, 0.5] # a_i
-    # # # var2s = [10, 100, 1000, 10000, 100000, 1000000] #t_max
-    # # # var2s = [15, 50, 100, 200, 300, 500, 700, 1500] # h_atm
-    # # # var2s = [5, 10, 50, 100, 125, 150, 175, 200] # h_oce
-    # # # var2s = [20, 200, 2000, 20000] # n_atm
-    # # # var2s = [5, 50, 500, 5000, 50000] # n_oce
-    # # # var2s = [10, 50, 100, 125, 150, 175, 200] # L_AI
-    # # # ai_to_plot = 3
-    # # # colors = [:blue, :red, :green]
-    # # # var2s = [0.0007, 0.0008, 0.0009, 0.001, 0.0011, 0.0012, 0.0013] # C_AO
-    # # # var2s = [0.1, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5] # u_atm and u_oce
-    # # # var2s = [260, 262, 264, 266, 268, 270, 273, 276] # T_atm_ini
-    # # # var2s = [270, 271, 272, 273, 274, 275, 276] # T_oce_ini
-    # # # var2s = [260, 262, 264, 266, 268, 270, 273] # T_ice_ini
-    # # var2s = 10 .^ LinRange(log10(1), log10(1000), 10)# n_t_atm
-    # # # var2s = 10 .^ LinRange(log10(1), log10(1000), 10)# n_t_oce
-
-    # # xticks = [1, 10, 100, 1000] #var2s
-    # # var1_name = "a_i"
-    # # var2_name = "n_t_atm"
-    # # var2_plot_name = L"$\Delta t^A$"
-
-    # # xscale = :log10
-    # # legend = :topright
-
-    # # Run again. See what happens with this better definition of divergence.
-    # # Evaluating wrt delta z and delta t. Note that delta z should be first argument.
-    # # delta_z = 10 .^ LinRange(log10(0.1), log10(10), 5)
-    # # n_atms = Int.(round.((physical_values[:h_atm] - physical_values[:z_0numA]) ./ reverse(delta_z)))
-    # # var1s = unique(n_atms)
-    # # physical_values[:Δt_min] = 100
-    # # delta_t = 10 .^ LinRange(log10(1), log10(100), 5)
-    # # n_t_atms = Int.(round.(physical_values[:Δt_min] ./ reverse(delta_t)))
-    # # var2s = unique(n_t_atms)
-
-    # # delta_z = 10 .^ LinRange(log10(0.1), log10(10), 10)
-    # # n_oces = Int.(round.((physical_values[:h_oce] - physical_values[:z_0numO]) ./ delta_z))
-    # # var1s = unique(n_oces)
-    # # physical_values[:Δt_min] = 100
-    # # delta_t = 10 .^ LinRange(log10(1), log10(100), 10)
-    # # n_t_oces = Int.(round.(physical_values[:Δt_min] ./ delta_t))
-    # # var2s = unique(n_t_oces)
-
-    # # yticks = [0.1, 1, 10]#var2s
-    # # xticks = [1, 10, 100]
-    # # var1_name = "n_atm"
-    # # var2_name = "n_t_atm"
-    # # var1_plot_name = L"$\Delta z^A$"
-    # # var2_plot_name = L"$\Delta t^A$"
-    # # xscale = :log10
-    # # yscale = :log10
-
-    # # # Computing the convergence factor with slightly different commands.
-    # # conv_facs_atm, conv_facs_oce, param_analytic, conv_facs_analytic = get_conv_facs_two_variables(physical_values, var1s, var2s, var1_name, var2_name, analytic=true, log_scale=(xscale == :log10))
-    # # # conv_facs_atm, conv_facs_oce, param_analytic, conv_facs_analytic, C_AIs, C_AIs_analytic = get_conv_facs_two_variables(physical_values, var1s, var2s, var1_name, var2_name, analytic=true, log_scale=(xscale == :log10))
-    # # # conv_facs_atm, conv_facs_oce = get_conv_facs_two_variables(physical_values, var1s, var2s, var1_name, var2_name, analytic=false, log_scale=(xscale == :log10))
-    # # conv_facs_atm, conv_facs_oce = get_conv_facs_two_variables(physical_values, var1s, var2s, var1_name, var2_name, analytic=false, a_i=a_i) # for delta z, delta t dependence.
-    # # conv_facs_atm, conv_facs_oce = one_iter_update(physical_values, var1s, var2s, var1_name, var2_name)
-
-    # conv_facs_numeric = conv_facs_atm
-
-    # # Special treatment of n_atm and n_oce.
-    # # if var1_name == "n_atm"
-    # #     var1s = (physical_values[:h_atm] - physical_values[:z_0numA]) ./ reverse(var1s)
-    # #     conv_facs_numeric = reverse(conv_facs_numeric, dims=1)
-    # # end
-    # # if var2_name == "n_atm"
-    # #     var2s = (physical_values[:h_atm] - physical_values[:z_0numA]) ./ reverse(var2s)
-    # #     conv_facs_numeric = reverse(conv_facs_numeric, dims=2)
-    # #     if !isnothing(conv_facs_analytic) && !isnothing(param_analytic)
-    # #         param_analytic = reverse((physical_values[:h_atm] - physical_values[:z_0numA]) ./ param_analytic)
-    # #         conv_facs_analytic = reverse(conv_facs_analytic, dims=2)
-    # #     end
-    # #     xticks = reverse((physical_values[:h_atm] - physical_values[:z_0numA]) ./ xticks)
-    # # end
-    # # if var1_name == "n_oce"
-    # #     var1s = (physical_values[:h_oce] - physical_values[:z_0numO]) ./ reverse(var1s)
-    # #     conv_facs_numeric = reverse(conv_facs_numeric, dims=1)
-    # # end
-    # # if var2_name == "n_oce"
-    # #     var2s = (physical_values[:h_oce] - physical_values[:z_0numO]) ./ reverse(var2s)
-    # #     conv_facs_numeric = reverse(conv_facs_numeric, dims=2)
-    # #     if !isnothing(conv_facs_analytic) && !isnothing(param_analytic)
-    # #         param_analytic = reverse((physical_values[:h_oce] - physical_values[:z_0numO]) ./ param_analytic)
-    # #         conv_facs_analytic = reverse(conv_facs_analytic, dims=2)
-    # #     end
-    # #     xticks = reverse((physical_values[:h_oce] - physical_values[:z_0numO]) ./ xticks)
-    # # end
-
-    # # # Special treatment for n_t_atm and n_t_oce. Only have as second arguments, so only have to handle this.
-    # # if var2_name == "n_t_atm" || var2_name == "n_t_oce"
-    # #     var2s = physical_values[:Δt_min] ./ reverse(var2s)
-    # #     conv_facs_numeric = reverse(conv_facs_numeric, dims=2)
-    # #     if var1_name == "a_i"
-    # #         xticks = physical_values[:Δt_min] ./ reverse(xticks)
-    # #     end
-    # #     if !isnothing(conv_facs_analytic) && !isnothing(param_analytic)
-    # #         param_analytic = reverse(physical_values[:Δt_min] ./ param_analytic)
-    # #         conv_facs_analytic = reverse(conv_facs_analytic, dims=2)
-    # #     end
-    # # end
-
-    # # # Special treatment for L_AI
-    # # if var2_name == "L_AI"
-    # #     var2s = sort(C_AIs[ai_to_plot, :])
-    # #     param_analytic = sort(C_AIs_analytic[ai_to_plot, :])
-
-    # #     rounded_x = round.(var2s, digits=3)
-    # #     rounded_and_unique_x = unique(rounded_x)
-    # #     # To store the indices of the first occurrences
-    # #     first_indices = []
-
-    # #     # Set to track already seen values
-    # #     seen_values = Set()
-
-    # #     # Iterate over the vector
-    # #     for (i, value) in enumerate(rounded_x)
-    # #         if !(value in seen_values)
-    # #             push!(first_indices, i)
-    # #             push!(seen_values, value)
-    # #         end
-    # #     end
-    # #     x_ticks = var2s[first_indices]
-    # #     xticks = (x_ticks, rounded_and_unique_x)
-    # #     sorted_C_AI_indices = sortperm(C_AIs[ai_to_plot, :])
-    # #     conv_facs_numeric = conv_facs_numeric[ai_to_plot, :][sorted_C_AI_indices]
-    # #     var1s = var1s[ai_to_plot]
-
-    # #     sorted_C_AI_indices_analytic = sortperm(C_AIs_analytic[ai_to_plot, :])
-    # #     conv_facs_analytic = conv_facs_analytic[ai_to_plot, :][sorted_C_AI_indices_analytic]
-    # # end
-
-    # # Plot wrt ice
-
-    # # # Plot wrt ice and one other param
-    # # plot_wrt_a_i_and_one_param(conv_facs_numeric, var1s, var2s, var2_plot_name, conv_facs_analytic=conv_facs_analytic, param_analytic=param_analytic, xscale=xscale, xticks=xticks, scale_text_position=3, text_start_at_bottom=1, legend=legend) # For plotting wrt many params
-
-    # # # Plot wrt one parameter (use for C_AI)
-    # # # plot_wrt_one_param(conv_facs_numeric, var2s, var2_plot_name, conv_facs_analytic=conv_facs_analytic, param_analytic=param_analytic, xticks=xticks, log_conv_fac=false, ylim=:auto, color=colors[ai_to_plot]) # For plotting wrt C_AI
-
-    # # # Plot only the numerical convergence factor
-    # # # plot_wrt_a_i_and_one_param(conv_facs_numeric, var1s, var2s, var2_plot_name, xscale=xscale, xticks=xticks) # For plotting only the numerical. (for instance with regards to delta t)
-
-    # # Plot wrt delta t and delta z
-    # # plot_delta_z_delta_t(conv_facs_numeric, var1s, var2s, var1_plot_name, var2_plot_name, xscale=xscale, yscale=yscale, xticks=xticks, yticks=yticks, color=:blue, a_i=a_i)
-
-    # # # Set appropriate backend for plotting
-    # # plotly()
-    # # gr()
-
-    # # scatter(x, conv_facs_oce[i, :], xticks=x, xscale=:log10, yformatter=:scientific, label="aᴵ=$ai", markersize=5, xlabel=x_axis_label, ylabel="ρᴼ", legend=:topright, color=colors[i])
-    # # plot!(x, conv_facs_oce[i, :], label="", linewidth=2, color=colors[i])
-
-    # # # Plot convergence factor as a function of deltaz delta t quotient
-    # # Δzᴼs = reverse((H_O - z_0numO) ./ n_oces) # For delta_z
-    # # quotient = Δzᴼs ./ (Δt_min / n_t_oce)
-    # # conv_facs_atm[.!isinf.(conv_facs_atm)] .= 0
-    # # conv_facs_atm[isinf.(conv_facs_atm)] .= 1
-    # # heatmap(conv_facs_atm', xticks=(1:20:length(a_is), round.(a_is[1:20:length(a_is)], digits=1)), yticks=(1:20:length(quotient), round.(quotient[1:20:length(quotient)], digits=4)), color=:viridis,
-    # #     xlabel="aᴵ", ylabel="Δzᴼ/Δtᴼ",
-    # #     clims=(-1, 1))  # Set color limits    println(conv_facs_atm)
-    # # # plot3d(a_is, quotient, conv_facs_atm', label="atm", color=:blue, markersize=5, xlabel="aᵢ", ylabel="", zlabel="ρ", legend=:topright)
-    # # # # surface!(a_is[1:length(conv_facs_oce[:, 1])], t_maxs[1:length(conv_facs_oce[1, :])], conv_facs_oce', label="oce", color=:green, markersize=5)
-    # # display(current())
 end;
 
 
