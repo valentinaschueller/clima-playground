@@ -26,14 +26,14 @@ To plot the convergence factor as a function of another variable, run:
 coupled_heat_equations(var_name="u_atm", values=Dict(:a_i=>0.1), analytic_conv_fac=true)
 
 For the same plot but for different values of a_i, run:
-coupled_heat_equations(var_name="u_atm", a_is=[0.1, 0.3, 0.5], analytic_conv_fac=true)
+coupled_heat_equations(var_name="u_atm", a_is=[0.1, 0.4, 0.7], analytic_conv_fac=true)
 
 To get a plot of the cfl condition, run:
 coupled_heat_equations(plot_unstable_range=true, a_is=[0.1])
 This also plots a theoretical limit for the cfl condition, based on the maximum of the terms in the boundary update.
 
 To plot the same limit for different a_i, run:
-coupled_heat_equations(plot_unstable_range=true, a_is=[0.1, 0.3, 0.8])
+coupled_heat_equations(plot_unstable_range=true, a_is=[0.1, 0.4, 0.7])
 
 
 
