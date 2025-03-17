@@ -10,7 +10,7 @@ import ClimaCoupler:
     Interfacer,
     TimeManager,
     Utilities
-    
+
 function get_coupled_sim(physical_values; boundary_mapping="mean")
     physical_keys = [
         :h_atm, :h_oce, :n_atm, :n_oce, :k_atm, :k_oce, :c_atm, :c_oce,
@@ -67,12 +67,27 @@ function get_coupled_sim(physical_values; boundary_mapping="mean")
         nsteps_oce=physical_values[:n_t_oce],
         nsteps_ice=1,
     )
+    if physical_values[:sin_field_atm]
+        coord_field_atm = map(x -> x.z, CC.Fields.coordinate_field(center_space_atm))
+        field_atm = parameters.T_atm_ini .* (1 .- sin.((coord_field_atm .- parent(coord_field_atm)[1]) ./ (parent(coord_field_atm)[end] .- parent(coord_field_atm)[1]) .* (pi / 50)))
+    else
+        field_atm = CC.Fields.ones(Float64, center_space_atm) .* parameters.T_atm_ini
+    end
+
+    if physical_values[:sin_field_oce]
+        coord_field_oce = map(x -> x.z, CC.Fields.coordinate_field(center_space_oce))
+        field_oce = 1 .+ sin.((coord_field_oce .- parent(coord_field_oce)[1]) ./ (parent(coord_field_oce)[end] .- parent(coord_field_oce)[1]) .* (pi / 50))
+        field_oce = parameters.T_oce_ini .* (field_oce .- (parent(field_oce)[end] - 1))
+
+    else
+        field_oce = CC.Fields.ones(Float64, center_space_oce) .* parameters.T_oce_ini
+    end
 
     T_atm_0 = CC.Fields.FieldVector(
-        atm=CC.Fields.ones(Float64, center_space_atm) .* parameters.T_atm_ini,
+        atm=field_atm,
     )
     T_oce_0 = CC.Fields.FieldVector(
-        oce=CC.Fields.ones(Float64, center_space_oce) .* parameters.T_oce_ini,
+        oce=field_oce,
     )
     T_ice_0 = CC.Fields.FieldVector(
         ice=CC.Fields.ones(Float64, point_space_ice) .* parameters.T_ice_ini,
