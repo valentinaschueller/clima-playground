@@ -26,7 +26,7 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [sources]
 ClimaCore = { rev = "main", url = "https://github.com/CliMA/ClimaCore.jl" }
-ClimaCoupler = { rev = "main", url = "https://github.com/CliMA/ClimaCoupler.jl" }
+ClimaCoupler = { rev = "2852ced84e4c182864f8eb938ae112eaa9dc5a3d", url = "https://github.com/CliMA/ClimaCoupler.jl" }
 
 [compat]
 CSV = "0.10.15"
