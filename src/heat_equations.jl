@@ -289,8 +289,8 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation; iterate=10, parallel=f
                 if i > 1
                     indices_atm = findall((pre_bound_error_atm .>= tols_atm) .& (bound_error_atm .>= tols_atm))
                     indices_oce = findall((pre_bound_error_oce .>= tols_oce) .& (pre_bound_error_oce .>= tols_oce))
-                    conv_fac_atm_value = sum(bound_error_atm[indices_atm]) ./ sum(pre_bound_error_atm[indices_atm])
-                    conv_fac_oce_value = sum(bound_error_oce[indices_oce]) ./ sum(pre_bound_error_oce[indices_oce])
+                    conv_fac_atm_value = sqrt(sum(bound_error_atm[indices_atm].^2) ./ sum(pre_bound_error_atm[indices_atm].^2))
+                    conv_fac_oce_value = sqrt(sum(bound_error_oce[indices_oce].^2) ./ sum(pre_bound_error_oce[indices_oce].^2))
                     push!(conv_fac_atm, conv_fac_atm_value)
                     push!(conv_fac_oce, conv_fac_oce_value)
                 end
