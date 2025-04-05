@@ -18,13 +18,21 @@ function is_stable(atmos_vals, ocean_vals, upper_limit_temp, lower_limit_temp, i
     stable = true
     stopped_at_nan_atm = false
     stopped_at_nan_oce = false
-    if (any(isnan, ocean_vals) || maximum(ocean_vals) > upper_limit_temp || minimum(ocean_vals) < lower_limit_temp)
+    if (
+        any(isnan, ocean_vals) ||
+        maximum(ocean_vals) > upper_limit_temp ||
+        minimum(ocean_vals) < lower_limit_temp
+    )
         println("stopped due to instability in ocean model")
         stable = false
         if iter == 1
             stopped_at_nan_oce = true
         end
-    elseif (any(isnan, atmos_vals) || maximum(atmos_vals) > upper_limit_temp || minimum(atmos_vals) < lower_limit_temp)
+    elseif (
+        any(isnan, atmos_vals) ||
+        maximum(atmos_vals) > upper_limit_temp ||
+        minimum(atmos_vals) < lower_limit_temp
+    )
         println("stopped due to instability in atmosphere model")
         stable = false
         if iter == 1
@@ -34,7 +42,13 @@ function is_stable(atmos_vals, ocean_vals, upper_limit_temp, lower_limit_temp, i
     return stable, stopped_at_nan_atm, stopped_at_nan_oce
 end
 
-function has_converged(bound_atmos_vals, pre_bound_atmos_vals, bound_ocean_vals, pre_bound_ocean_vals, iter)
+function has_converged(
+    bound_atmos_vals,
+    pre_bound_atmos_vals,
+    bound_ocean_vals,
+    pre_bound_ocean_vals,
+    iter,
+)
     bound_errors_atm_iter = abs.(bound_atmos_vals .- pre_bound_atmos_vals)
     bound_errors_oce_iter = abs.(bound_ocean_vals .- pre_bound_ocean_vals)
     tols_atm = 100 * eps.(max.(abs.(bound_atmos_vals), abs.(pre_bound_atmos_vals)))
@@ -50,17 +64,30 @@ function has_converged(bound_atmos_vals, pre_bound_atmos_vals, bound_ocean_vals,
     end
 end
 
-function handle_variable(var, var_name, conv_facs_oce, conv_facs_atm, physical_values; dims=1, param_analytic=nothing, conv_facs_analytic=nothing)
+function handle_variable(
+    var,
+    var_name,
+    conv_facs_oce,
+    conv_facs_atm,
+    physical_values;
+    dims = 1,
+    param_analytic = nothing,
+    conv_facs_analytic = nothing,
+)
     # Special treatment of n_atm and n_oce.
     if var_name == "n_atm"
         var = (physical_values[:h_atm] - physical_values[:z_0numA]) ./ reverse(var)
         if !isnothing(conv_facs_analytic) && !isnothing(param_analytic)
-            param_analytic = reverse((physical_values[:h_atm] - physical_values[:z_0numA]) ./ param_analytic)
+            param_analytic = reverse(
+                (physical_values[:h_atm] - physical_values[:z_0numA]) ./ param_analytic,
+            )
         end
     elseif var_name == "n_oce"
         var = (physical_values[:h_oce] - physical_values[:z_0numO]) ./ reverse(var)
         if !isnothing(conv_facs_analytic) && !isnothing(param_analytic)
-            param_analytic = reverse((physical_values[:h_oce] - physical_values[:z_0numO]) ./ param_analytic)
+            param_analytic = reverse(
+                (physical_values[:h_oce] - physical_values[:z_0numO]) ./ param_analytic,
+            )
         end
     elseif var_name == "n_t_atm" || var_name == "n_t_oce"
         var = physical_values[:delta_t_min] ./ reverse(var)
@@ -69,9 +96,13 @@ function handle_variable(var, var_name, conv_facs_oce, conv_facs_atm, physical_v
         end
     end
     if var_name in ["n_atm", "n_oce", "n_t_atm", "n_t_oce"]
-        conv_facs_oce = !isnothing(conv_facs_oce) ? reverse(conv_facs_oce, dims=dims) : nothing
-        conv_facs_atm = !isnothing(conv_facs_atm) ? reverse(conv_facs_atm, dims=dims) : nothing
-        conv_facs_analytic = !isnothing(conv_facs_analytic) ? reverse(conv_facs_analytic, dims=dims) : nothing
+        conv_facs_oce =
+            !isnothing(conv_facs_oce) ? reverse(conv_facs_oce, dims = dims) : nothing
+        conv_facs_atm =
+            !isnothing(conv_facs_atm) ? reverse(conv_facs_atm, dims = dims) : nothing
+        conv_facs_analytic =
+            !isnothing(conv_facs_analytic) ? reverse(conv_facs_analytic, dims = dims) :
+            nothing
     end
     return var, conv_facs_oce, conv_facs_atm, param_analytic, conv_facs_analytic
 end
