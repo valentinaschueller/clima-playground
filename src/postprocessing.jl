@@ -18,18 +18,17 @@ function is_stable(atmos_vals, ocean_vals, upper_limit_temp, lower_limit_temp, i
     stable = true
     stopped_at_nan_atm = false
     stopped_at_nan_oce = false
-    if (any(isnan, atmos_vals) || maximum(atmos_vals) > upper_limit_temp || minimum(atmos_vals) < lower_limit_temp)
-        println("stopped due to instability in atmosphere model")
-        stable = false
-        if iter == 1
-            stopped_at_nan_atm = true
-        end
-    end
     if (any(isnan, ocean_vals) || maximum(ocean_vals) > upper_limit_temp || minimum(ocean_vals) < lower_limit_temp)
         println("stopped due to instability in ocean model")
         stable = false
         if iter == 1
             stopped_at_nan_oce = true
+        end
+    elseif (any(isnan, atmos_vals) || maximum(atmos_vals) > upper_limit_temp || minimum(atmos_vals) < lower_limit_temp)
+        println("stopped due to instability in atmosphere model")
+        stable = false
+        if iter == 1
+            stopped_at_nan_atm = true
         end
     end
     return stable, stopped_at_nan_atm, stopped_at_nan_oce
