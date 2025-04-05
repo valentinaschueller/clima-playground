@@ -289,8 +289,8 @@ function solve_coupler!(cs::Interfacer.CoupledSimulation; iterate=10, parallel=f
                 if i > 1
                     indices_atm = findall((pre_bound_error_atm .>= tols_atm) .& (bound_error_atm .>= tols_atm))
                     indices_oce = findall((pre_bound_error_oce .>= tols_oce) .& (pre_bound_error_oce .>= tols_oce))
-                    conv_fac_atm_value = sqrt(sum(bound_error_atm[indices_atm].^2) ./ sum(pre_bound_error_atm[indices_atm].^2))
-                    conv_fac_oce_value = sqrt(sum(bound_error_oce[indices_oce].^2) ./ sum(pre_bound_error_oce[indices_oce].^2))
+                    conv_fac_atm_value = sqrt(sum(bound_error_atm[indices_atm][1:end-1].^2) ./ sum(pre_bound_error_atm[indices_atm][1:end-1].^2))
+                    conv_fac_oce_value = sqrt(sum(bound_error_oce[indices_oce][1:end-1].^2) ./ sum(pre_bound_error_oce[indices_oce][1:end-1].^2))
                     push!(conv_fac_atm, conv_fac_atm_value)
                     push!(conv_fac_oce, conv_fac_oce_value)
                 end
@@ -375,7 +375,7 @@ end
 # argument. Fix the unstable plot, should be easier now when instability is defined for ocean and atmosphere separately.
 # Use is_stable in the unstable method. Then it should be done. Some additional comments and
 # Test with all combinations. Perhaps put things in new folders as well.
-function coupled_heat_equations(; iterate=10, parallel=false, boundary_mapping="mean", values=Dict{Symbol,Int}(), print_conv_facs_iter=false, plot_conv_facs_iter=false, analytic_conv_fac=false, atm=true, oce=true, combine=false, plot_unstable_range=false, a_is=[], var_name=nothing, xscale=:identity, legend=:right, log_conv_fac=false, xticks=nothing, text_scaling=(1, 5))
+function coupled_heat_equations(; iterate=10, parallel=false, boundary_mapping="mean", values=Dict{Symbol,Int}(), print_conv_facs_iter=false, plot_conv_facs_iter=false, analytic_conv_fac=false, atm=true, oce=true, combine=false, plot_unstable_range=false, a_is=[], var_name=nothing, xscale=:identity, yscale=:identity, legend=:right, xticks=nothing, yticks=:auto, text_scaling=(1, 5))
     """
     Setup for running the coupled simulation and running it
 
@@ -395,8 +395,10 @@ function coupled_heat_equations(; iterate=10, parallel=false, boundary_mapping="
     var_name : String, If not nothing, the convergence factor is plotted wrt the variable.
         If there are also several a_is, it is plotted for all of the a_i in the same plot
     xscale : Symbol, Plotting argument for x-scale
+    yscale: Symbol, Plotting argument for y-sscale
     legend : Symbol, Legend position
-    log_conv_fac: boolean, if the logarithm of the convergence factor should be taken
+    xticks: list, Plotting argument for xticks
+    yticks: list, Plotting argument for yticks
     text_scaling: tuple, if the model goes unstable, there is text in the plot. This argument 
         changes text position
     """
@@ -442,13 +444,13 @@ function coupled_heat_equations(; iterate=10, parallel=false, boundary_mapping="
         xticks = !isnothing(xticks) ? xticks : var
         if isempty(a_is)
             plot_wrt_a_i_and_one_param(conv_facs_oce, conv_facs_atm, [physical_values[:a_i]], var, variable_dict[Symbol(var_name)][2],
-                conv_facs_analytic=conv_facs_analytic, param_analytic=param_analytic, xticks=xticks, log_conv_fac=log_conv_fac, xscale=xscale,
+                conv_facs_analytic=conv_facs_analytic, param_analytic=param_analytic, xticks=xticks, yticks=yticks, xscale=xscale, yscale=yscale,
                 colors=[color_dict[round(physical_values[:a_i], digits=1)]], linestyles=[linestyle_dict[round(physical_values[:a_i], digits=1)]],
                 text_scaling=text_scaling, legend=legend, atm=atm, oce=oce
             )
         else
             plot_wrt_a_i_and_one_param(conv_facs_oce, conv_facs_atm, a_is, var, variable_dict[Symbol(var_name)][2],
-                conv_facs_analytic=conv_facs_analytic, param_analytic=param_analytic, xticks=xticks, log_conv_fac=log_conv_fac, xscale=xscale,
+                conv_facs_analytic=conv_facs_analytic, param_analytic=param_analytic, xticks=xticks, yticks=yticks, xscale=xscale, yscale=yscale, 
                 colors=[color_dict[round(a_i, digits=1)] for a_i in a_is], linestyles=[linestyle_dict[round(a_i, digits=1)] for a_i in a_is],
                 text_scaling=text_scaling, legend=legend, atm=atm, oce=oce
             )
@@ -459,7 +461,7 @@ function coupled_heat_equations(; iterate=10, parallel=false, boundary_mapping="
         conv_facs_atm, conv_facs_oce, param_analytic, conv_facs_analytic = get_conv_facs_one_variable(physical_values, a_is, "a_i", analytic=analytic_conv_fac, log_scale=(xscale == :log10))
         xticks = !isnothing(xticks) ? xticks : a_is
         plot_wrt_a_i_and_one_param(conv_facs_oce, conv_facs_atm, [physical_values[:a_i]], a_is, L"$a^I$",
-            conv_facs_analytic=conv_facs_analytic, param_analytic=param_analytic, xticks=xticks, log_conv_fac=log_conv_fac, xscale=xscale,
+            conv_facs_analytic=conv_facs_analytic, param_analytic=param_analytic, xticks=xticks, yticks=yticks, xscale=xscale, yscale=yscale, 
             colors=[:black], linestyles=[:solid], text_scaling=text_scaling, legend=legend, atm=atm, oce=oce
         )
 
