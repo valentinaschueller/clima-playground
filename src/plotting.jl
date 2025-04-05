@@ -1,47 +1,37 @@
-function get_ylabel_or_nothing_to_plot(log_conv_fac, plot_numeric, conv_facs_analytic)
-    if log_conv_fac
-        if plot_numeric && !isnothing(conv_facs_analytic)
-            ylabel = L"$log(̂\hat{\rho})$, $log(\rho)$"
-        elseif plot_numeric && isnothing(conv_facs_analytic)
-            ylabel = L"$log(\rho)$"
-        elseif !plot_numeric && !isnothing(conv_facs_analytic)
-            ylabel = L"$log(̂\hat{\rho})$"
-        elseif !plot_numeric && isnothing(conv_facs_analytic)
-            return nothing
-        end
-    else
-        if plot_numeric && !isnothing(conv_facs_analytic)
-            ylabel = L"$\hat{\rho}$, $\rho$"
-        elseif plot_numeric && isnothing(conv_facs_analytic)
-            ylabel = L"$\rho$"
-        elseif !plot_numeric && !isnothing(conv_facs_analytic)
-            ylabel = L"$\hat{\rho}$"
-        elseif !plot_numeric && isnothing(conv_facs_analytic)
-            return nothing
-        end
+function get_ylabel_or_nothing_to_plot(plot_numeric, conv_facs_analytic)
+    if plot_numeric && !isnothing(conv_facs_analytic)
+        ylabel = L"$\hat{\rho}$, $\rho$"
+    elseif plot_numeric && isnothing(conv_facs_analytic)
+        ylabel = L"$\rho$"
+    elseif !plot_numeric && !isnothing(conv_facs_analytic)
+        ylabel = L"$\hat{\rho}$"
+    elseif !plot_numeric && isnothing(conv_facs_analytic)
+        return nothing
     end
     return ylabel
 end
-function plot_data(conv_facs_oce, conv_facs_atm, param_numeric, param_name; conv_facs_analytic=nothing, param_analytic=nothing, xscale=:identity, log_conv_fac=false, label="", color=:black, linestyle=:solid, xticks=:auto, ylim=:auto, legend=:right, atm=true, oce=true)
-    ylabel = get_ylabel_or_nothing_to_plot(log_conv_fac, !isnothing(conv_facs_oce) || !isnothing(conv_facs_atm), conv_facs_analytic)
-    if ylabel == nothing
+function plot_data(conv_facs_oce, conv_facs_atm, param_numeric, param_name; conv_facs_analytic=nothing, param_analytic=nothing, xscale=:identity, yscale=:identity, label="", color=:black, linestyle=:solid, xticks=:auto, yticks=:auto, ylim=:auto, legend=:right, atm=true, oce=true)
+    ylabel = get_ylabel_or_nothing_to_plot(!isnothing(conv_facs_oce) || !isnothing(conv_facs_atm), conv_facs_analytic)
+    if isnothing(ylabel)
         return nothing
     end
     if !isnothing(conv_facs_analytic)
         # Plot analytic data and a legend
-        plot!(param_analytic, conv_facs_analytic, label="analytical" * label, color=color, xscale=xscale, linestyle=linestyle, linewidth=2, legend=legend, xticks=xticks, ylim=ylim, legend_background_color=RGBA(1,1,1,0.5))
+        param_analytic_new = yscale == :log10 ? param_analytic[conv_facs_analytic.>0] : param_analytic
+        conv_facs_analytic_new = yscale == :log10 ? conv_facs_analytic[conv_facs_analytic.>0] : conv_facs_analytic
+        plot!(param_analytic_new, conv_facs_analytic_new, label="analytical" * label, color=color, xscale=xscale, yscale=yscale, linestyle=linestyle, linewidth=2, legend=legend, xticks=xticks, yticks=yticks, ylim=ylim, legend_background_color=RGBA(1,1,1,0.5), legendfontsize = 12)
     end
     if oce
-        plot!(param_numeric, conv_facs_oce, label="numerical (oce)" * label, color=color, xscale=xscale, linestyle=linestyle, markershape=:circle, linewidth=2, legend=legend, ylim=ylim, legend_background_color=RGBA(1,1,1,0.5))
+        plot!(param_numeric, conv_facs_oce, label="numerical (oce)" * label, color=color, xscale=xscale, yscale=yscale, linestyle=linestyle, markershape=:circle, linewidth=2, legend=legend, xticks=xticks, yticks=yticks, ylim=ylim, legend_background_color=RGBA(1,1,1,0.5), legendfontsize = 12)
     end
     if atm
-        plot!(param_numeric, conv_facs_atm, label="numerical (atm)" * label, color=color, xscale=xscale, linestyle=linestyle, markershape=:x, linewidth=2, legend=legend, ylim=ylim, legend_background_color=RGBA(1,1,1,0.5))
+        plot!(param_numeric, conv_facs_atm, label="numerical (atm)" * label, color=color, xscale=xscale, yscale=yscale, linestyle=linestyle, markershape=:x, linewidth=2, legend=legend, xticks=xticks, yticks=yticks, ylim=ylim, legend_background_color=RGBA(1,1,1,0.5), legendfontsize = 12)
     end
     xlabel!(param_name)
     ylabel!(ylabel)
 end
 
-function plot_wrt_a_i_and_one_param(conv_facs_oce, conv_facs_atm, a_is, param_numeric, param_name; conv_facs_analytic=nothing, param_analytic=nothing, xscale=:identity, xticks=xticks, colors=[:blue, :red, :green], linestyles=[:solid, :dash, :dot], text_scaling=(1, 5), legend=:right, log_conv_fac=false, atm=true, oce=true)
+function plot_wrt_a_i_and_one_param(conv_facs_oce, conv_facs_atm, a_is, param_numeric, param_name; conv_facs_analytic=nothing, param_analytic=nothing, xscale=:identity, yscale=:identity, xticks=:auto, yticks=:auto, colors=[:blue, :red, :green], linestyles=[:solid, :dash, :dot], text_scaling=(1, 5), legend=:right, atm=true, oce=true)
     """
     Plot conv factor for different a_i and wrt a parameter. Some special treatment
     for divergence has been added
@@ -49,23 +39,15 @@ function plot_wrt_a_i_and_one_param(conv_facs_oce, conv_facs_atm, a_is, param_nu
     gr()
     plot()
     # If there is divergence, to handle the text
-    ok_oce_indices = .!isinf.(conv_facs_oce)
     unstable_oce_indices = isinf.(conv_facs_oce)
     conv_facs_oce[unstable_oce_indices] .= NaN
 
-    ok_atm_indices = .!isinf.(conv_facs_atm)
     unstable_atm_indices = isinf.(conv_facs_atm)
     conv_facs_atm[unstable_atm_indices] .= NaN
 
     analytic = !isnothing(conv_facs_analytic)
 
-    if log_conv_fac
-        conv_facs_oce = log.(conv_facs_oce)
-        conv_facs_atm = log.(conv_facs_atm)
-        conv_facs_analytic = analytic ? log.(conv_facs_analytic) : nothing
-    end
-
-    lowerbound, upperbound = get_bounds(conv_facs_analytic, conv_facs_oce, conv_facs_atm, log_conv_fac)
+    lowerbound, upperbound = get_bounds(yscale, conv_facs_analytic, conv_facs_oce, conv_facs_atm)
 
     for (i, ai) in enumerate(a_is)
         conv_facs_oce_i = conv_facs_oce[i, :]
@@ -78,10 +60,15 @@ function plot_wrt_a_i_and_one_param(conv_facs_oce, conv_facs_atm, a_is, param_nu
         param_numeric_i[unstable_oce_indices[i, :]] .= NaN
         param_numeric_i[unstable_atm_indices[i, :]] .= NaN
 
-        y_text_oce = [lowerbound + ((i - text_scaling[1]) * (upperbound - lowerbound) / text_scaling[2]) for _ in x_text_oce]
-        y_text_atm = [lowerbound + ((i - text_scaling[1]) * (upperbound - lowerbound) / text_scaling[2]) for _ in setdiff(x_text_atm, x_text_oce)]
+        if yscale==:log10
+            y_text_oce = [10^(log10(lowerbound) + ((i - text_scaling[1]) * (log10(upperbound) - log10(lowerbound)) / text_scaling[2])) for _ in x_text_oce]
+            y_text_atm = [10^(log10(lowerbound) + ((i - text_scaling[1]) * (log10(upperbound) - log10(lowerbound)) / text_scaling[2])) for _ in setdiff(x_text_atm, x_text_oce)]
+        else
+            y_text_oce = [lowerbound + ((i - text_scaling[1]) * (upperbound - lowerbound) / text_scaling[2]) for _ in x_text_oce]
+            y_text_atm = [lowerbound + ((i - text_scaling[1]) * (upperbound - lowerbound) / text_scaling[2]) for _ in setdiff(x_text_atm, x_text_oce)]
+        end
 
-        plot_data(conv_facs_oce_i, conv_facs_atm_i, param_numeric_i, param_name, conv_facs_analytic=conv_facs_analytic_i, param_analytic=param_analytic, xscale=xscale, log_conv_fac=log_conv_fac, label=(param_name !== L"$a^I$") ? ", aᴵ = " * "$ai" : "", color=colors[i], linestyle=linestyles[i], xticks=xticks, legend=legend, atm=atm, oce=oce)
+        plot_data(conv_facs_oce_i, conv_facs_atm_i, param_numeric_i, param_name, conv_facs_analytic=conv_facs_analytic_i, param_analytic=param_analytic, xscale=xscale, yscale=yscale, label=(param_name !== L"$a^I$") ? ", aᴵ = " * "$ai" : "", color=colors[i], linestyle=linestyles[i], xticks=xticks, yticks=yticks, legend=legend, atm=atm, oce=oce)
         for (k, txt) in enumerate(y_text_oce)
             annotate!(x_text_oce[k], txt, text("oce \u26A1", 12, colors[i], :left, rotation=90))
         end
@@ -92,11 +79,12 @@ function plot_wrt_a_i_and_one_param(conv_facs_oce, conv_facs_atm, a_is, param_nu
     display(current())
 end
 
-function get_bounds(conv_facs_analytic, finite_oce_vals, finite_atm_vals, log_conv_fac)
+function get_bounds(yscale, conv_facs_analytic, finite_oce_vals, finite_atm_vals)
     matrices=filter(!isnothing, [conv_facs_analytic, finite_oce_vals, finite_atm_vals])
     filtered_matrices = [filter(!isnan, matrix) for matrix in matrices]
-    upperbound= !isempty(filtered_matrices) ? maximum(maximum.(filtered_matrices)) : 20
-    lowerbound= !isempty(filtered_matrices) ? minimum(minimum.(filtered_matrices)) : -20
+    filtered_matrices = yscale==:log10 ? [filter(x->x!=0, matrix) for matrix in filtered_matrices] : filtered_matrices
+    upperbound= !isempty(filtered_matrices) ? maximum(maximum.(filtered_matrices)) : 1
+    lowerbound= !isempty(filtered_matrices) ? minimum(minimum.(filtered_matrices)) : 0
     return lowerbound, upperbound
 end
 
