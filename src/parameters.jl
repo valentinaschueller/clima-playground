@@ -72,9 +72,9 @@ function define_realistic_vals()
         :T_atm_ini => Float64(267.0),
         :T_oce_ini => Float64(271.0),
         :T_ice_ini => Float64(270.0),
-        :t_max => Float64(1000.0),
-        :delta_t_cpl => nothing,
-        :delta_t_min => Float64(10.0),
+        :t_max => Float64(3600.0),
+        :delta_t_cpl => Float64(100),
+        :delta_t_min => Float64(1.0),
         :n_t_atm => 50,
         :n_t_oce => 1,
         :n_atm => 200,
@@ -111,7 +111,6 @@ function define_realistic_vals()
                 )
             )
         )
-    physical_values[:delta_t_cpl] = physical_values[:t_max]
     return physical_values
 end
 

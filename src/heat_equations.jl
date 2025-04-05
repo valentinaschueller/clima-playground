@@ -493,7 +493,7 @@ end
 # Use is_stable in the unstable method. Then it should be done. Some additional comments and
 # Test with all combinations. Perhaps put things in new folders as well.
 function coupled_heat_equations(;
-    iterate = 10,
+    iterate = 1,
     parallel = false,
     boundary_mapping = "mean",
     values = Dict{Symbol,Int}(),
