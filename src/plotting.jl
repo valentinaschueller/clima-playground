@@ -1,3 +1,12 @@
+"""
+Returns the ylabel.
+
+**Arguments:**
+
+-`plot_numeric::Boolean`: Whether to plot the numerical convergence factor.
+-`conv_fac_analytic::Array`: Containing the analytical convergence factors for a variable.
+
+"""
 function get_ylabel_or_nothing_to_plot(plot_numeric, conv_facs_analytic)
     if plot_numeric && !isnothing(conv_facs_analytic)
         ylabel = L"$\hat{\rho}$, $\rho$"
@@ -10,6 +19,34 @@ function get_ylabel_or_nothing_to_plot(plot_numeric, conv_facs_analytic)
     end
     return ylabel
 end
+
+"""
+Plots the convergence factors.
+
+**Arguments:**
+
+-`conv_facs_oce::Array`: The ocean convergence factors.
+-`conv_facs_atm::Array`: The atmosphere convergence factors.
+-`param_numeric::Array`: The values for the variable.
+-`param_name::String`: The name of the variable.
+
+**Optional Keyword Arguments:**
+
+-`conv_facs_analytic::Array`: The analytic convergence factors, default: `nothing`.
+-`param_analytic::Array`: The analytical values for the variable, default: `nothing`.
+-`xscale::Symbol`: Plotting argument for x-scale, default: `:identity`.
+-`yscale::Symbol`: Plotting argument for y-scale, default: `:identity`.
+-`label::String`: Label for the legend, for instance `a_i=0.4`, default: `""`.
+-`color::Symbol`: The color of the plot lines or markers, default: `:black`.
+-`linestyle::Symbol`: Style of the plot lines, default: `:solid`.
+-`xticks::Symbol or Array`: Defines the tick marks on the x-axis, default: `:auto`.
+-`yticks::Symbol or Array`: Defines the tick marks on the y-axis, default: `:auto`.
+-`ylim::Symbol or Tuple`: The limits for the y-axis, default: `:auto`.
+-`legend::Symbol`: Legend position, default: `:right`.
+-`compute_atm_conv_fac::Boolean`: Whether to plot the atmosphere convergence factor, default: `true`.
+-`compute_oce_conv_fac::Boolean`: Whether to plot the ocean convergence factor, default: `true`.
+
+"""
 function plot_data(
     conv_facs_oce,
     conv_facs_atm,
@@ -26,8 +63,8 @@ function plot_data(
     yticks = :auto,
     ylim = :auto,
     legend = :right,
-    atm = true,
-    oce = true,
+    compute_atm_conv_fac = true,
+    compute_oce_conv_fac = true,
 )
     ylabel = get_ylabel_or_nothing_to_plot(
         !isnothing(conv_facs_oce) || !isnothing(conv_facs_atm),
@@ -37,7 +74,6 @@ function plot_data(
         return nothing
     end
     if !isnothing(conv_facs_analytic)
-        # Plot analytic data and a legend
         param_analytic_new =
             yscale == :log10 ? param_analytic[conv_facs_analytic.>0] : param_analytic
         conv_facs_analytic_new =
@@ -60,7 +96,7 @@ function plot_data(
             legendfontsize = 12,
         )
     end
-    if oce
+    if compute_oce_conv_fac
         plot!(
             param_numeric,
             conv_facs_oce,
@@ -79,7 +115,7 @@ function plot_data(
             legendfontsize = 12,
         )
     end
-    if atm
+    if compute_atm_conv_fac
         plot!(
             param_numeric,
             conv_facs_atm,
@@ -102,6 +138,33 @@ function plot_data(
     ylabel!(ylabel)
 end
 
+"""
+Computes and plots the convergence factor for different a_i and wrt one parameter. Some special treatment
+for instabilities has been added.
+
+**Arguments:**
+
+-`conv_facs_oce::Array`: The ocean convergence factors.
+-`conv_facs_atm::Array`: The atmosphere convergence factors.
+-`param_numeric::Array`: The values for the variable.
+-`param_name::String`: The name of the variable.
+
+**Optional Keyword Arguments:**
+
+-`conv_facs_analytic::Array`: The analytic convergence factors, default: `nothing`.
+-`param_analytic::Array`: The analytical values for the variable, default: `nothing`.
+-`xscale::Symbol`: Plotting argument for x-scale, default: `:identity`.
+-`yscale::Symbol`: Plotting argument for y-scale, default: `:identity`.
+-`colors::Array`: The colors of the plot lines and markers, default: `[:blue, :red, :green]`.
+-`linestyles::Array`: Styles of the plot lines, default: `[:solid, :dash, :dot]`
+-`xticks::Symbol or Array`: Defines the tick marks on the x-axis, default: `:auto`.
+-`yticks::Symbol or Array`: Defines the tick marks on the y-axis, default: `:auto`.
+-`text_scaling::Tuple`: If the model goes unstable, there is plot in the text, this allows for different text positions, default: `(1, 5)`.
+-`legend::Symbol`: Legend position, default: `:right`.
+-`compute_atm_conv_fac::Boolean`: Whether to plot the atmosphere convergence factor, default: `true`.
+-`compute_oce_conv_fac::Boolean`: Whether to plot the ocean convergence factor, default: `true`.
+
+"""
 function plot_wrt_a_i_and_one_param(
     conv_facs_oce,
     conv_facs_atm,
@@ -112,22 +175,18 @@ function plot_wrt_a_i_and_one_param(
     param_analytic = nothing,
     xscale = :identity,
     yscale = :identity,
-    xticks = :auto,
-    yticks = :auto,
     colors = [:blue, :red, :green],
     linestyles = [:solid, :dash, :dot],
+    xticks = :auto,
+    yticks = :auto,
     text_scaling = (1, 5),
     legend = :right,
-    atm = true,
-    oce = true,
+    compute_atm_conv_fac = true,
+    compute_oce_conv_fac = true,
 )
-    """
-    Plot conv factor for different a_i and wrt a parameter. Some special treatment
-    for divergence has been added
-    """
     gr()
     plot()
-    # If there is divergence, to handle the text
+    # If there is instabilities, handle the text
     unstable_oce_indices = isinf.(conv_facs_oce)
     conv_facs_oce[unstable_oce_indices] .= NaN
 
@@ -193,8 +252,8 @@ function plot_wrt_a_i_and_one_param(
             xticks = xticks,
             yticks = yticks,
             legend = legend,
-            atm = atm,
-            oce = oce,
+            compute_atm_conv_fac = compute_atm_conv_fac,
+            compute_oce_conv_fac = compute_oce_conv_fac,
         )
         for (k, txt) in enumerate(y_text_oce)
             annotate!(
@@ -214,96 +273,117 @@ function plot_wrt_a_i_and_one_param(
     display(current())
 end
 
+"""
+Computes the upper and lower bounds for the unstable text.
+
+**Arguments:**
+
+-`yscale::Symbol`: Plotting argument for y-scale.
+-`conv_facs_analytic::Array`: The analytic convergence factors.
+-`finite_oce_vals::Array`: The finite values of the ocean convergence factors.
+-`finite_atm_vals::Array`: The finite values of the atmosphere convergence factors.
+
+"""
 function get_bounds(yscale, conv_facs_analytic, finite_oce_vals, finite_atm_vals)
     matrices = filter(!isnothing, [conv_facs_analytic, finite_oce_vals, finite_atm_vals])
     filtered_matrices = [filter(!isnan, matrix) for matrix in matrices]
     filtered_matrices =
-        yscale == :log10 ? [filter(x -> x != 0, matrix) for matrix in filtered_matrices] :
-        filtered_matrices
-    upperbound = !isempty(filtered_matrices) ? maximum(maximum.(filtered_matrices)) : 1
-    lowerbound = !isempty(filtered_matrices) ? minimum(minimum.(filtered_matrices)) : 0
+        yscale == :log10 && !isempty(filtered_matrices) ?
+        [filter(x -> x != 0, matrix) for matrix in filtered_matrices] : filtered_matrices
+    upperbound =
+        !isempty(filtered_matrices) ?
+        maximum(maximum.(filter(!isempty, filtered_matrices))) : 1
+    lowerbound =
+        !isempty(filtered_matrices) ?
+        minimum(minimum.(filter(!isempty, filtered_matrices))) : 0
     return lowerbound, upperbound
 end
 
-function plot_delta_z_delta_t(
+"""
+Plots the unstable model regime.
+
+**Arguments:**
+
+-`unstable_matrix: Array`: Containing the indices (with respect to Δz and Δt) at which the model becomes unstable.
+-`Δzs::Array`: Range to vary Δzᴬ or Δzᴼ over.
+-`Δts::Array`: Range to vary Δtᴬ or Δtᴼ over.
+-`Δz_name::String`: Either Δzᴬ or Δzᴼ.
+-`Δt_name::String`: Either Δtᴬ or Δtᴼ.
+
+**Optional Keyword Arguments:**
+
+-`xscale::Symbol`: Plotting argument for x-scale, default: `:identity`.
+-`yscale::Symbol`: Plotting argument for y-scale, default: `:identity`.
+-`xticks::Symbol or Array`: Defines the tick marks on the x-axis, default: `:auto`.
+-`yticks::Symbol or Array`: Defines the tick marks on the y-axis, default: `:auto`.
+-`a_i::Float64`: Sea ice concentration, default: `Float64(0.5)`.
+-`color::Symbol`: Color for the plotted regime, default: `:green`.
+-`legend::Symbol`: Legend position, default: `:right`.
+
+"""
+function plot_Δz_Δt(
     unstable_matrix,
-    theoretical_vals_matrix,
-    delta_zs,
-    delta_ts,
-    delta_z_name,
-    delta_t_name;
+    Δzs,
+    Δts,
+    Δz_name,
+    Δt_name;
     xscale = :identity,
     yscale = :identity,
     xticks = :auto,
     yticks = :auto,
-    a_i = 0.5,
+    a_i = Float64(0.5),
     color = :green,
     legend = :right,
 )
-    # Plot convergence factor as a function of deltaz and delta t
     t_values = []
-    t_values_theoretical = []
     pre_index = 0
-    pre_index_theoretical = 0
-    for (i, delta_z) in enumerate(delta_zs)
+    for (i, Δz) in enumerate(Δzs)
         first_inf_index = findfirst(isinf, unstable_matrix[i, :])
-        first_unstable_index = findfirst(x -> maximum(x) > 1, theoretical_vals_matrix[i, :])
 
         if isnothing(first_inf_index)
             push!(t_values, NaN)
         else
-            first_t_inf = delta_ts[first_inf_index]
+            first_t_inf = Δts[first_inf_index]
             push!(t_values, first_t_inf)
             if first_inf_index == pre_index
                 t_values[i-1] = NaN
             end
         end
-        if isnothing(first_unstable_index)
-            push!(t_values_theoretical, NaN)
-        else
-            first_t_theoretical = delta_ts[first_unstable_index]
-            push!(t_values_theoretical, first_t_theoretical)
-            if first_unstable_index == pre_index_theoretical
-                t_values_theoretical[i-1] = NaN
-            end
-        end
         pre_index = first_inf_index
-        pre_index_theoretical = first_unstable_index
     end
 
     not_nan_indices = .!isnan.(t_values)
     if not_nan_indices[end]
         last_t = t_values[end]
-        index_for_last_t = findall(x -> x == last_t, delta_ts)[1]
-        remaining_t = delta_ts[index_for_last_t:end]
+        index_for_last_t = findall(x -> x == last_t, Δts)[1]
+        remaining_t = Δts[index_for_last_t:end]
         t_values = vcat(t_values[not_nan_indices], remaining_t)
-        delta_zs_new =
-            vcat(delta_zs[not_nan_indices], (yticks[end] + 1) * ones(length(remaining_t)))
+        Δzs_new = vcat(Δzs[not_nan_indices], (yticks[end] + 1) * ones(length(remaining_t)))
     else
         t_values = t_values[not_nan_indices]
-        delta_zs_new = delta_zs[not_nan_indices]
+        Δzs_new = Δzs[not_nan_indices]
     end
     plot!(
         t_values,
-        delta_zs_new,
+        Δzs_new,
         linewidth = 2,
         xscale = xscale,
         yscale = yscale,
         xticks = xticks,
         yticks = yticks,
-        xlabel = delta_t_name,
-        ylabel = delta_z_name,
+        xlabel = Δt_name,
+        ylabel = Δz_name,
         label = "Unstable regime, aᴵ=$a_i",
         color = color,
-        fillrange = minimum(delta_zs),
+        fillrange = minimum(Δzs),
         fillalpha = 0.3,
         xlim = (xticks[1], xticks[end]),
         ylim = (yticks[1], yticks[end]),
         legend = legend,
     )
 
-    scatter!(t_values, delta_zs_new, markershape = :circle, label = "", color = color)
-    if delta_z_name == L"$\Delta z^A$"
+    scatter!(t_values, Δzs_new, markershape = :circle, label = "", color = color)
+    if Δz_name == L"$\Delta z^A$"
         t1 = 2:1:7
         t2 = 20:10:70
         plot!(
@@ -328,8 +408,7 @@ function plot_delta_z_delta_t(
     end
 
 
-    not_nan_indices_theoretical = .!isnan.(t_values_theoretical)
-    if delta_z_name == L"$\Delta z^A$"
+    if Δz_name == L"$\Delta z^A$"
         annotate!(
             4,
             (5 .^ (1 / 2)) .* 10^(-2.5),
