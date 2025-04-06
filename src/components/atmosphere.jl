@@ -18,13 +18,13 @@ function heat_atm_rhs!(dT, T, cache, t)
         F_sfc = (
             cache.a_i *
             cache.C_AI *
-            cache.rho_atm *
+            cache.ρ_atm *
             cache.c_atm *
             abs(cache.u_atm) *
             (T[1] - parent(cache.T_ice)[1]) +
             (1 - cache.a_i) *
             cache.C_AO *
-            cache.rho_atm *
+            cache.ρ_atm *
             cache.c_atm *
             abs(cache.u_atm - cache.u_oce) *
             (T[1] - parent(cache.T_sfc)[1])
@@ -34,17 +34,17 @@ function heat_atm_rhs!(dT, T, cache, t)
         F_sfc = (
             cache.a_i *
             cache.C_AI *
-            cache.rho_atm *
+            cache.ρ_atm *
             cache.c_atm *
             abs(cache.u_atm) *
             (T[1] - parent(cache.T_ice)[1]) +
             (1 - cache.a_i) *
             cache.C_AO *
-            cache.rho_atm *
+            cache.ρ_atm *
             cache.c_atm *
             abs(cache.u_atm - cache.u_oce) *
             (T[1] - parent(cache.T_sfc)[index])
-        )# I say we should divide by k^A here?
+        )
     end
     # set boundary conditions
     C3 = CC.Geometry.WVector
@@ -56,7 +56,7 @@ function heat_atm_rhs!(dT, T, cache, t)
     ᶠgradᵥ = CC.Operators.GradientC2F()
     ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom = bcs_bottom, top = bcs_top)
 
-    @. dT.atm = ᶜdivᵥ(cache.k_atm * ᶠgradᵥ(T.atm)) / (cache.rho_atm * cache.c_atm)
+    @. dT.atm = ᶜdivᵥ(cache.k_atm * ᶠgradᵥ(T.atm)) / (cache.ρ_atm * cache.c_atm)
 end
 
 function atmos_init(stepping, ics, space, cache)
@@ -81,9 +81,11 @@ Checkpointer.get_model_prog_state(sim::HeatEquationAtmos) = sim.integrator.u
 
 Interfacer.step!(sim::HeatEquationAtmos, t) =
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
+
 Interfacer.reinit!(sim::HeatEquationAtmos) = Interfacer.reinit!(sim.integrator)
 
 get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc}) = sim.integrator.u[1]
+
 function update_field!(sim::HeatEquationAtmos, field_1, field_2)
     if sim.params.boundary_mapping == "mean"
         parent(sim.integrator.p.T_sfc)[1] = field_1

@@ -1,7 +1,16 @@
-function extract_matrix(field_vecs, type)
+"""
+Extracts an Array from an Array of FieldVectors.
+
+**Arguments:**
+
+-`field_vecs: Array`: An array of fieldvectors containing temperature values.
+-`domain: String`: Either `"atm"` or `"oce"`.
+
+"""
+function extract_matrix(field_vecs, domain)
     matrix = []
     for field_vec in field_vecs
-        if type == "atm"
+        if domain == "atm"
             field = field_vec.atm
             values = parent(field)
             push!(matrix, values)
@@ -14,6 +23,18 @@ function extract_matrix(field_vecs, type)
     return hcat(matrix...)
 end
 
+"""
+Checks if the computed temperatures are reasonable or if the model has gone unstable.
+
+**Arguments:**
+
+-`atmos_vals: Array`: Atmosphere temperatures.
+-`ocean_vals: Array`: Ocean temperatures.
+-`upper_limit_temp: Float64`: Maximum reasonable temperature.
+-`lower_limit_temp: Float64`: Minimum reasonable temperature.
+-`iter: Int`: Current iteration.
+
+"""
 function is_stable(atmos_vals, ocean_vals, upper_limit_temp, lower_limit_temp, iter)
     stable = true
     stopped_at_nan_atm = false
@@ -42,6 +63,18 @@ function is_stable(atmos_vals, ocean_vals, upper_limit_temp, lower_limit_temp, i
     return stable, stopped_at_nan_atm, stopped_at_nan_oce
 end
 
+"""
+Checks if the Schwarz iteration should terminated.
+
+**Arguments:**
+    
+-`bound_atmos_vals: Array`: Atmosphere boundary temperatures.
+-`pre_bound_atmos_vals: Array`: Previous iteration atmosphere boundary temperatures.
+-`bound_ocean_vals: Array`: Ocean boundary temperatures.
+-`pre_bound_ocean_vals: Array`: Previous iteration ocean boundary temperatures.    
+-`iter: Int`: Current iteration.
+
+"""
 function has_converged(
     bound_atmos_vals,
     pre_bound_atmos_vals,
@@ -64,6 +97,24 @@ function has_converged(
     end
 end
 
+"""
+Special treatment when varying some variables.
+
+**Arguments:**
+
+-`var::Array`: Values for the variable.
+-`var_name::String`: The variable name.
+-`conv_facs_oce::Array`: Ocean convergence factors.
+-`conv_facs_atm::Array`: Atmosphere convergence factors.
+-`physical_values::Dict`: Can be defined using `define_realistic_vals()`.
+
+**Optional Keyword Arguments:**
+
+-`dims::Int`: Dimensions over which to  reverse the convergence factor matrices, default: `1`.
+-`param_analytic::Array`: The analytical values for the variable, default: `nothing`.
+-`conv_facs_analytic::Array`: The analytical convergence factors, default: `nothing`.
+
+"""
 function handle_variable(
     var,
     var_name,
@@ -90,9 +141,9 @@ function handle_variable(
             )
         end
     elseif var_name == "n_t_atm" || var_name == "n_t_oce"
-        var = physical_values[:delta_t_min] ./ reverse(var)
+        var = physical_values[:Δt_min] ./ reverse(var)
         if !isnothing(conv_facs_analytic) && !isnothing(param_analytic)
-            param_analytic = reverse(physical_values[:delta_t_min] ./ param_analytic)
+            param_analytic = reverse(physical_values[:Δt_min] ./ param_analytic)
         end
     end
     if var_name in ["n_atm", "n_oce", "n_t_atm", "n_t_oce"]
@@ -107,6 +158,15 @@ function handle_variable(
     return var, conv_facs_oce, conv_facs_atm, param_analytic, conv_facs_analytic
 end
 
+""" 
+Extracts the first convergence factors.
+
+**Arguments:**
+
+-`conv_fac_atm::Array`: Atmosphere convergence factor.
+-`conv_fac_oce::Array`: Ocean convergence factor.
+
+"""
 function extract_conv_fac(conv_fac_atm, conv_fac_oce)
     if conv_fac_atm isa AbstractArray
         conv_fac_atm = !isempty(conv_fac_atm) ? conv_fac_atm[1] : NaN

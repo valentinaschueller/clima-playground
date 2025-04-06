@@ -6,6 +6,18 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
+"""
+Creates a CoupledSimulation.
+
+**Arguments:**
+
+-`physical_values::Dict`: Can be defined using `define_realistic_vals()`. 
+
+**Optional Keyword Arguments:**
+
+-`boundary_mapping::String`: Either `"mean"` or `"cit"` (closest in time), default: `"mean"`.
+
+"""
 function get_coupled_sim(physical_values; boundary_mapping = "mean")
     physical_keys = [
         :h_atm,
@@ -16,8 +28,8 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
         :k_oce,
         :c_atm,
         :c_oce,
-        :rho_atm,
-        :rho_oce,
+        :ρ_atm,
+        :ρ_oce,
         :u_atm,
         :u_oce,
         :C_AO,
@@ -34,7 +46,6 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
     context = CC.ClimaComms.context()
     device = CC.ClimaComms.device(context)
 
-    # initialize models
     domain_atm = CC.Domains.IntervalDomain(
         CC.Geometry.ZPoint{Float64}(physical_values[:z_0numA]),
         CC.Geometry.ZPoint{Float64}(parameters.h_atm);
@@ -51,14 +62,6 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
     mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems = parameters.n_oce)
     center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_oce)
 
-    # Adding height for the ice
-    # domain_ice = CC.Domains.IntervalDomain(
-    #     CC.Geometry.ZPoint{Float64}(-0.1),
-    #     CC.Geometry.ZPoint{Float64}(0.1);
-    #     boundary_names=(:bottom, :top),
-    # )
-    # mesh_ice = CC.Meshes.IntervalMesh(domain_ice, nelems=1)
-
     coord = CC.Geometry.ZPoint{Float64}(0.0)
     point_space_ice = CC.Spaces.PointSpace(context, coord)
 
@@ -69,9 +72,9 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
     )
 
     stepping = (;
-        Δt_min = Float64(physical_values[:delta_t_min]),
+        Δt_min = Float64(physical_values[:Δt_min]),
         timerange = (Float64(0.0), Float64(physical_values[:t_max])),
-        Δt_coupler = Float64(physical_values[:delta_t_cpl]),
+        Δt_coupler = Float64(physical_values[:Δt_cpl]),
         odesolver = CTS.ExplicitAlgorithm(CTS.RK4()),
         nsteps_atm = physical_values[:n_t_atm],
         nsteps_oce = physical_values[:n_t_oce],
@@ -85,7 +88,7 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
                 sin.(
                     (coord_field_atm .- parent(coord_field_atm)[1]) ./
                     (parent(coord_field_atm)[end] .- parent(coord_field_atm)[1]) .*
-                    (pi / 50)
+                    (π / 50)
                 )
             )
     else
@@ -98,7 +101,7 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
             1 .+
             sin.(
                 (coord_field_oce .- parent(coord_field_oce)[1]) ./
-                (parent(coord_field_oce)[end] .- parent(coord_field_oce)[1]) .* (pi / 50)
+                (parent(coord_field_oce)[end] .- parent(coord_field_oce)[1]) .* (π / 50)
             )
         field_oce = parameters.T_oce_ini .* (field_oce .- (parent(field_oce)[end] - 1))
 

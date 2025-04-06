@@ -11,7 +11,8 @@ end
 
 Interfacer.name(::ConstantIce) = "ConstantIce"
 
-function heat_ice_rhs!(dT, T, cache, t) # Something that has to be implemented right?
+function heat_ice_rhs!(dT, T, cache, t)
+    # note: here we can add an update for the sea ice
     dT.ice = 0
 end
 
@@ -34,9 +35,12 @@ end
 
 Interfacer.step!(sim::ConstantIce, t) =
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
+
 Interfacer.reinit!(sim::ConstantIce) = Interfacer.reinit!(sim.integrator)
 
 get_field(sim::ConstantIce, ::Val{:T_ice}) = sim.integrator.u[1]
+
 function update_field!(sim::ConstantIce, ::Val{:T_ice}, field)
+    # note: not used at the moment
     sim.integrator.u[1] = field
 end

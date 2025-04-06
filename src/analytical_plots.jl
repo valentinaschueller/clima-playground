@@ -1,5 +1,13 @@
 using Plots
 
+"""
+Plots the dependence of `C_AO` on `L_AO` or the dependence of `C_AI` on `L_AI` and `a_i`.
+
+**Arguments:**
+
+-`C_variable_name::String`: `"C_AO"` or `"C_AI"` depending on desired plot.
+
+"""
 function plot_obukhov_C_dependencies(C_variable_name)
     if !(C_variable_name in ["C_AO", "C_AI"])
         return nothing
@@ -7,23 +15,11 @@ function plot_obukhov_C_dependencies(C_variable_name)
     physical_values = define_realistic_vals()
     a_is = C_variable_name == "C_AO" ? [physical_values[:a_i]] : 0:0.01:1
 
-    pos_vars = -200:-50# L_AO or L_AI unstable
-    neg_vars = 10:200# L_AO or L_AI stable
-    C_pos = zeros(length(a_is), length(pos_vars))
+    neg_vars = -200:-50
+    pos_vars = 10:200
     C_neg = zeros(length(a_is), length(neg_vars))
+    C_pos = zeros(length(a_is), length(pos_vars))
     for (i, a_i) in enumerate(a_is)
-        for (j, pos_var) in enumerate(pos_vars)
-            physical_values[:L_AO] =
-                (C_variable_name == "C_AO") ? pos_var : physical_values[:L_AO]
-            physical_values[:L_AI] =
-                (C_variable_name == "C_AI") ? pos_var : physical_values[:L_AI]
-            physical_values =
-                (C_variable_name == "C_AO") ? update_C_AO(physical_values) :
-                update_physical_values(a_i, physical_values)
-            C_pos[i, j] =
-                (C_variable_name == "C_AO") ? physical_values[:C_AO] :
-                physical_values[:C_AI]
-        end
         for (j, neg_var) in enumerate(neg_vars)
             physical_values[:L_AO] =
                 (C_variable_name == "C_AO") ? neg_var : physical_values[:L_AO]
@@ -36,102 +32,125 @@ function plot_obukhov_C_dependencies(C_variable_name)
                 (C_variable_name == "C_AO") ? physical_values[:C_AO] :
                 physical_values[:C_AI]
         end
+        for (j, pos_var) in enumerate(pos_vars)
+            physical_values[:L_AO] =
+                (C_variable_name == "C_AO") ? pos_var : physical_values[:L_AO]
+            physical_values[:L_AI] =
+                (C_variable_name == "C_AI") ? pos_var : physical_values[:L_AI]
+            physical_values =
+                (C_variable_name == "C_AO") ? update_C_AO(physical_values) :
+                update_physical_values(a_i, physical_values)
+            C_pos[i, j] =
+                (C_variable_name == "C_AO") ? physical_values[:C_AO] :
+                physical_values[:C_AI]
+        end
     end
 
     if C_variable_name == "C_AO"
         gr()
-        println(maximum([maximum(C_pos), maximum(C_neg)]))
-        println(minimum([minimum(C_pos), minimum(C_neg)]))
+        println(maximum([maximum(C_neg), maximum(C_pos)]))
+        println(minimum([minimum(C_neg), minimum(C_pos)]))
         plot(
-            pos_vars,
-            vec(C_pos),
+            neg_vars,
+            vec(C_neg),
             xlabel = L"$L^A_O$",
             ylabel = L"$C^A_O$",
             label = "",
             color = :black,
         )
-        plot!(neg_vars, vec(C_neg), label = "", color = :black)
+        plot!(pos_vars, vec(C_pos), label = "", color = :black)
         display(current())
     elseif C_variable_name == "C_AI"
         plotly()
-        println(maximum([maximum(C_pos), maximum(C_neg)]))
-        println(minimum([minimum(C_pos), minimum(C_neg)]))
-        surface(a_is, pos_vars, C_pos', xlabel = "aᴵ", ylabel = "Lᴬᴵ", zlabel = "Cᴬᴵ")
-        surface!(a_is, neg_vars, C_neg')
+        println(maximum([maximum(C_neg), maximum(C_pos)]))
+        println(minimum([minimum(C_neg), minimum(C_pos)]))
+        surface(a_is, neg_vars, C_neg', xlabel = "aᴵ", ylabel = "Lᴬᴵ", zlabel = "Cᴬᴵ")
+        surface!(a_is, pos_vars, C_pos')
     end
 end
 
+"""Computes and plots the analytical convergence factor as a function of `ν` and `ω`."""
 function analytical_convergence_factor_dependence()
-    nus = range(0, stop = 10, length = 50)
-    omegas = range(0.001, stop = 10, length = 50)
+    νs = range(0, stop = 10, length = 50)
+    ωs = range(0.001, stop = 10, length = 50)
     a_is = range(0.001, stop = 1, length = 10)
-    rhos = zeros(length(nus), length(omegas), length(a_is))
+    ρs = zeros(length(νs), length(ωs), length(a_is))
     physical_values = define_realistic_vals()
 
     # Loop over values
     for (k, a_i) in enumerate(a_is)
-        for (i, nu) in enumerate(nus)
-            for (j, omega) in enumerate(omegas)
-                physical_values[:omega] = omega
-                physical_values[:nu] = nu
+        for (i, ν) in enumerate(νs)
+            for (j, ω) in enumerate(ωs)
+                physical_values[:ω] = ω
+                physical_values[:ν] = ν
                 physical_values[:a_i] = a_i
-                rho = compute_rho_with_nu_and_omega_variable(physical_values)
-                rhos[i, j, k] = rho
+                ρ = compute_ρ_analytical_with_ν_and_ω_variable(physical_values)
+                ρs[i, j, k] = ρ
             end
         end
-        i_max, j_max = Tuple(CartesianIndices(rhos)[argmax(rhos)])
-        nu_max = nus[i_max]
-        omega_max = omegas[j_max]
-        println("supremum at ν=$nu_max and ω=$omega_max")
+        i_max, j_max = Tuple(CartesianIndices(ρs)[argmax(ρs)])
+        ν_max = νs[i_max]
+        ω_max = ωs[j_max]
+        println("supremum at ν=$ν_max and ω=$ω_max")
     end
 
 
     plotly()
-    surface(omegas, nus, rhos[:, :, 1], color = :viridis)
+    surface(
+        ωs,
+        νs,
+        ρs[:, :, 1],
+        color = :viridis,
+        xlabel = "ω",
+        ylabel = "ν",
+        zlabel = "̂ρ(ν+iω)",
+    )
 end
 
-function compute_rho_with_nu_and_omega_variable(params)
-    real_part_o = sqrt(
-        (sqrt(params[:nu]^2 + params[:omega]^2) + params[:nu]) / (2 * params[:alpha_o]),
-    )
+"""
+Computes the analytical convergence factor as a function of `ν` and `ω`.
+
+**Arguments:**
+
+-`params::Dict`: Can be defined using `define_realistic_vals()`, but should also have the keys `:omega` and `:nu`.
+
+"""
+function compute_ρ_analytical_with_ν_and_ω_variable(params)
+    real_part_o =
+        sqrt((sqrt(params[:ν]^2 + params[:ω]^2) + params[:ν]) / (2 * params[:α_o]))
     imag_part_o =
         im *
-        sign(params[:omega]) *
-        sqrt(
-            (sqrt(params[:nu]^2 + params[:omega]^2) - params[:nu]) / (2 * params[:alpha_o]),
-        )
-    sigma_o = real_part_o + imag_part_o
-    real_part_a = sqrt(
-        (sqrt(params[:nu]^2 + params[:omega]^2) + params[:nu]) / (2 * params[:alpha_a]),
-    )
+        sign(params[:ω]) *
+        sqrt((sqrt(params[:ν]^2 + params[:ω]^2) - params[:ν]) / (2 * params[:α_o]))
+    σ_o = real_part_o + imag_part_o
+    real_part_a =
+        sqrt((sqrt(params[:ν]^2 + params[:ω]^2) + params[:ν]) / (2 * params[:α_a]))
     imag_part_a =
         im *
-        sign(params[:omega]) *
-        sqrt(
-            (sqrt(params[:nu]^2 + params[:omega]^2) - params[:nu]) / (2 * params[:alpha_a]),
-        )
-    sigma_a = real_part_a + imag_part_a
-    eta_AO =
+        sign(params[:ω]) *
+        sqrt((sqrt(params[:ν]^2 + params[:ω]^2) - params[:ν]) / (2 * params[:α_a]))
+    σ_a = real_part_a + imag_part_a
+    η_AO =
         params[:C_AO] *
         abs(params[:u_atm] - params[:u_oce]) *
-        params[:rho_atm] *
+        params[:ρ_atm] *
         params[:c_atm]
-    eta_OI = params[:C_OI] * abs(params[:u_oce]) * params[:rho_oce] * params[:c_oce]
-    eta_AI = params[:C_AI] * abs(params[:u_atm]) * params[:rho_atm] * params[:c_atm]
+    η_OI = params[:C_OI] * abs(params[:u_oce]) * params[:ρ_oce] * params[:c_oce]
+    η_AI = params[:C_AI] * abs(params[:u_atm]) * params[:ρ_atm] * params[:c_atm]
     return abs(
-        (1 - params[:a_i])^2 * eta_AO^2 / (
+        (1 - params[:a_i])^2 * η_AO^2 / (
             (
                 params[:k_oce] *
-                sigma_o *
-                (1 / tanh(sigma_o * (params[:h_oce] - params[:z_0numO]))) +
-                (1 - params[:a_i]) * eta_AO +
-                params[:a_i] * eta_OI
+                σ_o *
+                (1 / tanh(σ_o * (params[:h_oce] - params[:z_0numO]))) +
+                (1 - params[:a_i]) * η_AO +
+                params[:a_i] * η_OI
             ) * (
                 params[:k_atm] *
-                sigma_a *
-                (1 / tanh(sigma_a * (params[:h_atm] - params[:z_0numA]))) +
-                (1 - params[:a_i]) * eta_AO +
-                params[:a_i] * eta_AI
+                σ_a *
+                (1 / tanh(σ_a * (params[:h_atm] - params[:z_0numA]))) +
+                (1 - params[:a_i]) * η_AO +
+                params[:a_i] * η_AI
             )
         ),
     )
