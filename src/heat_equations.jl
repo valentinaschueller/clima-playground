@@ -584,6 +584,7 @@ function coupled_heat_equations(;
         if analytic_conv_fac
             println(compute_ρ_analytical(physical_values))
         end
+        return cs
 
     elseif plot_conv_facs_iter || print_conv_facs_iter
         # Compute and plot or print convergence factor with respect to iteration
