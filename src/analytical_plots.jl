@@ -53,27 +53,27 @@ function plot_obukhov_C_dependencies(C_variable_name)
         plot(
             neg_vars,
             vec(C_neg),
-            xlabel = L"$L^A_O$",
-            ylabel = L"$C^A_O$",
-            label = "",
-            color = :black,
+            xlabel=L"$L^A_O$",
+            ylabel=L"$C^A_O$",
+            label="",
+            color=:black,
         )
-        plot!(pos_vars, vec(C_pos), label = "", color = :black)
+        plot!(pos_vars, vec(C_pos), label="", color=:black)
         display(current())
     elseif C_variable_name == "C_AI"
         plotly()
         println(maximum([maximum(C_neg), maximum(C_pos)]))
         println(minimum([minimum(C_neg), minimum(C_pos)]))
-        surface(a_is, neg_vars, C_neg', xlabel = "aᴵ", ylabel = "Lᴬᴵ", zlabel = "Cᴬᴵ")
+        surface(a_is, neg_vars, C_neg', xlabel="aᴵ", ylabel="Lᴬᴵ", zlabel="Cᴬᴵ")
         surface!(a_is, pos_vars, C_pos')
     end
 end
 
 """Computes and plots the analytical convergence factor as a function of `ν` and `ω`."""
 function analytical_convergence_factor_dependence()
-    νs = range(0, stop = 10, length = 50)
-    ωs = range(0.001, stop = 10, length = 50)
-    a_is = range(0.001, stop = 1, length = 10)
+    νs = range(0, stop=10, length=50)
+    ωs = range(0.001, stop=10, length=50)
+    a_is = range(0.001, stop=1, length=10)
     ρs = zeros(length(νs), length(ωs), length(a_is))
     physical_values = define_realistic_vals()
 
@@ -100,10 +100,10 @@ function analytical_convergence_factor_dependence()
         ωs,
         νs,
         ρs[:, :, 1],
-        color = :viridis,
-        xlabel = "ω",
-        ylabel = "ν",
-        zlabel = "̂ρ(ν+iω)",
+        color=:viridis,
+        xlabel="ω",
+        ylabel="ν",
+        zlabel="̂ρ(ν+iω)",
     )
 end
 

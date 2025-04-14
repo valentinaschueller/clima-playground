@@ -54,7 +54,7 @@ function heat_atm_rhs!(dT, T, cache, t)
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
     ᶠgradᵥ = CC.Operators.GradientC2F()
-    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom = bcs_bottom, top = bcs_top)
+    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
     @. dT.atm = ᶜdivᵥ(cache.k_atm * ᶠgradᵥ(T.atm)) / (cache.ρ_atm * cache.c_atm)
 end
@@ -63,14 +63,14 @@ function atmos_init(stepping, ics, space, cache)
     Δt = Float64(stepping.Δt_min) / stepping.nsteps_atm
     saveat = stepping.timerange[1]:stepping.Δt_min:stepping.timerange[end]
 
-    ode_function = CTS.ClimaODEFunction((T_exp!) = heat_atm_rhs!)
+    ode_function = CTS.ClimaODEFunction((T_exp!)=heat_atm_rhs!)
     problem = SciMLBase.ODEProblem(ode_function, ics, stepping.timerange, cache)
     integrator = SciMLBase.init(
         problem,
         stepping.odesolver,
-        dt = Δt,
-        saveat = saveat,
-        adaptive = false,
+        dt=Δt,
+        saveat=saveat,
+        adaptive=false,
     )
 
     sim = HeatEquationAtmos(cache, ics, space, integrator)

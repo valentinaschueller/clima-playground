@@ -18,7 +18,7 @@ Creates a CoupledSimulation.
 -`boundary_mapping::String`: Either `"mean"` or `"cit"` (closest in time), default: `"mean"`.
 
 """
-function get_coupled_sim(physical_values; boundary_mapping = "mean")
+function get_coupled_sim(physical_values; boundary_mapping="mean")
     physical_keys = [
         :h_atm,
         :h_oce,
@@ -49,17 +49,17 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
     domain_atm = CC.Domains.IntervalDomain(
         CC.Geometry.ZPoint{Float64}(physical_values[:z_0numA]),
         CC.Geometry.ZPoint{Float64}(parameters.h_atm);
-        boundary_names = (:bottom, :top),
+        boundary_names=(:bottom, :top),
     )
-    mesh_atm = CC.Meshes.IntervalMesh(domain_atm, nelems = parameters.n_atm)
+    mesh_atm = CC.Meshes.IntervalMesh(domain_atm, nelems=parameters.n_atm)
     center_space_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_atm)
 
     domain_oce = CC.Domains.IntervalDomain(
         CC.Geometry.ZPoint{Float64}(-parameters.h_oce),
         CC.Geometry.ZPoint{Float64}(-physical_values[:z_0numO]);
-        boundary_names = (:bottom, :top),
+        boundary_names=(:bottom, :top),
     )
-    mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems = parameters.n_oce)
+    mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems=parameters.n_oce)
     center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_oce)
 
     coord = CC.Geometry.ZPoint{Float64}(0.0)
@@ -72,13 +72,13 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
     )
 
     stepping = (;
-        Δt_min = Float64(physical_values[:Δt_min]),
-        timerange = (Float64(0.0), Float64(physical_values[:t_max])),
-        Δt_coupler = Float64(physical_values[:Δt_cpl]),
-        odesolver = CTS.ExplicitAlgorithm(CTS.RK4()),
-        nsteps_atm = physical_values[:n_t_atm],
-        nsteps_oce = physical_values[:n_t_oce],
-        nsteps_ice = 1,
+        Δt_min=Float64(physical_values[:Δt_min]),
+        timerange=(Float64(0.0), Float64(physical_values[:t_max])),
+        Δt_coupler=Float64(physical_values[:Δt_cpl]),
+        odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
+        nsteps_atm=physical_values[:n_t_atm],
+        nsteps_oce=physical_values[:n_t_oce],
+        nsteps_ice=1,
     )
     if physical_values[:sin_field_atm]
         coord_field_atm = map(x -> x.z, CC.Fields.coordinate_field(center_space_atm))
@@ -109,31 +109,31 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
         field_oce = CC.Fields.ones(Float64, center_space_oce) .* parameters.T_oce_ini
     end
 
-    T_atm_0 = CC.Fields.FieldVector(atm = field_atm)
-    T_oce_0 = CC.Fields.FieldVector(oce = field_oce)
+    T_atm_0 = CC.Fields.FieldVector(atm=field_atm)
+    T_oce_0 = CC.Fields.FieldVector(oce=field_oce)
     T_ice_0 = CC.Fields.FieldVector(
-        ice = CC.Fields.ones(Float64, point_space_ice) .* parameters.T_ice_ini,
+        ice=CC.Fields.ones(Float64, point_space_ice) .* parameters.T_ice_ini,
     )
 
     if boundary_mapping == "cit"
         time_points_oce_domain = CC.Domains.IntervalDomain(
             CC.Geometry.ZPoint{Float64}(stepping.timerange[1] - (stepping.Δt_min / 2)),
             CC.Geometry.ZPoint{Float64}(stepping.timerange[2] - (stepping.Δt_min / 2));
-            boundary_names = (:start, :end),
+            boundary_names=(:start, :end),
         )
         time_points_atm_domain = CC.Domains.IntervalDomain(
             CC.Geometry.ZPoint{Float64}(stepping.timerange[1] - (stepping.Δt_min / 2)),
             CC.Geometry.ZPoint{Float64}(stepping.timerange[2] - (stepping.Δt_min / 2));
-            boundary_names = (:start, :end),
+            boundary_names=(:start, :end),
         )
 
         mesh_time_oce = CC.Meshes.IntervalMesh(
             time_points_oce_domain,
-            nelems = Int(stepping.timerange[2] / stepping.Δt_min + 1),
+            nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1),
         )
         mesh_time_atm = CC.Meshes.IntervalMesh(
             time_points_atm_domain,
-            nelems = Int(stepping.timerange[2] / stepping.Δt_min + 1),
+            nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1),
         )
         space_time_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_oce)
         space_time_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_atm)
@@ -144,8 +144,8 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
         T_air = parameters.T_atm_ini .* CC.Fields.ones(boundary_space)
     end
 
-    atmos_cache = (; parameters..., T_sfc = T_sfc, T_ice = T_ice_0)
-    ocean_cache = (; parameters..., T_air = T_air, T_ice = T_ice_0)
+    atmos_cache = (; parameters..., T_sfc=T_sfc, T_ice=T_ice_0)
+    ocean_cache = (; parameters..., T_air=T_air, T_ice=T_ice_0)
     atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, atmos_cache)
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
     ice_cache = (; parameters...)
@@ -155,19 +155,19 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
     output_dir = "output"
     mkpath(output_dir)
     dir_paths = (
-        output = output_dir,
-        artifacts = output_dir,
-        regrid = output_dir,
-        checkpoints = output_dir,
+        output=output_dir,
+        artifacts=output_dir,
+        regrid=output_dir,
+        checkpoints=output_dir,
     )
 
     start_date = "19790301"
     date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
     dates = (;
-        date = [date],
-        date0 = [date],
-        date1 = [Dates.firstdayofmonth(date)],
-        new_month = [false],
+        date=[date],
+        date0=[date],
+        date1=[Dates.firstdayofmonth(date)],
+        new_month=[false],
     )
 
 
@@ -176,7 +176,7 @@ function get_coupled_sim(physical_values; boundary_mapping = "mean")
         ntuple(i -> CC.Fields.zeros(boundary_space), length(coupler_field_names)),
     )
 
-    model_sims = (atmos_sim = atmos_sim, ocean_sim = ocean_sim, ice_sim = ice_sim)
+    model_sims = (atmos_sim=atmos_sim, ocean_sim=ocean_sim, ice_sim=ice_sim)
 
 
     cs = Interfacer.CoupledSimulation{Float64}(

@@ -68,31 +68,22 @@ Computes the numerical convergence factor based on the parameters in physical_va
 """
 function compute_ρ_numerical(
     physical_values;
-    iterations = 1,
-    return_conv_facs = true,
-    plot_conv_facs = false,
-    print_conv_facs = false,
+    iterations=1,
+    return_conv_facs=true,
+    plot_conv_facs=false,
+    print_conv_facs=false,
 )
     cs = get_coupled_sim(physical_values)
+    out = solve_coupler!(
+        cs,
+        iterations=iterations,
+        print_conv=print_conv_facs,
+        plot_conv=plot_conv_facs,
+        return_conv=return_conv_facs,
+    )
     if return_conv_facs
-        conv_fac_atm, conv_fac_oce = solve_coupler!(
-            cs,
-            iterations = iterations,
-            print_conv = false,
-            plot_conv = false,
-            return_conv = return_conv_facs,
-        )
-        return conv_fac_atm, conv_fac_oce
-    elseif plot_conv_facs || print_conv_facs
-        solve_coupler!(
-            cs,
-            iterations = iterations,
-            print_conv = print_conv_facs,
-            plot_conv = plot_conv_facs,
-            return_conv = return_conv_facs,
-        )
+        return out[1], out[2]
     end
-
 end
 
 """
@@ -116,10 +107,10 @@ function get_conv_facs_one_variable(
     physical_values,
     vars,
     var_name;
-    iterations = 1,
-    a_i_variable = nothing,
-    analytic = false,
-    log_scale = false,
+    iterations=1,
+    a_i_variable=nothing,
+    analytic=false,
+    log_scale=false,
 )
     vary_a_i = !isnothing(a_i_variable)
     a_i_variable = vary_a_i ? a_i_variable : [physical_values[:a_i]]
@@ -128,9 +119,9 @@ function get_conv_facs_one_variable(
 
     if analytic
         if log_scale
-            variable2_range = exp10.(range(log10(vars[1]), log10(vars[end]), length = 100))
+            variable2_range = exp10.(range(log10(vars[1]), log10(vars[end]), length=100))
         else
-            variable2_range = range(vars[1], vars[end], length = 100)
+            variable2_range = range(vars[1], vars[end], length=100)
         end
         conv_facs_analytic = zeros(length(a_i_variable), length(variable2_range))
     else
@@ -160,7 +151,7 @@ function get_conv_facs_one_variable(
                 physical_values[:Δt_cpl] = var
             end
             conv_fac_atm, conv_fac_oce =
-                compute_ρ_numerical(physical_values, iterations = iterations)
+                compute_ρ_numerical(physical_values, iterations=iterations)
             conv_facs_atm[j, k], conv_facs_oce[j, k] =
                 extract_conv_fac(conv_fac_atm, conv_fac_oce)
         end
