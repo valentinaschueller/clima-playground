@@ -28,7 +28,7 @@ When a file is saved, its always called the same thing. It has to be renamed for
 -`reverse::Boolean`: The file name sometimes needs to be reverted back to the original name, default: `false`.
 
 """
-function rename_files(cs::Interfacer.CoupledSimulation, iter, time, reverse = false)
+function rename_files(cs::Interfacer.CoupledSimulation, iter, time, reverse=false)
     for sim in cs.model_sims
         if !(Interfacer.name(sim) == "ConstantIce")
             original_file = joinpath(
@@ -40,9 +40,9 @@ function rename_files(cs::Interfacer.CoupledSimulation, iter, time, reverse = fa
                 "checkpoint_" * Interfacer.name(sim) * "_$iter" * "_$time.hdf5",
             )
             if !reverse
-                mv(original_file, new_file, force = true)
+                mv(original_file, new_file, force=true)
             else
-                mv(new_file, original_file, force = true)
+                mv(new_file, original_file, force=true)
             end
         end
     end
@@ -54,16 +54,16 @@ function rename_files(cs::Interfacer.CoupledSimulation, iter, time, reverse = fa
         "checkpoint_coupler_fields_$(pid)" * "_$iter" * "_$time.jld2",
     )
     if !reverse
-        mv(original_file, new_file, force = true)
+        mv(original_file, new_file, force=true)
     else
-        mv(new_file, original_file, force = true)
+        mv(new_file, original_file, force=true)
     end
 end
 
 """Resets integrator time."""
 function reset_time!(cs::Interfacer.CoupledSimulation, t)
     for sim in cs.model_sims
-        Interfacer.reinit!(sim.integrator, sim.integrator.u, t0 = t)
+        Interfacer.reinit!(sim.integrator, sim.integrator.u, t0=t)
     end
 end
 
@@ -103,16 +103,16 @@ Runs the CoupledSimulation.
 """
 function solve_coupler!(
     cs::Interfacer.CoupledSimulation;
-    iterations = 1,
-    parallel = false,
-    print_conv = false,
-    plot_conv = false,
-    return_conv = false,
-    analytic_conv_fac_value = nothing,
-    combine_ρ_parallel = false,
-    compute_atm_conv_fac = true,
-    compute_oce_conv_fac = true,
-    legend = :right,
+    iterations=1,
+    parallel=false,
+    print_conv=false,
+    plot_conv=false,
+    return_conv=false,
+    analytic_conv_fac_value=nothing,
+    combine_ρ_parallel=false,
+    compute_atm_conv_fac=true,
+    compute_oce_conv_fac=true,
+    legend=:right,
 )
     (; Δt_cpl, tspan) = cs
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
@@ -419,21 +419,21 @@ function solve_coupler!(
                 gr()
                 plot()
                 color_dict, _ = get_color_dict()
-                color = color_dict[round(cs.model_sims.atmos_sim.params.a_i, digits = 1)]
+                color = color_dict[round(cs.model_sims.atmos_sim.params.a_i, digits=1)]
                 k_atm = 2:length(conv_fac_atm)+1
                 k_oce = 2:length(conv_fac_oce)+1
                 if compute_atm_conv_fac && compute_oce_conv_fac
                     scatter!(
                         k_atm,
                         conv_fac_atm,
-                        label = "atm",
-                        legend = legend,
-                        color = color,
-                        markershape = :x,
-                        markersize = 5,
-                        xlabel = "k",
-                        ylabel = ylabel,
-                        ylim = (
+                        label="atm",
+                        legend=legend,
+                        color=color,
+                        markershape=:x,
+                        markersize=5,
+                        xlabel="k",
+                        ylabel=ylabel,
+                        ylim=(
                             0,
                             maximum([
                                 maximum(conv_fac_atm[.!isnan.(conv_fac_atm)]),
@@ -444,47 +444,47 @@ function solve_coupler!(
                     scatter!(
                         k_oce,
                         conv_fac_oce,
-                        label = "oce",
-                        legend = legend,
-                        color = color,
-                        markershape = :circle,
-                        markersize = 5,
+                        label="oce",
+                        legend=legend,
+                        color=color,
+                        markershape=:circle,
+                        markersize=5,
                     )
                 elseif compute_oce_conv_fac
                     scatter!(
                         k_oce,
                         conv_fac_oce,
-                        label = "oce",
-                        legend = legend,
-                        color = color,
-                        markershape = :circle,
-                        markersize = 5,
-                        xlabel = "k",
-                        ylabel = ylabel,
-                        ylim = (0, maximum(conv_fac_oce[.!isnan.(conv_fac_oce)]) * 1.2),
+                        label="oce",
+                        legend=legend,
+                        color=color,
+                        markershape=:circle,
+                        markersize=5,
+                        xlabel="k",
+                        ylabel=ylabel,
+                        ylim=(0, maximum(conv_fac_oce[.!isnan.(conv_fac_oce)]) * 1.2),
                     )
                 elseif compute_atm_conv_fac
                     scatter!(
                         k_atm,
                         conv_fac_atm,
-                        label = "atm",
-                        legend = legend,
-                        color = color,
-                        markershape = :circle,
-                        markersize = 5,
-                        xlabel = "k",
-                        ylabel = ylabel,
-                        ylim = (0, maximum(conv_fac_atm[.!isnan.(conv_fac_atm)]) * 1.2),
+                        label="atm",
+                        legend=legend,
+                        color=color,
+                        markershape=:circle,
+                        markersize=5,
+                        xlabel="k",
+                        ylabel=ylabel,
+                        ylim=(0, maximum(conv_fac_atm[.!isnan.(conv_fac_atm)]) * 1.2),
                     )
                 end
                 if !isnothing(analytic_conv_fac_value)
                     scatter!(
                         k_atm,
                         ones(length(k_atm)) * analytic_conv_fac_value,
-                        label = "analytic",
-                        color = color,
-                        markershape = :hline,
-                        ylim = (0, analytic_conv_fac_value * 1.2),
+                        label="analytic",
+                        color=color,
+                        markershape=:hline,
+                        ylim=(0, analytic_conv_fac_value * 1.2),
                     )
                 end
                 display(current())
@@ -533,25 +533,25 @@ Setup for running the coupled simulation and running it.
 
 """
 function coupled_heat_equations(;
-    iterations = 1,
-    parallel = false,
-    boundary_mapping = "mean",
-    params = Dict{Symbol,Int}(),
-    print_conv_facs_iter = false,
-    plot_conv_facs_iter = false,
-    analytic_conv_fac = false,
-    compute_atm_conv_fac = true,
-    compute_oce_conv_fac = true,
-    combine_ρ_parallel = false,
-    plot_unstable_range = false,
-    a_is = [],
-    var_name = nothing,
-    xscale = :identity,
-    yscale = :identity,
-    legend = :right,
-    xticks = nothing,
-    yticks = :auto,
-    text_scaling = (1, 5),
+    iterations=1,
+    parallel=false,
+    boundary_mapping="mean",
+    params=Dict{Symbol,Int}(),
+    print_conv_facs_iter=false,
+    plot_conv_facs_iter=false,
+    analytic_conv_fac=false,
+    compute_atm_conv_fac=true,
+    compute_oce_conv_fac=true,
+    combine_ρ_parallel=false,
+    plot_unstable_range=false,
+    a_is=[],
+    var_name=nothing,
+    xscale=:identity,
+    yscale=:identity,
+    legend=:right,
+    xticks=nothing,
+    yticks=:auto,
+    text_scaling=(1, 5),
 )
     physical_values = define_realistic_vals()
     if !isempty(params)
@@ -572,14 +572,14 @@ function coupled_heat_equations(;
         # Run coupled simulation
         cs = get_coupled_sim(
             physical_values,
-            boundary_mapping = physical_values[:boundary_mapping],
+            boundary_mapping=physical_values[:boundary_mapping],
         )
         solve_coupler!(
             cs,
-            iterations = iterations,
-            parallel = parallel,
-            compute_atm_conv_fac = compute_atm_conv_fac,
-            compute_oce_conv_fac = compute_oce_conv_fac,
+            iterations=iterations,
+            parallel=parallel,
+            compute_atm_conv_fac=compute_atm_conv_fac,
+            compute_oce_conv_fac=compute_oce_conv_fac,
         )
         if analytic_conv_fac
             println(compute_ρ_analytical(physical_values))
@@ -589,7 +589,7 @@ function coupled_heat_equations(;
         # Compute and plot or print convergence factor with respect to iteration
         cs = get_coupled_sim(
             physical_values,
-            boundary_mapping = physical_values[:boundary_mapping],
+            boundary_mapping=physical_values[:boundary_mapping],
         )
         if analytic_conv_fac
             analytic_conv_fac_value = compute_ρ_analytical(physical_values)
@@ -598,15 +598,15 @@ function coupled_heat_equations(;
         end
         solve_coupler!(
             cs,
-            parallel = parallel,
-            iterations = iterations,
-            plot_conv = plot_conv_facs_iter,
-            print_conv = print_conv_facs_iter,
-            analytic_conv_fac_value = analytic_conv_fac_value,
-            combine_ρ_parallel = combine_ρ_parallel,
-            compute_atm_conv_fac = compute_atm_conv_fac,
-            compute_oce_conv_fac = compute_oce_conv_fac,
-            legend = legend,
+            parallel=parallel,
+            iterations=iterations,
+            plot_conv=plot_conv_facs_iter,
+            print_conv=print_conv_facs_iter,
+            analytic_conv_fac_value=analytic_conv_fac_value,
+            combine_ρ_parallel=combine_ρ_parallel,
+            compute_atm_conv_fac=compute_atm_conv_fac,
+            compute_oce_conv_fac=compute_oce_conv_fac,
+            legend=legend,
         )
 
     elseif !isnothing(var_name)
@@ -620,18 +620,18 @@ function coupled_heat_equations(;
                 physical_values,
                 var,
                 var_name,
-                iterations = iterations,
-                analytic = analytic_conv_fac,
-                log_scale = (xscale == :log10),
+                iterations=iterations,
+                analytic=analytic_conv_fac,
+                log_scale=(xscale == :log10),
             ) :
             get_conv_facs_one_variable(
                 physical_values,
                 var,
                 var_name,
-                iterations = iterations,
-                a_i_variable = a_is,
-                analytic = analytic_conv_fac,
-                log_scale = (xscale == :log10),
+                iterations=iterations,
+                a_i_variable=a_is,
+                analytic=analytic_conv_fac,
+                log_scale=(xscale == :log10),
             )
         var, conv_facs_oce, conv_facs_atm, param_analytic, conv_facs_analytic =
             handle_variable(
@@ -640,9 +640,9 @@ function coupled_heat_equations(;
                 conv_facs_oce,
                 conv_facs_atm,
                 physical_values;
-                dims = 2,
-                param_analytic = param_analytic,
-                conv_facs_analytic = conv_facs_analytic,
+                dims=2,
+                param_analytic=param_analytic,
+                conv_facs_analytic=conv_facs_analytic,
             )
 
         xticks = !isnothing(xticks) ? xticks : var
@@ -653,18 +653,18 @@ function coupled_heat_equations(;
                 [physical_values[:a_i]],
                 var,
                 variable_dict[Symbol(var_name)][2],
-                conv_facs_analytic = conv_facs_analytic,
-                param_analytic = param_analytic,
-                xticks = xticks,
-                yticks = yticks,
-                xscale = xscale,
-                yscale = yscale,
-                colors = [color_dict[round(physical_values[:a_i], digits = 1)]],
-                linestyles = [linestyle_dict[round(physical_values[:a_i], digits = 1)]],
-                text_scaling = text_scaling,
-                legend = legend,
-                compute_atm_conv_fac = compute_atm_conv_fac,
-                compute_oce_conv_fac = compute_oce_conv_fac,
+                conv_facs_analytic=conv_facs_analytic,
+                param_analytic=param_analytic,
+                xticks=xticks,
+                yticks=yticks,
+                xscale=xscale,
+                yscale=yscale,
+                colors=[color_dict[round(physical_values[:a_i], digits=1)]],
+                linestyles=[linestyle_dict[round(physical_values[:a_i], digits=1)]],
+                text_scaling=text_scaling,
+                legend=legend,
+                compute_atm_conv_fac=compute_atm_conv_fac,
+                compute_oce_conv_fac=compute_oce_conv_fac,
             )
         else
             plot_wrt_a_i_and_one_param(
@@ -673,18 +673,18 @@ function coupled_heat_equations(;
                 a_is,
                 var,
                 variable_dict[Symbol(var_name)][2],
-                conv_facs_analytic = conv_facs_analytic,
-                param_analytic = param_analytic,
-                xticks = xticks,
-                yticks = yticks,
-                xscale = xscale,
-                yscale = yscale,
-                colors = [color_dict[round(a_i, digits = 1)] for a_i in a_is],
-                linestyles = [linestyle_dict[round(a_i, digits = 1)] for a_i in a_is],
-                text_scaling = text_scaling,
-                legend = legend,
-                compute_atm_conv_fac = compute_atm_conv_fac,
-                compute_oce_conv_fac = compute_oce_conv_fac,
+                conv_facs_analytic=conv_facs_analytic,
+                param_analytic=param_analytic,
+                xticks=xticks,
+                yticks=yticks,
+                xscale=xscale,
+                yscale=yscale,
+                colors=[color_dict[round(a_i, digits=1)] for a_i in a_is],
+                linestyles=[linestyle_dict[round(a_i, digits=1)] for a_i in a_is],
+                text_scaling=text_scaling,
+                legend=legend,
+                compute_atm_conv_fac=compute_atm_conv_fac,
+                compute_oce_conv_fac=compute_oce_conv_fac,
             )
         end
 
@@ -695,9 +695,9 @@ function coupled_heat_equations(;
                 physical_values,
                 a_is,
                 "a_i",
-                iterations = iterations,
-                analytic = analytic_conv_fac,
-                log_scale = (xscale == :log10),
+                iterations=iterations,
+                analytic=analytic_conv_fac,
+                log_scale=(xscale == :log10),
             )
         xticks = !isnothing(xticks) ? xticks : a_is
         plot_wrt_a_i_and_one_param(
@@ -706,18 +706,18 @@ function coupled_heat_equations(;
             [physical_values[:a_i]],
             a_is,
             L"$a^I$",
-            conv_facs_analytic = conv_facs_analytic,
-            param_analytic = param_analytic,
-            xticks = xticks,
-            yticks = yticks,
-            xscale = xscale,
-            yscale = yscale,
-            colors = [:black],
-            linestyles = [:solid],
-            text_scaling = text_scaling,
-            legend = legend,
-            compute_atm_conv_fac = compute_atm_conv_fac,
-            compute_oce_conv_fac = compute_oce_conv_fac,
+            conv_facs_analytic=conv_facs_analytic,
+            param_analytic=param_analytic,
+            xticks=xticks,
+            yticks=yticks,
+            xscale=xscale,
+            yscale=yscale,
+            colors=[:black],
+            linestyles=[:solid],
+            text_scaling=text_scaling,
+            legend=legend,
+            compute_atm_conv_fac=compute_atm_conv_fac,
+            compute_oce_conv_fac=compute_oce_conv_fac,
         )
 
     elseif plot_unstable_range
@@ -768,7 +768,7 @@ function coupled_heat_equations(;
                     nothing,
                     unstable_matrix_atm,
                     physical_values;
-                    dims = 1,
+                    dims=1,
                 )
                 Δt, _, unstable_matrix_atm, _, _ = handle_variable(
                     n_ts_atm,
@@ -776,7 +776,7 @@ function coupled_heat_equations(;
                     nothing,
                     unstable_matrix_atm,
                     physical_values;
-                    dims = 2,
+                    dims=2,
                 )
 
                 plot_Δz_Δt(
@@ -785,13 +785,13 @@ function coupled_heat_equations(;
                     Δt,
                     L"$\Delta z^A$",
                     L"$\Delta t^A$",
-                    xscale = xscale,
-                    yscale = yscale,
-                    xticks = xticks,
-                    yticks = yticks,
-                    color = color_dict[round(a_i, digits = 1)],
-                    a_i = a_i,
-                    legend = legend,
+                    xscale=xscale,
+                    yscale=yscale,
+                    xticks=xticks,
+                    yticks=yticks,
+                    color=color_dict[round(a_i, digits=1)],
+                    a_i=a_i,
+                    legend=legend,
                 )
             elseif compute_oce_conv_fac
                 unstable_matrix_oce =
@@ -802,7 +802,7 @@ function coupled_heat_equations(;
                     unstable_matrix_oce,
                     nothing,
                     physical_values;
-                    dims = 1,
+                    dims=1,
                 )
                 Δt, unstable_matrix_oce, _, _, _ = handle_variable(
                     n_ts_oce,
@@ -810,7 +810,7 @@ function coupled_heat_equations(;
                     unstable_matrix_oce,
                     nothing,
                     physical_values;
-                    dims = 2,
+                    dims=2,
                 )
                 plot_Δz_Δt(
                     unstable_matrix_oce,
@@ -818,13 +818,13 @@ function coupled_heat_equations(;
                     Δt,
                     L"$\Delta z^O$",
                     L"$\Delta t^O$",
-                    xscale = xscale,
-                    yscale = yscale,
-                    xticks = xticks,
-                    yticks = yticks,
-                    color = color_dict[round(a_i, digits = 1)],
-                    a_i = a_i,
-                    legend = legend,
+                    xscale=xscale,
+                    yscale=yscale,
+                    xticks=xticks,
+                    yticks=yticks,
+                    color=color_dict[round(a_i, digits=1)],
+                    a_i=a_i,
+                    legend=legend,
                 )
             end
         end

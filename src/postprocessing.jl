@@ -121,9 +121,9 @@ function handle_variable(
     conv_facs_oce,
     conv_facs_atm,
     physical_values;
-    dims = 1,
-    param_analytic = nothing,
-    conv_facs_analytic = nothing,
+    dims=1,
+    param_analytic=nothing,
+    conv_facs_analytic=nothing,
 )
     # Special treatment of n_atm and n_oce.
     if var_name == "n_atm"
@@ -148,11 +148,11 @@ function handle_variable(
     end
     if var_name in ["n_atm", "n_oce", "n_t_atm", "n_t_oce"]
         conv_facs_oce =
-            !isnothing(conv_facs_oce) ? reverse(conv_facs_oce, dims = dims) : nothing
+            !isnothing(conv_facs_oce) ? reverse(conv_facs_oce, dims=dims) : nothing
         conv_facs_atm =
-            !isnothing(conv_facs_atm) ? reverse(conv_facs_atm, dims = dims) : nothing
+            !isnothing(conv_facs_atm) ? reverse(conv_facs_atm, dims=dims) : nothing
         conv_facs_analytic =
-            !isnothing(conv_facs_analytic) ? reverse(conv_facs_analytic, dims = dims) :
+            !isnothing(conv_facs_analytic) ? reverse(conv_facs_analytic, dims=dims) :
             nothing
     end
     return var, conv_facs_oce, conv_facs_atm, param_analytic, conv_facs_analytic

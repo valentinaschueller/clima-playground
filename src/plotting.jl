@@ -52,19 +52,19 @@ function plot_data(
     conv_facs_atm,
     param_numeric,
     param_name;
-    conv_facs_analytic = nothing,
-    param_analytic = nothing,
-    xscale = :identity,
-    yscale = :identity,
-    label = "",
-    color = :black,
-    linestyle = :solid,
-    xticks = :auto,
-    yticks = :auto,
-    ylim = :auto,
-    legend = :right,
-    compute_atm_conv_fac = true,
-    compute_oce_conv_fac = true,
+    conv_facs_analytic=nothing,
+    param_analytic=nothing,
+    xscale=:identity,
+    yscale=:identity,
+    label="",
+    color=:black,
+    linestyle=:solid,
+    xticks=:auto,
+    yticks=:auto,
+    ylim=:auto,
+    legend=:right,
+    compute_atm_conv_fac=true,
+    compute_oce_conv_fac=true,
 )
     ylabel = get_ylabel_or_nothing_to_plot(
         !isnothing(conv_facs_oce) || !isnothing(conv_facs_atm),
@@ -82,56 +82,56 @@ function plot_data(
         plot!(
             param_analytic_new,
             conv_facs_analytic_new,
-            label = "analytical" * label,
-            color = color,
-            xscale = xscale,
-            yscale = yscale,
-            linestyle = linestyle,
-            linewidth = 2,
-            legend = legend,
-            xticks = xticks,
-            yticks = yticks,
-            ylim = ylim,
-            legend_background_color = RGBA(1, 1, 1, 0.5),
-            legendfontsize = 12,
+            label="analytical" * label,
+            color=color,
+            xscale=xscale,
+            yscale=yscale,
+            linestyle=linestyle,
+            linewidth=2,
+            legend=legend,
+            xticks=xticks,
+            yticks=yticks,
+            ylim=ylim,
+            legend_background_color=RGBA(1, 1, 1, 0.5),
+            legendfontsize=12,
         )
     end
     if compute_oce_conv_fac
         plot!(
             param_numeric,
             conv_facs_oce,
-            label = "numerical (oce)" * label,
-            color = color,
-            xscale = xscale,
-            yscale = yscale,
-            linestyle = linestyle,
-            markershape = :circle,
-            linewidth = 2,
-            legend = legend,
-            xticks = xticks,
-            yticks = yticks,
-            ylim = ylim,
-            legend_background_color = RGBA(1, 1, 1, 0.5),
-            legendfontsize = 12,
+            label="numerical (oce)" * label,
+            color=color,
+            xscale=xscale,
+            yscale=yscale,
+            linestyle=linestyle,
+            markershape=:circle,
+            linewidth=2,
+            legend=legend,
+            xticks=xticks,
+            yticks=yticks,
+            ylim=ylim,
+            legend_background_color=RGBA(1, 1, 1, 0.5),
+            legendfontsize=12,
         )
     end
     if compute_atm_conv_fac
         plot!(
             param_numeric,
             conv_facs_atm,
-            label = "numerical (atm)" * label,
-            color = color,
-            xscale = xscale,
-            yscale = yscale,
-            linestyle = linestyle,
-            markershape = :x,
-            linewidth = 2,
-            legend = legend,
-            xticks = xticks,
-            yticks = yticks,
-            ylim = ylim,
-            legend_background_color = RGBA(1, 1, 1, 0.5),
-            legendfontsize = 12,
+            label="numerical (atm)" * label,
+            color=color,
+            xscale=xscale,
+            yscale=yscale,
+            linestyle=linestyle,
+            markershape=:x,
+            linewidth=2,
+            legend=legend,
+            xticks=xticks,
+            yticks=yticks,
+            ylim=ylim,
+            legend_background_color=RGBA(1, 1, 1, 0.5),
+            legendfontsize=12,
         )
     end
     xlabel!(param_name)
@@ -171,18 +171,18 @@ function plot_wrt_a_i_and_one_param(
     a_is,
     param_numeric,
     param_name;
-    conv_facs_analytic = nothing,
-    param_analytic = nothing,
-    xscale = :identity,
-    yscale = :identity,
-    colors = [:blue, :red, :green],
-    linestyles = [:solid, :dash, :dot],
-    xticks = :auto,
-    yticks = :auto,
-    text_scaling = (1, 5),
-    legend = :right,
-    compute_atm_conv_fac = true,
-    compute_oce_conv_fac = true,
+    conv_facs_analytic=nothing,
+    param_analytic=nothing,
+    xscale=:identity,
+    yscale=:identity,
+    colors=[:blue, :red, :green],
+    linestyles=[:solid, :dash, :dot],
+    xticks=:auto,
+    yticks=:auto,
+    text_scaling=(1, 5),
+    legend=:right,
+    compute_atm_conv_fac=true,
+    compute_oce_conv_fac=true,
 )
     gr()
     plot()
@@ -242,31 +242,31 @@ function plot_wrt_a_i_and_one_param(
             conv_facs_atm_i,
             param_numeric_i,
             param_name,
-            conv_facs_analytic = conv_facs_analytic_i,
-            param_analytic = param_analytic,
-            xscale = xscale,
-            yscale = yscale,
-            label = (param_name !== L"$a^I$") ? ", aᴵ = " * "$ai" : "",
-            color = colors[i],
-            linestyle = linestyles[i],
-            xticks = xticks,
-            yticks = yticks,
-            legend = legend,
-            compute_atm_conv_fac = compute_atm_conv_fac,
-            compute_oce_conv_fac = compute_oce_conv_fac,
+            conv_facs_analytic=conv_facs_analytic_i,
+            param_analytic=param_analytic,
+            xscale=xscale,
+            yscale=yscale,
+            label=(param_name !== L"$a^I$") ? ", aᴵ = " * "$ai" : "",
+            color=colors[i],
+            linestyle=linestyles[i],
+            xticks=xticks,
+            yticks=yticks,
+            legend=legend,
+            compute_atm_conv_fac=compute_atm_conv_fac,
+            compute_oce_conv_fac=compute_oce_conv_fac,
         )
         for (k, txt) in enumerate(y_text_oce)
             annotate!(
                 x_text_oce[k],
                 txt,
-                text("oce \u26A1", 12, colors[i], :left, rotation = 90),
+                text("oce \u26A1", 12, colors[i], :left, rotation=90),
             )
         end
         for (k, txt) in enumerate(y_text_atm)
             annotate!(
                 x_text_atm[k],
                 txt,
-                text("atm \u26A1", 12, colors[i], :left, rotation = 90),
+                text("atm \u26A1", 12, colors[i], :left, rotation=90),
             )
         end
     end
@@ -327,13 +327,13 @@ function plot_Δz_Δt(
     Δts,
     Δz_name,
     Δt_name;
-    xscale = :identity,
-    yscale = :identity,
-    xticks = :auto,
-    yticks = :auto,
-    a_i = Float64(0.5),
-    color = :green,
-    legend = :right,
+    xscale=:identity,
+    yscale=:identity,
+    xticks=:auto,
+    yticks=:auto,
+    a_i=Float64(0.5),
+    color=:green,
+    legend=:right,
 )
     t_values = []
     pre_index = 0
@@ -366,44 +366,44 @@ function plot_Δz_Δt(
     plot!(
         t_values,
         Δzs_new,
-        linewidth = 2,
-        xscale = xscale,
-        yscale = yscale,
-        xticks = xticks,
-        yticks = yticks,
-        xlabel = Δt_name,
-        ylabel = Δz_name,
-        label = "Unstable regime, aᴵ=$a_i",
-        color = color,
-        fillrange = minimum(Δzs),
-        fillalpha = 0.3,
-        xlim = (xticks[1], xticks[end]),
-        ylim = (yticks[1], yticks[end]),
-        legend = legend,
+        linewidth=2,
+        xscale=xscale,
+        yscale=yscale,
+        xticks=xticks,
+        yticks=yticks,
+        xlabel=Δt_name,
+        ylabel=Δz_name,
+        label="Unstable regime, aᴵ=$a_i",
+        color=color,
+        fillrange=minimum(Δzs),
+        fillalpha=0.3,
+        xlim=(xticks[1], xticks[end]),
+        ylim=(yticks[1], yticks[end]),
+        legend=legend,
     )
 
-    scatter!(t_values, Δzs_new, markershape = :circle, label = "", color = color)
+    scatter!(t_values, Δzs_new, markershape=:circle, label="", color=color)
     if Δz_name == L"$\Delta z^A$"
         t1 = 2:1:7
         t2 = 20:10:70
         plot!(
             t1,
             (t1 .^ (1 / 2)) .* 10^-2.5,
-            color = :black,
-            label = "",
-            xscale = xscale,
-            yscale = yscale,
+            color=:black,
+            label="",
+            xscale=xscale,
+            yscale=yscale,
         )
-        plot!(t2, t2 ./ 1000, color = :black, label = "", xscale = xscale, yscale = yscale)
+        plot!(t2, t2 ./ 1000, color=:black, label="", xscale=xscale, yscale=yscale)
     else
         t2 = 10 .^ LinRange(log10(5), log10(20), 50)
         plot!(
             t2,
             t2 .* 10 .^ -2.7,
-            color = :black,
-            label = "",
-            xscale = xscale,
-            yscale = yscale,
+            color=:black,
+            label="",
+            xscale=xscale,
+            yscale=yscale,
         )
     end
 
@@ -412,14 +412,14 @@ function plot_Δz_Δt(
         annotate!(
             4,
             (5 .^ (1 / 2)) .* 10^(-2.5),
-            Plots.text(L"slope = 1/2", 10, :black, rotation = 18),
+            Plots.text(L"slope = 1/2", 10, :black, rotation=18),
         )
-        annotate!(40, 50 ./ 1000, Plots.text(L"slope = 1", 10, :black, rotation = 34))
+        annotate!(40, 50 ./ 1000, Plots.text(L"slope = 1", 10, :black, rotation=34))
     else
         annotate!(
             t2[25],
             t2[25] .* 10^-2.6,
-            Plots.text(L"slope = 1", 10, :black, rotation = 34),
+            Plots.text(L"slope = 1", 10, :black, rotation=34),
         )
     end
 
