@@ -69,21 +69,13 @@ Computes the numerical convergence factor based on the parameters in physical_va
 function compute_ρ_numerical(
     physical_values;
     iterations=1,
-    return_conv_facs=true,
-    plot_conv_facs=false,
-    print_conv_facs=false,
 )
     cs = get_coupled_sim(physical_values)
-    out = solve_coupler!(
+    conv_fac_atm, conv_fac_oce = solve_coupler!(
         cs,
         iterations=iterations,
-        print_conv=print_conv_facs,
-        plot_conv=plot_conv_facs,
-        return_conv=return_conv_facs,
     )
-    if return_conv_facs
-        return out[1], out[2]
-    end
+    return conv_fac_atm, conv_fac_oce
 end
 
 """

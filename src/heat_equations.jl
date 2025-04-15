@@ -105,14 +105,6 @@ function solve_coupler!(
     cs::Interfacer.CoupledSimulation;
     iterations=1,
     parallel=false,
-    print_conv=false,
-    plot_conv=false,
-    return_conv=false,
-    analytic_conv_fac_value=nothing,
-    combine_ρ_parallel=false,
-    compute_atm_conv_fac=true,
-    compute_oce_conv_fac=true,
-    legend=:right,
 )
     (; Δt_cpl, tspan) = cs
     cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
@@ -324,13 +316,19 @@ function solve_coupler!(
         end
 
         if iterations > 1
-            conv_fac_atm, conv_fac_oce = deal_with_ρ(cs, atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce, plot_conv, parallel, analytic_conv_fac_value, combine_ρ_parallel, compute_atm_conv_fac, compute_oce_conv_fac, legend)
+            conv_fac_atm, conv_fac_oce = compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
             return conv_fac_atm, conv_fac_oce
         end
     end
 end
 
-function compute_ρ(atmos_vals_list, ocean_vals_list)
+function compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
+    if stopped_at_nan_atm || stopped_at_nan_oce
+        conv_fac_atm = stopped_at_nan_atm ? Inf : NaN
+        conv_fac_oce = stopped_at_nan_oce ? Inf : NaN
+        return conv_fac_atm, conv_fac_oce
+    end
+
     conv_fac_atm = []
     conv_fac_oce = []
     bound_error_atm = 0
@@ -372,97 +370,11 @@ function compute_ρ(atmos_vals_list, ocean_vals_list)
     return conv_fac_atm, conv_fac_oce
 end
 
-function update_ρ_parallel!(conv_fac_atm, conv_fac_oce)
+function update_ρ_parallel(conv_fac_atm, conv_fac_oce)
     conv_fac_atm = conv_fac_atm[1:end-1] .* conv_fac_atm[2:end]
     conv_fac_oce = conv_fac_oce[1:end-1] .* conv_fac_oce[2:end]
     conv_fac_atm[1:2:end] .= NaN
     conv_fac_oce[2:2:end] .= NaN
-end
-
-function deal_with_ρ(cs, atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce, plot_conv, parallel, analytic_conv_fac_value, combine_ρ_parallel, compute_atm_conv_fac, compute_oce_conv_fac, legend)
-    if stopped_at_nan_atm || stopped_at_nan_oce
-        conv_fac_atm = stopped_at_nan_atm ? Inf : NaN
-        conv_fac_oce = stopped_at_nan_oce ? Inf : NaN
-        return conv_fac_atm, conv_fac_oce
-    end
-
-    conv_fac_atm, conv_fac_oce = compute_ρ(atmos_vals_list, ocean_vals_list)
-
-    # If we run the parallel iteration and want to plot with the analytical convergence factor,
-    # Two on eachother following factors should be combined, this can also be chosen via
-    # the combine_ρ_parallel argument.
-    if parallel && (!isnothing(analytic_conv_fac_value) || combine_ρ_parallel)
-        update_ρ_parallel!(conv_fac_atm, conv_fac_oce)
-        if !isnothing(analytic_conv_fac_value)
-            ylabel = L"$\rho_{k+1}\times\rho_k,$ $\hat{\rho}$"
-        else
-            ylabel = L"$\rho_{k+1}\times\rho_k$"
-        end
-    elseif !isnothing(analytic_conv_fac_value)
-        ylabel = L"$\hat{\rho}$, $\rho_k$"
-    else
-        ylabel = L"$\rho_k$"
-    end
-
-    if plot_conv
-        gr()
-        plot()
-        color_dict, _ = get_color_dict()
-        color = color_dict[round(cs.model_sims.atmos_sim.params.a_i, digits=1)]
-        k_atm = 2:length(conv_fac_atm)+1
-        k_oce = 2:length(conv_fac_oce)+1
-        if compute_atm_conv_fac
-            scatter!(
-                k_atm,
-                conv_fac_atm,
-                label="atm",
-                legend=legend,
-                color=color,
-                markershape=:x,
-                markersize=5,
-                xlabel="k",
-                ylabel=ylabel,
-                ylim=(
-                    0,
-                    maximum([
-                        maximum(conv_fac_atm[.!isnan.(conv_fac_atm)]),
-                        maximum(conv_fac_oce[.!isnan.(conv_fac_oce)]),
-                    ]) * 1.2,
-                ),
-            )
-        end
-        if compute_oce_conv_fac
-            scatter!(
-                k_oce,
-                conv_fac_oce,
-                label="oce",
-                legend=legend,
-                color=color,
-                markershape=:circle,
-                markersize=5,
-                xlabel="k",
-                ylabel=ylabel,
-                ylim=(
-                    0,
-                    maximum([
-                        maximum(conv_fac_atm[.!isnan.(conv_fac_atm)]),
-                        maximum(conv_fac_oce[.!isnan.(conv_fac_oce)]),
-                    ]) * 1.2,
-                ),
-            )
-        end
-        if !isnothing(analytic_conv_fac_value)
-            scatter!(
-                k_atm,
-                ones(length(k_atm)) * analytic_conv_fac_value,
-                label="analytic",
-                color=color,
-                markershape=:hline,
-                ylim=(0, analytic_conv_fac_value * 1.2),
-            )
-        end
-        display(current())
-    end
     return conv_fac_atm, conv_fac_oce
 end
 
@@ -527,7 +439,6 @@ function coupled_heat_equations(;
 
     if !(
         plot_conv_facs_iter ||
-        print_conv_facs_iter ||
         plot_unstable_range ||
         !isempty(a_is) ||
         !isnothing(var_name)
@@ -541,15 +452,13 @@ function coupled_heat_equations(;
             cs,
             iterations=iterations,
             parallel=parallel,
-            compute_atm_conv_fac=compute_atm_conv_fac,
-            compute_oce_conv_fac=compute_oce_conv_fac,
         )
         if analytic_conv_fac
             println(compute_ρ_analytical(physical_values))
         end
         return cs
 
-    elseif plot_conv_facs_iter || print_conv_facs_iter
+    elseif plot_conv_facs_iter
         # Compute and plot or print convergence factor with respect to iteration
         cs = get_coupled_sim(
             physical_values,
@@ -560,18 +469,88 @@ function coupled_heat_equations(;
         else
             analytic_conv_fac_value = nothing
         end
-        solve_coupler!(
+        conv_fac_atm, conv_fac_oce = solve_coupler!(
             cs,
             parallel=parallel,
             iterations=iterations,
-            plot_conv=plot_conv_facs_iter,
-            print_conv=print_conv_facs_iter,
-            analytic_conv_fac_value=analytic_conv_fac_value,
-            combine_ρ_parallel=combine_ρ_parallel,
-            compute_atm_conv_fac=compute_atm_conv_fac,
-            compute_oce_conv_fac=compute_oce_conv_fac,
-            legend=legend,
         )
+
+        if !isnothing(analytic_conv_fac_value)
+            combine_ρ_parallel = true
+        end
+        if parallel && combine_ρ_parallel
+            conv_fac_atm, conv_fac_oce = update_ρ_parallel(conv_fac_atm, conv_fac_oce)
+        end
+
+        if parallel && (!isnothing(analytic_conv_fac_value) || combine_ρ_parallel)
+            if !isnothing(analytic_conv_fac_value)
+                ylabel = L"$\rho_{k+1}\times\rho_k,$ $\hat{\rho}$"
+            else
+                ylabel = L"$\rho_{k+1}\times\rho_k$"
+            end
+        elseif !isnothing(analytic_conv_fac_value)
+            ylabel = L"$\hat{\rho}$, $\rho_k$"
+        else
+            ylabel = L"$\rho_k$"
+        end
+
+        gr()
+        plot()
+        color_dict, _ = get_color_dict()
+        color = color_dict[round(cs.model_sims.atmos_sim.params.a_i, digits=1)]
+        k_atm = 2:length(conv_fac_atm)+1
+        k_oce = 2:length(conv_fac_oce)+1
+        if compute_atm_conv_fac
+            scatter!(
+                k_atm,
+                conv_fac_atm,
+                label="atm",
+                legend=legend,
+                color=color,
+                markershape=:x,
+                markersize=5,
+                xlabel="k",
+                ylabel=ylabel,
+                ylim=(
+                    0,
+                    maximum([
+                        maximum(conv_fac_atm[.!isnan.(conv_fac_atm)]),
+                        maximum(conv_fac_oce[.!isnan.(conv_fac_oce)]),
+                    ]) * 1.2,
+                ),
+            )
+        end
+        if compute_oce_conv_fac
+            scatter!(
+                k_oce,
+                conv_fac_oce,
+                label="oce",
+                legend=legend,
+                color=color,
+                markershape=:circle,
+                markersize=5,
+                xlabel="k",
+                ylabel=ylabel,
+                ylim=(
+                    0,
+                    maximum([
+                        maximum(conv_fac_atm[.!isnan.(conv_fac_atm)]),
+                        maximum(conv_fac_oce[.!isnan.(conv_fac_oce)]),
+                    ]) * 1.2,
+                ),
+            )
+        end
+        if !isnothing(analytic_conv_fac_value)
+            scatter!(
+                k_atm,
+                ones(length(k_atm)) * analytic_conv_fac_value,
+                label="analytic",
+                color=color,
+                markershape=:hline,
+                ylim=(0, analytic_conv_fac_value * 1.2),
+            )
+        end
+        display(current())
 
     elseif !isnothing(var_name)
         # Plot convergence factor with respect to some parameter, and different a_i
