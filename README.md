@@ -32,12 +32,12 @@ coupled_heat_equations(iterations=10, plot_conv_facs_iter=true, parallel=true, b
 
 To combine two on eachother following convergence factors to see that the parallel and alternating Schwarz iteration are related, run:
 ```julia
-coupled_heat_equations(iterations=10, print_conv_facs_iter=true, parallel=true, boundary_mapping="cit", combine_ρ_parallel=true, params=Dict(:Δt_min=>10, :t_max=>1000, :Δt_cpl=>1000))
+coupled_heat_equations(iterations=10, plot_conv_facs_iter=true, parallel=true, boundary_mapping="cit", combine_ρ_parallel=true, params=Dict(:Δt_min=>10, :t_max=>1000, :Δt_cpl=>1000))
 ```
 
 and for the alternating Schwarz:
 ```julia
-coupled_heat_equations(iterations=10, print_conv_facs_iter=true, parallel=false, boundary_mapping="cit", params=Dict(:Δt_min=>10, :t_max=>1000, :Δt_cpl=>1000))
+coupled_heat_equations(iterations=10, plot_conv_facs_iter=true, parallel=false, boundary_mapping="cit", params=Dict(:Δt_min=>10, :t_max=>1000, :Δt_cpl=>1000))
 ```
 
 To plot the convergence factor wrt a_i, run:

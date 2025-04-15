@@ -89,17 +89,6 @@ Runs the CoupledSimulation.
 
 -`iterations::Int`: Number of iterations before the Schwarz iteration is terminated, default: `1`.
 -`parallel::Boolean`: Whether to run the parallel or alternating Schwarz iteration, default: `false`.
--`print_conv::Boolean`: Whether to print the convergence factor or not, default: `false`.
--`plot_conv::Boolean`: Whether to plot the convergence factor or not, default: `false`.
--`return_conv::Boolean`: Whether to return the convergence factor or not, default: `false`.
--`analytic_conv_fac_value::Float64`: The analytical convergence factor. If sent in,
-    it is plotted and printed with the numerical convergence factor, default: `nothing`.
--`combine_ρ_parallel::Boolean`: Whether to combine two on eachother following convergence factor values
-    for the parallel Schwarz iteration, default: `false`.
--`compute_atm_conv_fac::Boolean`: Whether to consider the atmospheric convergence factor or only the oceanic, default: `true`.
--`compute_oce_conv_fac::Boolean`: Whether to consider the oceanic convergence factor, default: `true`.
--`legend::Symbol`: Legend placement for plotting, default: `:right`.
-
 """
 function solve_coupler!(
     cs::Interfacer.CoupledSimulation;
@@ -387,7 +376,6 @@ Setup for running the coupled simulation and running it.
 -`parallel::Boolean`: Whether to run the parallel or alternating Schwarz iteration, default: `false`.
 -`boundary_mapping::String`: Determines if mean or closest in time boundary mapping is used, default: `"mean"`.
 -`params::Dict`: Physical parameters and time stepping parameters, default: `false`, default: `Dict{Symbol,Int}()`.
--`print_conv_facs_iter::Boolean`: Whether to print the convergence factor or not, default: `false`.
 -`plot_conv_facs_iter::Boolean`: Whether to plot the convergence factor or not, default: `false`.
 -`analytic_conv_fac::Boolean`: Whether to compute and plot or print the analytical convergence factor, default: `false`.
 -`compute_atm_conv_fac::Boolean`: Whether to consider the atmospheric convergence factor, default: `true`.
@@ -412,7 +400,6 @@ function coupled_heat_equations(;
     parallel=false,
     boundary_mapping="mean",
     params=Dict{Symbol,Int}(),
-    print_conv_facs_iter=false,
     plot_conv_facs_iter=false,
     analytic_conv_fac=false,
     compute_atm_conv_fac=true,
