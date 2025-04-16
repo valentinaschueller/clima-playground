@@ -24,3 +24,9 @@ If you want to use the parallel Schwarz iteration, run:
 ```julia
 coupled_heat_equations(iterations=10, parallel=true)
 ```
+
+To reproduce the figures from Hanna Kjellson's MSc thesis, run, e.g.:
+```
+include("experiments/kjellson_thesis_plots.jl")
+figure71() # creates the plot corresponding to Fig. 7.1 in the thesis
+```
