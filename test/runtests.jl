@@ -10,11 +10,11 @@ cs, _ = coupled_heat_equations(iterations=10, parallel=true, params=Dict(:Δt_mi
 @test isapprox(Statistics.mean(cs.model_sims.atmos_sim.integrator.sol.u[end]), 267.0199795729795)
 @test isapprox(Statistics.mean(cs.model_sims.ocean_sim.integrator.sol.u[end]), 270.9999761867679)
 
-cs, _ = coupled_heat_equations(iterations=10, boundary_mapping="cit", params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000))
+cs, _ = coupled_heat_equations(iterations=10, params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000, :boundary_mapping => "cit"))
 @test isapprox(Statistics.mean(cs.model_sims.atmos_sim.integrator.sol.u[end]), 267.0199795729795)
 @test isapprox(Statistics.mean(cs.model_sims.ocean_sim.integrator.sol.u[end]), 270.9999761867679)
 
-cs, _ = coupled_heat_equations(iterations=10, boundary_mapping="cit", parallel=true, params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000))
+cs, _ = coupled_heat_equations(iterations=10, parallel=true, params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000, :boundary_mapping => "cit"))
 @test isapprox(Statistics.mean(cs.model_sims.atmos_sim.integrator.sol.u[end]), 267.0199795729795)
 @test isapprox(Statistics.mean(cs.model_sims.ocean_sim.integrator.sol.u[end]), 270.9999761867679)
 
