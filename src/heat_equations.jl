@@ -191,6 +191,9 @@ function solve_coupler!(
                 break
             end
 
+            push!(atmos_vals_list, bound_atmos_vals)
+            push!(ocean_vals_list, bound_ocean_vals)
+
             if has_converged(
                 bound_atmos_vals,
                 pre_bound_atmos_vals,
@@ -200,10 +203,6 @@ function solve_coupler!(
             )
                 break
             end
-
-            # Update lists for convergence factor computation
-            push!(atmos_vals_list, bound_atmos_vals)
-            push!(ocean_vals_list, bound_ocean_vals)
 
             Checkpointer.checkpoint_sims(cs)
             rename_files(cs, iter, time)
@@ -231,8 +230,8 @@ function solve_coupler!(
             reset_time!(cs, t)
         end
         if iterations > 1
-            conv_fac_atm, conv_fac_oce = compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
-            return conv_fac_atm, conv_fac_oce
+            ρ_atm, ρ_oce = compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
+            return ρ_atm, ρ_oce
         end
     end
     return nothing, nothing
@@ -240,17 +239,16 @@ end
 
 function compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
     if stopped_at_nan_atm || stopped_at_nan_oce
-        conv_fac_atm = stopped_at_nan_atm ? Inf : NaN
-        conv_fac_oce = stopped_at_nan_oce ? Inf : NaN
-        return conv_fac_atm, conv_fac_oce
+        ρ_atm = stopped_at_nan_atm ? Inf : NaN
+        ρ_oce = stopped_at_nan_oce ? Inf : NaN
+        return ρ_atm, ρ_oce
     end
 
-    conv_fac_atm = []
-    conv_fac_oce = []
+    ρ_atm = []
+    ρ_oce = []
     bound_error_atm = 0
     bound_error_oce = 0
-    end_of_loop = length(atmos_vals_list) - 1
-    for i = 1:end_of_loop
+    for i = 1:length(atmos_vals_list)-1
         # Compute Schwarz iteration errors
         pre_bound_error_atm = bound_error_atm
         pre_bound_error_oce = bound_error_oce
@@ -271,27 +269,27 @@ function compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stoppe
                 (pre_bound_error_oce .>= tols_oce) .&
                 (pre_bound_error_oce .>= tols_oce),
             )
-            conv_fac_atm_value = sqrt(
+            ρ_atm_value = sqrt(
                 sum(bound_error_atm[indices_atm][1:end-1] .^ 2) ./
                 sum(pre_bound_error_atm[indices_atm][1:end-1] .^ 2),
             )
-            conv_fac_oce_value = sqrt(
+            ρ_oce_value = sqrt(
                 sum(bound_error_oce[indices_oce][1:end-1] .^ 2) ./
                 sum(pre_bound_error_oce[indices_oce][1:end-1] .^ 2),
             )
-            push!(conv_fac_atm, conv_fac_atm_value)
-            push!(conv_fac_oce, conv_fac_oce_value)
+            push!(ρ_atm, ρ_atm_value)
+            push!(ρ_oce, ρ_oce_value)
         end
     end
-    return conv_fac_atm, conv_fac_oce
+    return ρ_atm, ρ_oce
 end
 
-function update_ρ_parallel(conv_fac_atm, conv_fac_oce)
-    conv_fac_atm = conv_fac_atm[1:end-1] .* conv_fac_atm[2:end]
-    conv_fac_oce = conv_fac_oce[1:end-1] .* conv_fac_oce[2:end]
-    conv_fac_atm[1:2:end] .= NaN
-    conv_fac_oce[2:2:end] .= NaN
-    return conv_fac_atm, conv_fac_oce
+function update_ρ_parallel(ρ_atm, ρ_oce)
+    ρ_atm = ρ_atm[1:end-1] .* ρ_atm[2:end]
+    ρ_oce = ρ_oce[1:end-1] .* ρ_oce[2:end]
+    ρ_atm[1:2:end] .= NaN
+    ρ_oce[2:2:end] .= NaN
+    return ρ_atm, ρ_oce
 end
 
 """
@@ -315,10 +313,10 @@ function coupled_heat_equations(;
     compute_C_AO!(physical_values)
 
     cs = get_coupled_sim(physical_values)
-    conv_fac_atm, conv_fac_oce = solve_coupler!(
+    ρ_atm, ρ_oce = solve_coupler!(
         cs,
         iterations=iterations,
         parallel=parallel,
     )
-    return cs, conv_fac_atm, conv_fac_oce
+    return cs, ρ_atm, ρ_oce
 end;

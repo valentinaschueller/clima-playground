@@ -107,58 +107,58 @@ Special treatment when varying some variables.
 
 -`var::Array`: Values for the variable.
 -`var_name::String`: The variable name.
--`conv_facs_oce::Array`: Ocean convergence factors.
--`conv_facs_atm::Array`: Atmosphere convergence factors.
+-`ρs_oce::Array`: Ocean convergence factors.
+-`ρs_atm::Array`: Atmosphere convergence factors.
 -`physical_values::Dict`: Can be defined using `define_realistic_vals()`.
 
 **Optional Keyword Arguments:**
 
 -`dims::Int`: Dimensions over which to  reverse the convergence factor matrices, default: `1`.
 -`param_analytic::Array`: The analytical values for the variable, default: `nothing`.
--`conv_facs_analytic::Array`: The analytical convergence factors, default: `nothing`.
+-`ρs_analytic::Array`: The analytical convergence factors, default: `nothing`.
 
 """
 function handle_variable(
     var,
     var_name,
-    conv_facs_oce,
-    conv_facs_atm,
+    ρs_oce,
+    ρs_atm,
     physical_values;
     dims=1,
     param_analytic=nothing,
-    conv_facs_analytic=nothing,
+    ρs_analytic=nothing,
 )
     # Special treatment of n_atm and n_oce.
     if var_name == "n_atm"
         var = (physical_values[:h_atm] - physical_values[:z_0numA]) ./ reverse(var)
-        if !isnothing(conv_facs_analytic) && !isnothing(param_analytic)
+        if !isnothing(ρs_analytic) && !isnothing(param_analytic)
             param_analytic = reverse(
                 (physical_values[:h_atm] - physical_values[:z_0numA]) ./ param_analytic,
             )
         end
     elseif var_name == "n_oce"
         var = (physical_values[:h_oce] - physical_values[:z_0numO]) ./ reverse(var)
-        if !isnothing(conv_facs_analytic) && !isnothing(param_analytic)
+        if !isnothing(ρs_analytic) && !isnothing(param_analytic)
             param_analytic = reverse(
                 (physical_values[:h_oce] - physical_values[:z_0numO]) ./ param_analytic,
             )
         end
     elseif var_name == "n_t_atm" || var_name == "n_t_oce"
         var = physical_values[:Δt_min] ./ reverse(var)
-        if !isnothing(conv_facs_analytic) && !isnothing(param_analytic)
+        if !isnothing(ρs_analytic) && !isnothing(param_analytic)
             param_analytic = reverse(physical_values[:Δt_min] ./ param_analytic)
         end
     end
     if var_name in ["n_atm", "n_oce", "n_t_atm", "n_t_oce"]
-        conv_facs_oce =
-            !isnothing(conv_facs_oce) ? reverse(conv_facs_oce, dims=dims) : nothing
-        conv_facs_atm =
-            !isnothing(conv_facs_atm) ? reverse(conv_facs_atm, dims=dims) : nothing
-        conv_facs_analytic =
-            !isnothing(conv_facs_analytic) ? reverse(conv_facs_analytic, dims=dims) :
+        ρs_oce =
+            !isnothing(ρs_oce) ? reverse(ρs_oce, dims=dims) : nothing
+        ρs_atm =
+            !isnothing(ρs_atm) ? reverse(ρs_atm, dims=dims) : nothing
+        ρs_analytic =
+            !isnothing(ρs_analytic) ? reverse(ρs_analytic, dims=dims) :
             nothing
     end
-    return var, conv_facs_oce, conv_facs_atm, param_analytic, conv_facs_analytic
+    return var, ρs_oce, ρs_atm, param_analytic, ρs_analytic
 end
 
 """ 
@@ -166,16 +166,16 @@ Extracts the first convergence factors.
 
 **Arguments:**
 
--`conv_fac_atm::Array`: Atmosphere convergence factor.
--`conv_fac_oce::Array`: Ocean convergence factor.
+-`ρ_atm::Array`: Atmosphere convergence factor.
+-`ρ_oce::Array`: Ocean convergence factor.
 
 """
-function extract_conv_fac(conv_fac_atm, conv_fac_oce)
-    if conv_fac_atm isa AbstractArray
-        conv_fac_atm = !isempty(conv_fac_atm) ? conv_fac_atm[1] : NaN
+function extract_ρ(ρ_atm, ρ_oce)
+    if ρ_atm isa AbstractArray
+        ρ_atm = !isempty(ρ_atm) ? ρ_atm[1] : NaN
     end
-    if conv_fac_oce isa AbstractArray
-        conv_fac_oce = !isempty(conv_fac_oce) ? conv_fac_oce[1] : NaN
+    if ρ_oce isa AbstractArray
+        ρ_oce = !isempty(ρ_oce) ? ρ_oce[1] : NaN
     end
-    return conv_fac_atm, conv_fac_oce
+    return ρ_atm, ρ_oce
 end

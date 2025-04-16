@@ -61,9 +61,6 @@ Computes the numerical convergence factor based on the parameters in physical_va
 **Optional Keyword Arguments:**
 
 -`iterations::Int`: Number of Schwarz iterations, default: 1.
--`return_conv_facs::Boolean`: Whether to return the convergence factors, default: `true`.
--`plot_conv_facs::Boolean`: Whether to plot the convergence factor as a function of iteration, default: `false`.
--`print_conv_facs::Boolean`: Whether to print the convergence factors for each iteration, default: `false`.
 
 """
 function compute_ρ_numerical(
@@ -71,11 +68,11 @@ function compute_ρ_numerical(
     iterations=1,
 )
     cs = get_coupled_sim(physical_values)
-    conv_fac_atm, conv_fac_oce = solve_coupler!(
+    ρ_atm, ρ_oce = solve_coupler!(
         cs,
         iterations=iterations,
     )
-    return conv_fac_atm, conv_fac_oce
+    return ρ_atm, ρ_oce
 end
 
 """
@@ -95,7 +92,7 @@ Computes the convergence factors based on the parameters in physical_values and 
 -`log_scale::Boolean`: Whether the variable is in logarithmic scale, needed to define a range for the corresponding analytical variable, default: `false`.
 
 """
-function get_conv_facs_one_variable(
+function get_ρs_one_variable(
     physical_values,
     vars,
     var_name;
@@ -106,8 +103,8 @@ function get_conv_facs_one_variable(
 )
     vary_a_i = !isnothing(a_i_variable)
     a_i_variable = vary_a_i ? a_i_variable : [physical_values[:a_i]]
-    conv_facs_atm = zeros(length(a_i_variable), length(vars))
-    conv_facs_oce = zeros(length(a_i_variable), length(vars))
+    ρs_atm = zeros(length(a_i_variable), length(vars))
+    ρs_oce = zeros(length(a_i_variable), length(vars))
 
     if analytic
         if log_scale
@@ -115,7 +112,7 @@ function get_conv_facs_one_variable(
         else
             variable2_range = range(vars[1], vars[end], length=100)
         end
-        conv_facs_analytic = zeros(length(a_i_variable), length(variable2_range))
+        ρs_analytic = zeros(length(a_i_variable), length(variable2_range))
     else
         variable2_range = nothing
     end
@@ -142,10 +139,10 @@ function get_conv_facs_one_variable(
             elseif var_name == "t_max"
                 physical_values[:Δt_cpl] = var
             end
-            conv_fac_atm, conv_fac_oce =
+            ρ_atm, ρ_oce =
                 compute_ρ_numerical(physical_values, iterations=iterations)
-            conv_facs_atm[j, k], conv_facs_oce[j, k] =
-                extract_conv_fac(conv_fac_atm, conv_fac_oce)
+            ρs_atm[j, k], ρs_oce[j, k] =
+                extract_ρ(ρ_atm, ρ_oce)
         end
         if analytic
             for (k, var) in enumerate(variable2_range)
@@ -155,14 +152,14 @@ function get_conv_facs_one_variable(
                 elseif var_name == "t_max"
                     physical_values[:w_min] = π / var
                 end
-                conv_fac_analytic = compute_ρ_analytical(physical_values)
-                conv_facs_analytic[j, k] = conv_fac_analytic
+                ρ_analytic = compute_ρ_analytical(physical_values)
+                ρs_analytic[j, k] = ρ_analytic
             end
         else
-            conv_facs_analytic = nothing
+            ρs_analytic = nothing
         end
     end
-    return conv_facs_atm, conv_facs_oce, variable2_range, conv_facs_analytic
+    return ρs_atm, ρs_oce, variable2_range, ρs_analytic
 end
 
 """
