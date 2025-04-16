@@ -387,7 +387,7 @@ function coupled_heat_equations(;
     correct_for_a_i!(physical_values)
     compute_C_AO!(physical_values)
 
-    cs = get_coupled_sim(NamedTuple(physical_values))
+    cs = get_coupled_sim(physical_values)
     conv_fac_atm, conv_fac_oce = solve_coupler!(
         cs,
         iterations=iterations,
