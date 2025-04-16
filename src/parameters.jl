@@ -67,7 +67,6 @@ function define_realistic_vals()
         :z_0numA => Float64(10.0),
         :z_0numO => Float64(1.0),
         :z_ruAO => Float64(2e-4),
-        :z_ruAI => nothing,
         :z_rTAO => Float64(2e-4),
         :z_rTAI => Float64(1e-3),
         :C_OI => Float64(5e-3),
@@ -77,9 +76,6 @@ function define_realistic_vals()
         :u_oce => Float64(1.0),
         :L_AO => Float64(50.0),
         :L_AI => Float64(50.0),
-        :L_OA => nothing,
-        :C_AO => nothing,
-        :C_AI => nothing,
         :T_atm_ini => Float64(267.0),
         :T_oce_ini => Float64(271.0),
         :T_ice_ini => Float64(270.0),
@@ -94,34 +90,11 @@ function define_realistic_vals()
         :sin_field_atm => false,
         :sin_field_oce => false,
     )
-    physical_values = update_C_AO(physical_values)
+    physical_values[:L_OA] = physical_values[:λ_u]^2 /
+                             (physical_values[:T_atm_ini] * physical_values[:α_eos] * physical_values[:λ_T])
     physical_values[:w_min] = π / physical_values[:t_max]
-    z_ruAI = Float64(
-        max(
-            1e-3,
-            0.93e-3 * (1 - physical_values[:a_i]) +
-            6.05e-3 * exp(-17 * (physical_values[:a_i] - 0.5)^2),
-        ),
-    )
-    physical_values[:z_ruAI] = z_ruAI
-    physical_values[:C_AI] =
-        physical_values[:κ]^2 / (
-            (
-                log(physical_values[:z_0numA] / physical_values[:z_ruAI]) - Ψ(
-                    physical_values[:z_0numA] / physical_values[:L_AI],
-                    true,
-                    physical_values[:L_AI] > 0,
-                    false,
-                )
-            ) * (
-                log(physical_values[:z_0numA] / physical_values[:z_rTAI]) - Ψ(
-                    physical_values[:z_0numA] / physical_values[:L_AI],
-                    true,
-                    physical_values[:L_AI] > 0,
-                    true,
-                )
-            )
-        )
+    compute_C_AO!(physical_values)
+    correct_for_a_i!(physical_values)
     return physical_values
 end
 
@@ -134,14 +107,13 @@ Updates the physical values based on a new sea ice concentration.
 -`physical_values::Dict`: Can be defined using `define_realistic_vals()`.
 
 """
-function update_physical_values(a_i, physical_values)
-    physical_values[:a_i] = a_i
+function correct_for_a_i!(physical_values)
+    a_i = physical_values[:a_i]
     z_ruAI = Float64(max(1e-3, 0.93e-3 * (1 - a_i) + 6.05e-3 * exp(-17 * (a_i - 0.5)^2)))
-    physical_values[:z_ruAI] = z_ruAI
-    physical_values[:C_AI] =
+    C_AI =
         physical_values[:κ]^2 / (
             (
-                log(physical_values[:z_0numA] / physical_values[:z_ruAI]) - Ψ(
+                log(physical_values[:z_0numA] / z_ruAI) - Ψ(
                     physical_values[:z_0numA] / physical_values[:L_AI],
                     true,
                     physical_values[:L_AI] > 0,
@@ -156,7 +128,8 @@ function update_physical_values(a_i, physical_values)
                 )
             )
         )
-    return physical_values
+    physical_values[:z_ruAI] = z_ruAI
+    physical_values[:C_AI] = C_AI
 end
 
 """
@@ -167,11 +140,8 @@ Updates the physical value for `C_AO`.
 -`physical_values::Dict`: Can be defined using `define_realistic_vals()`.
 
 """
-function update_C_AO(physical_values)
-    physical_values[:L_OA] =
-        physical_values[:λ_u]^2 /
-        (physical_values[:T_atm_ini] * physical_values[:α_eos] * physical_values[:λ_T])
-    physical_values[:C_AO] =
+function compute_C_AO!(physical_values)
+    C_AO =
         physical_values[:κ]^2 / (
             (
                 log(physical_values[:z_0numA] / physical_values[:z_ruAO]) - Ψ(
@@ -211,7 +181,7 @@ function update_C_AO(physical_values)
                 )
             )
         )
-    return physical_values
+    physical_values[:C_AO] = C_AO
 end
 
 """Creates a dict with values and names for all variables."""

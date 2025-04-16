@@ -419,6 +419,8 @@ function coupled_heat_equations(;
 )
     physical_values = define_realistic_vals()
     merge!(physical_values, params)
+    correct_for_a_i!(physical_values)
+    compute_C_AO!(physical_values)
     physical_values[:boundary_mapping] = boundary_mapping
 
     if !(
