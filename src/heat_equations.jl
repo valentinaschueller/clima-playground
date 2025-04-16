@@ -78,6 +78,33 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
     rename_files(cs, 0, time)
 end
 
+
+function update_atmos_values!(cs, ice_T)
+    ocean_states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
+    ocean_vals = extract_matrix(ocean_states, "oce")
+    bound_ocean_vals = ocean_vals[end, :]
+    ocean_T = mean(bound_ocean_vals)
+    if cs.model_sims.atmos_sim.params.boundary_mapping == "mean"
+        update_field!(cs.model_sims.atmos_sim, ocean_T, ice_T)
+    else
+        update_field!(cs.model_sims.atmos_sim, bound_ocean_vals, ice_T)
+    end
+    return ocean_vals, bound_ocean_vals
+end
+
+function update_ocean_values!(cs, ice_T)
+    atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
+    atmos_vals = extract_matrix(atmos_states, "atm")
+    bound_atmos_vals = atmos_vals[1, :]
+    if cs.model_sims.ocean_sim.params.boundary_mapping == "mean"
+        atmos_T = mean(bound_atmos_vals)
+        update_field!(cs.model_sims.ocean_sim, atmos_T, ice_T)
+    else
+        update_field!(cs.model_sims.ocean_sim, bound_atmos_vals, ice_T)
+    end
+    return atmos_vals, bound_atmos_vals
+end
+
 """
 Runs the CoupledSimulation.
 
@@ -131,165 +158,65 @@ function solve_coupler!(
         stopped_at_nan_atm = false
         stopped_at_nan_oce = false
 
+        ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
+
         while true
             @info("Current iter: $(iter)")
 
-            if !parallel
-                # Temperature values for the previous iteration.
-                pre_bound_atmos_vals = bound_atmos_vals
-                pre_bound_ocean_vals = bound_ocean_vals
+            # Temperature values for the previous iteration.
+            pre_bound_atmos_vals = bound_atmos_vals
+            pre_bound_ocean_vals = bound_ocean_vals
 
-                # Update ice and ocean models
-                Interfacer.step!(cs.model_sims.ice_sim, t) # TODO: Allow for an update
-                Interfacer.step!(cs.model_sims.ocean_sim, t)
-
-                # Update ocean value for atmosphere simulation based on boundary mapping
-                ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
-                ocean_states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
-                ocean_vals = extract_matrix(ocean_states, "oce")
-                bound_ocean_vals = ocean_vals[end, :]
-                ocean_T = mean(bound_ocean_vals)
-                if cs.model_sims.atmos_sim.params.boundary_mapping == "mean"
-                    update_field!(cs.model_sims.atmos_sim, ocean_T, ice_T)
-                else
-                    update_field!(cs.model_sims.atmos_sim, bound_ocean_vals, ice_T)
-                end
-
-                # Update atmosphere model 
-                Interfacer.step!(cs.model_sims.atmos_sim, t)
-
-                # Update atmosphere value for ocean simulation based on boundary mapping
-                atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
-                atmos_vals = extract_matrix(atmos_states, "atm")
-                bound_atmos_vals = atmos_vals[1, :]
-                if cs.model_sims.ocean_sim.params.boundary_mapping == "mean"
-                    atmos_T = mean(bound_atmos_vals)
-                    update_field!(cs.model_sims.ocean_sim, atmos_T, ice_T)
-                else
-                    update_field!(cs.model_sims.ocean_sim, bound_atmos_vals, ice_T)
-                end
-
-                # If the model goes unstable, abort simulation
-                stable, stopped_at_nan_atm, stopped_at_nan_oce = is_stable(
-                    atmos_vals,
-                    ocean_vals,
-                    upper_limit_temp,
-                    lower_limit_temp,
-                    iter,
-                )
-                if !stable
-                    break
-                end
-
-                # Check for convergence
-                if iter > 1
-                    converged = has_converged(
-                        bound_atmos_vals,
-                        pre_bound_atmos_vals,
-                        bound_ocean_vals,
-                        pre_bound_ocean_vals,
-                        iter,
-                    )
-                    if converged
-                        break
-                    end
-                end
-
-                # Update lists for convergence factor computation
-                push!(atmos_vals_list, bound_atmos_vals)
-                push!(ocean_vals_list, bound_ocean_vals)
-
-                # Checkpoint to save progress
-                Checkpointer.checkpoint_sims(cs)
-                rename_files(cs, iter, time)
-
-                # Stop at maximum number of iterations
-                if iter == iterations
-                    println("Stopped at iter $iter due to limit on iterations")
-                    break
-                end
-                iter += 1
-
-                # Reset the temperature to that of the first checkpoint at this coupling step
-                restart_sims!(cs)
-
-                # Reset the integrator time and temperature. 
-                reset_time!(cs, t - Δt_cpl)
-            else
-                # Update all models
+            if parallel
                 FieldExchanger.step_model_sims!(cs.model_sims, t)
+                atmos_vals, bound_atmos_vals = update_atmos_values!(cs, ice_T)
+                ocean_vals, bound_ocean_vals = update_ocean_values!(cs, ice_T)
+            else
+                Interfacer.step!(cs.model_sims.ice_sim, t)
+                Interfacer.step!(cs.model_sims.ocean_sim, t)
+                ocean_vals, bound_ocean_vals = update_atmos_values!(cs, ice_T)
 
-                # Extract atmosphere and ocean boundary temperatures
-                atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
-                ocean_states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
-                pre_bound_atmos_vals = bound_atmos_vals
-                pre_bound_ocean_vals = bound_ocean_vals
-                atmos_vals = extract_matrix(atmos_states, "atm")
-                ocean_vals = extract_matrix(ocean_states, "oce")
-                bound_atmos_vals = atmos_vals[1, :]
-                bound_ocean_vals = ocean_vals[end, :]
-
-                # If the model goes unstable, abort simulation
-                stable, stopped_at_nan_atm, stopped_at_nan_oce = is_stable(
-                    atmos_vals,
-                    ocean_vals,
-                    upper_limit_temp,
-                    lower_limit_temp,
-                    iter,
-                )
-                if !stable
-                    break
-                end
-
-                # Check for convergence
-                if iter > 1
-                    converged = has_converged(
-                        bound_atmos_vals,
-                        pre_bound_atmos_vals,
-                        bound_ocean_vals,
-                        pre_bound_ocean_vals,
-                        iter,
-                    )
-                    if converged
-                        break
-                    end
-                end
-
-                # Update lists for convergence factor computation
-                push!(atmos_vals_list, bound_atmos_vals)
-                push!(ocean_vals_list, bound_ocean_vals)
-
-                # Checkpoint to save progress
-                Checkpointer.checkpoint_sims(cs) # I had to remove nothing here
-                rename_files(cs, iter, time)
-
-                # Updating the simulations based on the other simulation boundary value.
-                # note: only checking the atmosphere mapping here, but the mappings should be the same.
-                if cs.model_sims.atmos_sim.params.boundary_mapping == "mean"
-                    ocean_T = mean([ocean_state[end] for ocean_state in ocean_states])
-                    atmos_T = mean([atmos_state[1] for atmos_state in atmos_states])
-                else
-                    ocean_T = bound_ocean_vals
-                    atmos_T = bound_atmos_vals
-                end
-                ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
-                update_field!(cs.model_sims.ice_sim, Val(:T_ice), ice_T)
-                update_field!(cs.model_sims.atmos_sim, ocean_T, ice_T)
-                update_field!(cs.model_sims.ocean_sim, atmos_T, ice_T)
-
-                # Stop at maximum number of iterations
-                if iter == iterations
-                    println("Stopped at iter $iter due to limit on iterations")
-                    break
-                end
-                iter += 1
-
-                # Reset the temperature to that of the first checkpoint at this coupling step
-                restart_sims!(cs)
-
-                # Reset the integrator time and temperature. 
-                reset_time!(cs, t - Δt_cpl)
+                Interfacer.step!(cs.model_sims.atmos_sim, t)
+                atmos_vals, bound_atmos_vals = update_ocean_values!(cs, ice_T)
             end
+
+            stable, stopped_at_nan_atm, stopped_at_nan_oce = is_stable(
+                atmos_vals,
+                ocean_vals,
+                upper_limit_temp,
+                lower_limit_temp,
+                iter,
+            )
+            if !stable
+                break
+            end
+
+            if has_converged(
+                bound_atmos_vals,
+                pre_bound_atmos_vals,
+                bound_ocean_vals,
+                pre_bound_ocean_vals,
+                iter,
+            )
+                break
+            end
+
+            # Update lists for convergence factor computation
+            push!(atmos_vals_list, bound_atmos_vals)
+            push!(ocean_vals_list, bound_ocean_vals)
+
+            Checkpointer.checkpoint_sims(cs)
+            rename_files(cs, iter, time)
+
+            if iter == iterations
+                @info("Stopped at iter $iter due to limit on iterations")
+                break
+            end
+            iter += 1
+
+            # Reset values to beginning of coupling time step
+            restart_sims!(cs)
+            reset_time!(cs, t - Δt_cpl)
         end
         # Update time and restart integrator at t with the current temperature value
         cs.dates.date[1] = TimeManager.current_date(cs, t)

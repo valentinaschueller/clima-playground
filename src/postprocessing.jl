@@ -82,6 +82,9 @@ function has_converged(
     pre_bound_ocean_vals,
     iter,
 )
+    if iter == 1
+        return false
+    end
     bound_errors_atm_iter = abs.(bound_atmos_vals .- pre_bound_atmos_vals)
     bound_errors_oce_iter = abs.(bound_ocean_vals .- pre_bound_ocean_vals)
     tols_atm = 100 * eps.(max.(abs.(bound_atmos_vals), abs.(pre_bound_atmos_vals)))
