@@ -426,7 +426,7 @@ function plot_Δz_Δt(
 end
 
 function plot_ρ_over_k(iterations; parallel=false, analytic_conv_fac=true, combine_ρ_parallel=false, compute_atm_conv_fac=true, compute_oce_conv_fac=true, legend=:right)
-    cs, conv_fac_atm, conv_fac_oce = coupled_heat_equations(iterations=iterations, parallel=parallel, combine_ρ_parallel=combine_ρ_parallel, params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000))
+    cs, conv_fac_atm, conv_fac_oce = coupled_heat_equations(iterations=iterations, params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000))
     physical_values = cs.model_sims.atmos_sim.params
 
     if analytic_conv_fac
@@ -646,4 +646,91 @@ function plot_ρ_over_a_i(iterations=10, analytic_conv_fac=true)
         compute_atm_conv_fac=true,
         compute_oce_conv_fac=false,
     )
+end
+
+function plot_ρ_over_var(iterations, var_name; a_is=[], analytic_conv_fac=true, xticks=nothing, xscale=:identity)
+    yscale = :log10
+    legend = :right
+    yticks = :auto
+    text_scaling = (1, 5)
+    physical_values = define_realistic_vals()
+    params = Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000)
+    merge!(physical_values, params)
+    # Plot convergence factor with respect to some parameter, and different a_i
+    variable_dict = get_var_dict()
+    color_dict, linestyle_dict = get_color_dict()
+    var = variable_dict[Symbol(var_name)][1]
+    conv_facs_atm, conv_facs_oce, param_analytic, conv_facs_analytic =
+        isempty(a_is) ?
+        get_conv_facs_one_variable(
+            physical_values,
+            var,
+            var_name,
+            iterations=iterations,
+            analytic=analytic_conv_fac,
+            log_scale=(xscale == :log10),
+        ) :
+        get_conv_facs_one_variable(
+            physical_values,
+            var,
+            var_name,
+            iterations=iterations,
+            a_i_variable=a_is,
+            analytic=analytic_conv_fac,
+            log_scale=(xscale == :log10),
+        )
+    var, conv_facs_oce, conv_facs_atm, param_analytic, conv_facs_analytic =
+        handle_variable(
+            var,
+            var_name,
+            conv_facs_oce,
+            conv_facs_atm,
+            physical_values;
+            dims=2,
+            param_analytic=param_analytic,
+            conv_facs_analytic=conv_facs_analytic,
+        )
+
+    xticks = !isnothing(xticks) ? xticks : var
+    if isempty(a_is)
+        plot_wrt_a_i_and_one_param(
+            conv_facs_oce,
+            conv_facs_atm,
+            [physical_values[:a_i]],
+            var,
+            variable_dict[Symbol(var_name)][2],
+            conv_facs_analytic=conv_facs_analytic,
+            param_analytic=param_analytic,
+            xticks=xticks,
+            yticks=yticks,
+            xscale=xscale,
+            yscale=yscale,
+            colors=[color_dict[round(physical_values[:a_i], digits=1)]],
+            linestyles=[linestyle_dict[round(physical_values[:a_i], digits=1)]],
+            text_scaling=text_scaling,
+            legend=legend,
+            compute_atm_conv_fac=true,
+            compute_oce_conv_fac=false,
+        )
+    else
+        plot_wrt_a_i_and_one_param(
+            conv_facs_oce,
+            conv_facs_atm,
+            a_is,
+            var,
+            variable_dict[Symbol(var_name)][2],
+            conv_facs_analytic=conv_facs_analytic,
+            param_analytic=param_analytic,
+            xticks=xticks,
+            yticks=yticks,
+            xscale=xscale,
+            yscale=yscale,
+            colors=[color_dict[round(a_i, digits=1)] for a_i in a_is],
+            linestyles=[linestyle_dict[round(a_i, digits=1)] for a_i in a_is],
+            text_scaling=text_scaling,
+            legend=legend,
+            compute_atm_conv_fac=true,
+            compute_oce_conv_fac=false,
+        )
+    end
 end

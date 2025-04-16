@@ -13,10 +13,6 @@ Creates a CoupledSimulation.
 
 -`physical_values::Dict`: Can be defined using `define_realistic_vals()`. 
 
-**Optional Keyword Arguments:**
-
--`boundary_mapping::String`: Either `"mean"` or `"cit"` (closest in time), default: `"mean"`.
-
 """
 function get_coupled_sim(parameters)
     context = CC.ClimaComms.context()

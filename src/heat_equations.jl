@@ -374,139 +374,26 @@ Setup for running the coupled simulation and running it.
 
 -`iterations::Int`: Number of iterations before the Schwarz iteration is terminated, default: `1`.
 -`parallel::Boolean`: Whether to run the parallel or alternating Schwarz iteration, default: `false`.
--`boundary_mapping::String`: Determines if mean or closest in time boundary mapping is used, default: `"mean"`.
--`params::Dict`: Physical parameters and time stepping parameters, default: `false`, default: `Dict{Symbol,Int}()`.
--`analytic_conv_fac::Boolean`: Whether to compute and plot or print the analytical convergence factor, default: `false`.
--`compute_atm_conv_fac::Boolean`: Whether to consider the atmospheric convergence factor, default: `true`.
--`compute_oce_conv_fac::Boolean`: Whether to consider the oceanic convergence factor, default: `true`.
--`plot_unstable_range::Boolean`: Whether to plot the unstable region (cfl condition), default: `false`.
--`a_is::Array`: If not empty, the convergence factor is plotted as a function of `a_is`, default: `[]`.
--`var_name::String`: If not nothing, the convergence factor is plotted wrt the variable.
-    If there are also several `a_is`, it is plotted for all of the `a_i` in the same plot, default: `nothing`.
--`xscale::Symbol`: Plotting argument for x-scale, default: `:identity`.
--`yscale::Symbol`: Plotting argument for y-scale, default: `:identity`.
--`legend::Symbol`: Legend position, default: `:right`.
--`xticks::Symbol or Array`: Defines the tick marks on the x-axis, default: `nothing`.
--`yticks::Symbol or Array`: Defines the tick marks on the y-axis, default: `:auto`.
--`text_scaling::Tuple`: If the model goes unstable, there is text in the plot. This argument 
-    changes the text position, default: `(1, 5)`.
+-`params::Dict`: Simulation parameters, default: `Dict{Symbol,Int}()`.
 
 """
 function coupled_heat_equations(;
     iterations=1,
     parallel=false,
-    boundary_mapping="mean",
     params=Dict{Symbol,Int}(),
-    analytic_conv_fac=false,
-    compute_atm_conv_fac=true,
-    compute_oce_conv_fac=true,
-    a_is=[],
-    var_name=nothing,
-    xscale=:identity,
-    yscale=:identity,
-    legend=:right,
-    xticks=nothing,
-    yticks=:auto,
-    text_scaling=(1, 5),
 )
     physical_values = define_realistic_vals()
     merge!(physical_values, params)
     correct_for_a_i!(physical_values)
     compute_C_AO!(physical_values)
-    physical_values[:boundary_mapping] = boundary_mapping
 
-    if !(
-        !isempty(a_is) ||
-        !isnothing(var_name)
+    cs = get_coupled_sim(NamedTuple(physical_values))
+    conv_fac_atm, conv_fac_oce = solve_coupler!(
+        cs,
+        iterations=iterations,
+        parallel=parallel,
     )
-        # Run coupled simulation
-        cs = get_coupled_sim(NamedTuple(physical_values))
-        conv_fac_atm, conv_fac_oce = solve_coupler!(
-            cs,
-            iterations=iterations,
-            parallel=parallel,
-        )
-        return cs, conv_fac_atm, conv_fac_oce
-
-    elseif !isnothing(var_name)
-        # Plot convergence factor with respect to some parameter, and different a_i
-        variable_dict = get_var_dict()
-        color_dict, linestyle_dict = get_color_dict()
-        var = variable_dict[Symbol(var_name)][1]
-        conv_facs_atm, conv_facs_oce, param_analytic, conv_facs_analytic =
-            isempty(a_is) ?
-            get_conv_facs_one_variable(
-                physical_values,
-                var,
-                var_name,
-                iterations=iterations,
-                analytic=analytic_conv_fac,
-                log_scale=(xscale == :log10),
-            ) :
-            get_conv_facs_one_variable(
-                physical_values,
-                var,
-                var_name,
-                iterations=iterations,
-                a_i_variable=a_is,
-                analytic=analytic_conv_fac,
-                log_scale=(xscale == :log10),
-            )
-        var, conv_facs_oce, conv_facs_atm, param_analytic, conv_facs_analytic =
-            handle_variable(
-                var,
-                var_name,
-                conv_facs_oce,
-                conv_facs_atm,
-                physical_values;
-                dims=2,
-                param_analytic=param_analytic,
-                conv_facs_analytic=conv_facs_analytic,
-            )
-
-        xticks = !isnothing(xticks) ? xticks : var
-        if isempty(a_is)
-            plot_wrt_a_i_and_one_param(
-                conv_facs_oce,
-                conv_facs_atm,
-                [physical_values[:a_i]],
-                var,
-                variable_dict[Symbol(var_name)][2],
-                conv_facs_analytic=conv_facs_analytic,
-                param_analytic=param_analytic,
-                xticks=xticks,
-                yticks=yticks,
-                xscale=xscale,
-                yscale=yscale,
-                colors=[color_dict[round(physical_values[:a_i], digits=1)]],
-                linestyles=[linestyle_dict[round(physical_values[:a_i], digits=1)]],
-                text_scaling=text_scaling,
-                legend=legend,
-                compute_atm_conv_fac=compute_atm_conv_fac,
-                compute_oce_conv_fac=compute_oce_conv_fac,
-            )
-        else
-            plot_wrt_a_i_and_one_param(
-                conv_facs_oce,
-                conv_facs_atm,
-                a_is,
-                var,
-                variable_dict[Symbol(var_name)][2],
-                conv_facs_analytic=conv_facs_analytic,
-                param_analytic=param_analytic,
-                xticks=xticks,
-                yticks=yticks,
-                xscale=xscale,
-                yscale=yscale,
-                colors=[color_dict[round(a_i, digits=1)] for a_i in a_is],
-                linestyles=[linestyle_dict[round(a_i, digits=1)] for a_i in a_is],
-                text_scaling=text_scaling,
-                legend=legend,
-                compute_atm_conv_fac=compute_atm_conv_fac,
-                compute_oce_conv_fac=compute_oce_conv_fac,
-            )
-        end
-    end
+    return cs, conv_fac_atm, conv_fac_oce
 end;
 
 
