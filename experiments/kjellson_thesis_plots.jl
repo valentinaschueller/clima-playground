@@ -51,3 +51,7 @@ end
 function figure77b()
     plot_unstable_range("oce", a_is=[0.1, 0.4, 0.7])
 end
+
+function ρ_dependence_ν_ω()
+    analytical_convergence_factor_dependence()
+end
