@@ -306,8 +306,10 @@ function solve_coupler!(
 
         if iterations > 1
             conv_fac_atm, conv_fac_oce = compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
-            return conv_fac_atm, conv_fac_oce
+        else
+            conv_fac_atm, conv_fac_oce = nothing, nothing
         end
+        return conv_fac_atm, conv_fac_oce
     end
 end
 
