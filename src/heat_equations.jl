@@ -303,14 +303,12 @@ function solve_coupler!(
             # values, if this is not run to empty it.
             reset_time!(cs, t)
         end
-
         if iterations > 1
             conv_fac_atm, conv_fac_oce = compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
-        else
-            conv_fac_atm, conv_fac_oce = nothing, nothing
+            return conv_fac_atm, conv_fac_oce
         end
-        return conv_fac_atm, conv_fac_oce
     end
+    return nothing, nothing
 end
 
 function compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
