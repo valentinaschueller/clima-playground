@@ -503,3 +503,105 @@ function plot_ρ_over_k(iterations; parallel=false, analytic_conv_fac=true, comb
     end
     display(current())
 end
+
+function plot_unstable_range(component; a_is=[])
+    physical_values = define_realistic_vals()
+    correct_for_a_i!(physical_values)
+    compute_C_AO!(physical_values)
+    physical_values[:Δt_min] = 100
+    color_dict, _ = get_color_dict()
+
+    Δz = 10 .^ LinRange(log10(0.001), log10(1), 50)
+    Δt = 10 .^ LinRange(log10(1), log10(100), 50)
+    if component == "atm"
+        n_zs_atm = Int.(round.((physical_values[:h_atm] - physical_values[:z_0numA]) ./ reverse(Δz)))
+        n_ts_atm = Int.(round.(physical_values[:Δt_min] ./ reverse(Δt)))
+    elseif component == "oce"
+        n_zs_oce = Int.(round.((physical_values[:h_oce] - physical_values[:z_0numO]) ./ reverse(Δz)))
+        n_ts_oce = Int.(round.(physical_values[:Δt_min] ./ reverse(Δt)))
+    else
+        error("Component must be 'atm' or 'oce'.")
+    end
+
+    xscale = :log10
+    yscale = :log10
+    xticks = [1, 10, 100]
+    yticks = [0.001, 0.01, 0.1]
+    legend = :right
+
+    a_is = !isempty(a_is) ? a_is : [physical_values[:a_i]]
+
+    plot()
+    for a_i in a_is
+        physical_values[:a_i] = a_i
+        if component == "atm"
+            unstable_matrix_atm =
+                stability_check(physical_values, n_zs_atm, n_ts_atm, "n_atm", "n_t_atm")
+            Δz, _, unstable_matrix_atm, _, _ = handle_variable(
+                n_zs_atm,
+                "n_atm",
+                nothing,
+                unstable_matrix_atm,
+                physical_values;
+                dims=1,
+            )
+            Δt, _, unstable_matrix_atm, _, _ = handle_variable(
+                n_ts_atm,
+                "n_t_atm",
+                nothing,
+                unstable_matrix_atm,
+                physical_values;
+                dims=2,
+            )
+
+            plot_Δz_Δt(
+                unstable_matrix_atm,
+                Δz,
+                Δt,
+                L"$\Delta z^A$",
+                L"$\Delta t^A$",
+                xscale=xscale,
+                yscale=yscale,
+                xticks=xticks,
+                yticks=yticks,
+                color=color_dict[round(a_i, digits=1)],
+                a_i=a_i,
+                legend=legend,
+            )
+        else
+            unstable_matrix_oce =
+                stability_check(physical_values, n_zs_oce, n_ts_oce, "n_oce", "n_t_oce")
+            Δz, unstable_matrix_oce, _, _, _ = handle_variable(
+                n_zs_oce,
+                "n_oce",
+                unstable_matrix_oce,
+                nothing,
+                physical_values;
+                dims=1,
+            )
+            Δt, unstable_matrix_oce, _, _, _ = handle_variable(
+                n_ts_oce,
+                "n_t_oce",
+                unstable_matrix_oce,
+                nothing,
+                physical_values;
+                dims=2,
+            )
+            plot_Δz_Δt(
+                unstable_matrix_oce,
+                Δz,
+                Δt,
+                L"$\Delta z^O$",
+                L"$\Delta t^O$",
+                xscale=xscale,
+                yscale=yscale,
+                xticks=xticks,
+                yticks=yticks,
+                color=color_dict[round(a_i, digits=1)],
+                a_i=a_i,
+                legend=legend,
+            )
+        end
+    end
+    display(current())
+end

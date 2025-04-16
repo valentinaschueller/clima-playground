@@ -45,9 +45,9 @@ function figure76b()
 end
 
 function figure77a()
-    coupled_heat_equations(plot_unstable_range=true, a_is=[0.1, 0.4, 0.7], params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000))
+    plot_unstable_range("atm", a_is=[0.1, 0.4, 0.7])
 end
 
 function figure77b()
-    coupled_heat_equations(plot_unstable_range=true, a_is=[0.1, 0.4, 0.7], params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000), compute_atm_conv_fac=false)
+    plot_unstable_range("oce", a_is=[0.1, 0.4, 0.7])
 end

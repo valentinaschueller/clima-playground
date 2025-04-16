@@ -186,7 +186,7 @@ function stability_check(physical_values, n_zs, n_ts, var1_name, var2_name)
             physical_values[Symbol(var1_name)] = n_z
             physical_values[Symbol(var2_name)] = n_t
 
-            cs = get_coupled_sim(physical_values)
+            cs = get_coupled_sim(NamedTuple(physical_values))
 
             starting_temp_atm = parent(cs.model_sims.atmos_sim.Y_init)
             starting_temp_oce = parent(cs.model_sims.ocean_sim.Y_init)

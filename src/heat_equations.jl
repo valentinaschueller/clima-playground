@@ -400,7 +400,6 @@ function coupled_heat_equations(;
     analytic_conv_fac=false,
     compute_atm_conv_fac=true,
     compute_oce_conv_fac=true,
-    plot_unstable_range=false,
     a_is=[],
     var_name=nothing,
     xscale=:identity,
@@ -417,7 +416,6 @@ function coupled_heat_equations(;
     physical_values[:boundary_mapping] = boundary_mapping
 
     if !(
-        plot_unstable_range ||
         !isempty(a_is) ||
         !isnothing(var_name)
     )
@@ -509,7 +507,7 @@ function coupled_heat_equations(;
             )
         end
 
-    elseif !isempty(a_is) && !plot_unstable_range
+    elseif !isempty(a_is)
         # Plot convergence factor wrt a_i
         conv_facs_atm, conv_facs_oce, param_analytic, conv_facs_analytic =
             get_conv_facs_one_variable(
@@ -540,116 +538,6 @@ function coupled_heat_equations(;
             compute_atm_conv_fac=compute_atm_conv_fac,
             compute_oce_conv_fac=compute_oce_conv_fac,
         )
-
-    elseif plot_unstable_range
-        # Plot CFL condition range for atmosphere or ocean
-        variable_dict = get_var_dict()
-        color_dict, linestyle_dict = get_color_dict()
-        physical_values[:Δt_min] = 100
-
-        Δz = 10 .^ LinRange(log10(0.001), log10(1), 50)
-        Δt = 10 .^ LinRange(log10(1), log10(100), 50)
-        n_zs_atm =
-            compute_atm_conv_fac ?
-            Int.(
-                round.(
-                    (physical_values[:h_atm] - physical_values[:z_0numA]) ./ reverse(Δz)
-                )
-            ) : nothing
-        n_ts_atm =
-            compute_atm_conv_fac ? Int.(round.(physical_values[:Δt_min] ./ reverse(Δt))) :
-            nothing
-        n_zs_oce =
-            compute_oce_conv_fac ?
-            Int.(
-                round.(
-                    (physical_values[:h_oce] - physical_values[:z_0numO]) ./ reverse(Δz)
-                )
-            ) : nothing
-        n_ts_oce =
-            compute_oce_conv_fac ? Int.(round.(physical_values[:Δt_min] ./ reverse(Δt))) :
-            nothing
-
-        xscale = :log10
-        yscale = :log10
-        xticks = [1, 10, 100]
-        yticks = [0.001, 0.01, 0.1]
-
-        a_is = !isempty(a_is) ? a_is : [physical_values[:a_i]]
-
-        plot()
-        for a_i in a_is
-            physical_values[:a_i] = a_i
-            if compute_atm_conv_fac
-                unstable_matrix_atm =
-                    stability_check(physical_values, n_zs_atm, n_ts_atm, "n_atm", "n_t_atm")
-                Δz, _, unstable_matrix_atm, _, _ = handle_variable(
-                    n_zs_atm,
-                    "n_atm",
-                    nothing,
-                    unstable_matrix_atm,
-                    physical_values;
-                    dims=1,
-                )
-                Δt, _, unstable_matrix_atm, _, _ = handle_variable(
-                    n_ts_atm,
-                    "n_t_atm",
-                    nothing,
-                    unstable_matrix_atm,
-                    physical_values;
-                    dims=2,
-                )
-
-                plot_Δz_Δt(
-                    unstable_matrix_atm,
-                    Δz,
-                    Δt,
-                    L"$\Delta z^A$",
-                    L"$\Delta t^A$",
-                    xscale=xscale,
-                    yscale=yscale,
-                    xticks=xticks,
-                    yticks=yticks,
-                    color=color_dict[round(a_i, digits=1)],
-                    a_i=a_i,
-                    legend=legend,
-                )
-            elseif compute_oce_conv_fac
-                unstable_matrix_oce =
-                    stability_check(physical_values, n_zs_oce, n_ts_oce, "n_oce", "n_t_oce")
-                Δz, unstable_matrix_oce, _, _, _ = handle_variable(
-                    n_zs_oce,
-                    "n_oce",
-                    unstable_matrix_oce,
-                    nothing,
-                    physical_values;
-                    dims=1,
-                )
-                Δt, unstable_matrix_oce, _, _, _ = handle_variable(
-                    n_ts_oce,
-                    "n_t_oce",
-                    unstable_matrix_oce,
-                    nothing,
-                    physical_values;
-                    dims=2,
-                )
-                plot_Δz_Δt(
-                    unstable_matrix_oce,
-                    Δz,
-                    Δt,
-                    L"$\Delta z^O$",
-                    L"$\Delta t^O$",
-                    xscale=xscale,
-                    yscale=yscale,
-                    xticks=xticks,
-                    yticks=yticks,
-                    color=color_dict[round(a_i, digits=1)],
-                    a_i=a_i,
-                    legend=legend,
-                )
-            end
-        end
-        display(current())
     end
 end;
 
