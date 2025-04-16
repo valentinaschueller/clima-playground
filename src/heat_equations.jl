@@ -395,9 +395,3 @@ function coupled_heat_equations(;
     )
     return cs, conv_fac_atm, conv_fac_oce
 end;
-
-
-
-
-
-
