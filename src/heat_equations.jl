@@ -376,12 +376,9 @@ Setup for running the coupled simulation and running it.
 -`parallel::Boolean`: Whether to run the parallel or alternating Schwarz iteration, default: `false`.
 -`boundary_mapping::String`: Determines if mean or closest in time boundary mapping is used, default: `"mean"`.
 -`params::Dict`: Physical parameters and time stepping parameters, default: `false`, default: `Dict{Symbol,Int}()`.
--`plot_conv_facs_iter::Boolean`: Whether to plot the convergence factor or not, default: `false`.
 -`analytic_conv_fac::Boolean`: Whether to compute and plot or print the analytical convergence factor, default: `false`.
 -`compute_atm_conv_fac::Boolean`: Whether to consider the atmospheric convergence factor, default: `true`.
 -`compute_oce_conv_fac::Boolean`: Whether to consider the oceanic convergence factor, default: `true`.
--`combine_ρ_parallel::Boolean`: Whether to combine two on eachother following convergence factor values
-    for the parallel Schwarz iteration, default: `false`.
 -`plot_unstable_range::Boolean`: Whether to plot the unstable region (cfl condition), default: `false`.
 -`a_is::Array`: If not empty, the convergence factor is plotted as a function of `a_is`, default: `[]`.
 -`var_name::String`: If not nothing, the convergence factor is plotted wrt the variable.
@@ -400,11 +397,9 @@ function coupled_heat_equations(;
     parallel=false,
     boundary_mapping="mean",
     params=Dict{Symbol,Int}(),
-    plot_conv_facs_iter=false,
     analytic_conv_fac=false,
     compute_atm_conv_fac=true,
     compute_oce_conv_fac=true,
-    combine_ρ_parallel=false,
     plot_unstable_range=false,
     a_is=[],
     var_name=nothing,
@@ -422,7 +417,6 @@ function coupled_heat_equations(;
     physical_values[:boundary_mapping] = boundary_mapping
 
     if !(
-        plot_conv_facs_iter ||
         plot_unstable_range ||
         !isempty(a_is) ||
         !isnothing(var_name)
