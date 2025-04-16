@@ -506,38 +506,6 @@ function coupled_heat_equations(;
                 compute_oce_conv_fac=compute_oce_conv_fac,
             )
         end
-
-    elseif !isempty(a_is)
-        # Plot convergence factor wrt a_i
-        conv_facs_atm, conv_facs_oce, param_analytic, conv_facs_analytic =
-            get_conv_facs_one_variable(
-                physical_values,
-                a_is,
-                "a_i",
-                iterations=iterations,
-                analytic=analytic_conv_fac,
-                log_scale=(xscale == :log10),
-            )
-        xticks = !isnothing(xticks) ? xticks : a_is
-        plot_wrt_a_i_and_one_param(
-            conv_facs_oce,
-            conv_facs_atm,
-            [physical_values[:a_i]],
-            a_is,
-            L"$a^I$",
-            conv_facs_analytic=conv_facs_analytic,
-            param_analytic=param_analytic,
-            xticks=xticks,
-            yticks=yticks,
-            xscale=xscale,
-            yscale=yscale,
-            colors=[:black],
-            linestyles=[:solid],
-            text_scaling=text_scaling,
-            legend=legend,
-            compute_atm_conv_fac=compute_atm_conv_fac,
-            compute_oce_conv_fac=compute_oce_conv_fac,
-        )
     end
 end;
 

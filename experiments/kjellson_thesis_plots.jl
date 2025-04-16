@@ -1,7 +1,7 @@
 using clima_playground
 
 function figure71()
-    coupled_heat_equations(iterations=10, a_is=0:0.1:1, yscale=:log10, analytic_conv_fac=true, params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000))
+    plot_ρ_over_a_i()
 end
 
 function figure72a()

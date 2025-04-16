@@ -605,3 +605,45 @@ function plot_unstable_range(component; a_is=[])
     end
     display(current())
 end
+
+
+function plot_ρ_over_a_i(iterations=10, analytic_conv_fac=true)
+    xscale = :identity
+    yscale = :log10
+    legend = :right
+    yticks = :auto
+    a_is = 0:0.1:1
+    text_scaling = (1, 5)
+    physical_values = define_realistic_vals()
+    params = Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000)
+    merge!(physical_values, params)
+    conv_facs_atm, conv_facs_oce, param_analytic, conv_facs_analytic =
+        get_conv_facs_one_variable(
+            physical_values,
+            a_is,
+            "a_i",
+            iterations=iterations,
+            analytic=analytic_conv_fac,
+            log_scale=(xscale == :log10),
+        )
+    xticks = a_is
+    plot_wrt_a_i_and_one_param(
+        conv_facs_oce,
+        conv_facs_atm,
+        [physical_values[:a_i]],
+        a_is,
+        L"$a^I$",
+        conv_facs_analytic=conv_facs_analytic,
+        param_analytic=param_analytic,
+        xticks=xticks,
+        yticks=yticks,
+        xscale=xscale,
+        yscale=yscale,
+        colors=[:black],
+        linestyles=[:solid],
+        text_scaling=text_scaling,
+        legend=legend,
+        compute_atm_conv_fac=true,
+        compute_oce_conv_fac=false,
+    )
+end

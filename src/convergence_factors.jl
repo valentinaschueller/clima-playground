@@ -70,7 +70,7 @@ function compute_ρ_numerical(
     physical_values;
     iterations=1,
 )
-    cs = get_coupled_sim(physical_values)
+    cs = get_coupled_sim(NamedTuple(physical_values))
     conv_fac_atm, conv_fac_oce = solve_coupler!(
         cs,
         iterations=iterations,
@@ -130,11 +130,11 @@ function get_conv_facs_one_variable(
 
     for (j, a_i) in enumerate(a_i_variable)
         physical_values[:a_i] = a_i
-        physical_values = update_physical_values(a_i, physical_values)
+        correct_for_a_i!(physical_values)
         for (k, var) in enumerate(vars)
             physical_values[Symbol(var_name)] = var
             if var_name == "a_i"
-                physical_values = update_physical_values(var, physical_values)
+                correct_for_a_i!(physical_values)
             elseif var_name == "h_atm"
                 physical_values[:n_atm] = Int((var - physical_values[:z_0numA]) / Δz_atm)
             elseif var_name == "h_oce"
@@ -151,7 +151,7 @@ function get_conv_facs_one_variable(
             for (k, var) in enumerate(variable2_range)
                 physical_values[Symbol(var_name)] = var
                 if var_name == "a_i"
-                    physical_values = update_physical_values(var, physical_values)
+                    correct_for_a_i!(physical_values)
                 elseif var_name == "t_max"
                     physical_values[:w_min] = π / var
                 end

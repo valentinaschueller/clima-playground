@@ -7,6 +7,7 @@ export compute_ρ_analytical
 export define_realistic_vals
 export plot_ρ_over_k
 export plot_unstable_range
+export plot_ρ_over_a_i
 
 using LinearAlgebra
 using Plots
