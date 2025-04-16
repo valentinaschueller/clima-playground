@@ -18,36 +18,12 @@ Creates a CoupledSimulation.
 -`boundary_mapping::String`: Either `"mean"` or `"cit"` (closest in time), default: `"mean"`.
 
 """
-function get_coupled_sim(physical_values; boundary_mapping="mean")
-    physical_keys = [
-        :h_atm,
-        :h_oce,
-        :n_atm,
-        :n_oce,
-        :k_atm,
-        :k_oce,
-        :c_atm,
-        :c_oce,
-        :ρ_atm,
-        :ρ_oce,
-        :u_atm,
-        :u_oce,
-        :C_AO,
-        :C_AI,
-        :C_OI,
-        :T_atm_ini,
-        :T_oce_ini,
-        :T_ice_ini,
-        :a_i,
-        :boundary_mapping,
-    ]
-    parameters = NamedTuple(Dict(key => physical_values[key] for key in physical_keys))
-
+function get_coupled_sim(parameters)
     context = CC.ClimaComms.context()
     device = CC.ClimaComms.device(context)
 
     domain_atm = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(physical_values[:z_0numA]),
+        CC.Geometry.ZPoint{Float64}(parameters.z_0numA),
         CC.Geometry.ZPoint{Float64}(parameters.h_atm);
         boundary_names=(:bottom, :top),
     )
@@ -56,7 +32,7 @@ function get_coupled_sim(physical_values; boundary_mapping="mean")
 
     domain_oce = CC.Domains.IntervalDomain(
         CC.Geometry.ZPoint{Float64}(-parameters.h_oce),
-        CC.Geometry.ZPoint{Float64}(-physical_values[:z_0numO]);
+        CC.Geometry.ZPoint{Float64}(-parameters.z_0numO);
         boundary_names=(:bottom, :top),
     )
     mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems=parameters.n_oce)
@@ -72,15 +48,15 @@ function get_coupled_sim(physical_values; boundary_mapping="mean")
     )
 
     stepping = (;
-        Δt_min=Float64(physical_values[:Δt_min]),
-        timerange=(Float64(0.0), Float64(physical_values[:t_max])),
-        Δt_coupler=Float64(physical_values[:Δt_cpl]),
+        Δt_min=Float64(parameters.Δt_min),
+        timerange=(Float64(0.0), Float64(parameters.t_max)),
+        Δt_coupler=Float64(parameters.Δt_cpl),
         odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
-        nsteps_atm=physical_values[:n_t_atm],
-        nsteps_oce=physical_values[:n_t_oce],
+        nsteps_atm=parameters.n_t_atm,
+        nsteps_oce=parameters.n_t_oce,
         nsteps_ice=1,
     )
-    if physical_values[:sin_field_atm]
+    if parameters.sin_field_atm
         coord_field_atm = map(x -> x.z, CC.Fields.coordinate_field(center_space_atm))
         field_atm =
             parameters.T_atm_ini .* (
@@ -95,7 +71,7 @@ function get_coupled_sim(physical_values; boundary_mapping="mean")
         field_atm = CC.Fields.ones(Float64, center_space_atm) .* parameters.T_atm_ini
     end
 
-    if physical_values[:sin_field_oce]
+    if parameters.sin_field_oce
         coord_field_oce = map(x -> x.z, CC.Fields.coordinate_field(center_space_oce))
         field_oce =
             1 .+
@@ -115,7 +91,7 @@ function get_coupled_sim(physical_values; boundary_mapping="mean")
         ice=CC.Fields.ones(Float64, point_space_ice) .* parameters.T_ice_ini,
     )
 
-    if boundary_mapping == "cit"
+    if parameters.boundary_mapping == "cit"
         time_points_oce_domain = CC.Domains.IntervalDomain(
             CC.Geometry.ZPoint{Float64}(stepping.timerange[1] - (stepping.Δt_min / 2)),
             CC.Geometry.ZPoint{Float64}(stepping.timerange[2] - (stepping.Δt_min / 2));

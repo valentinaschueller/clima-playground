@@ -424,3 +424,82 @@ function plot_Δz_Δt(
     end
 
 end
+
+function plot_ρ_over_k(iterations; parallel=false, analytic_conv_fac=true, combine_ρ_parallel=false, compute_atm_conv_fac=true, compute_oce_conv_fac=true, legend=:right)
+    cs, conv_fac_atm, conv_fac_oce = coupled_heat_equations(iterations=iterations, parallel=parallel, combine_ρ_parallel=combine_ρ_parallel, params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000))
+    physical_values = cs.model_sims.atmos_sim.params
+
+    if analytic_conv_fac
+        analytic_conv_fac_value = compute_ρ_analytical(physical_values)
+        combine_ρ_parallel = true
+    end
+
+    if parallel && combine_ρ_parallel
+        conv_fac_atm, conv_fac_oce = update_ρ_parallel(conv_fac_atm, conv_fac_oce)
+        ylabel = L"$\rho_{k+1}\times\rho_k$"
+    else
+        ylabel = L"$\rho_k$"
+    end
+
+    if analytic_conv_fac
+        ylabel *= L", $\hat{\rho}$"
+    end
+
+    gr()
+    plot()
+    color_dict, _ = get_color_dict()
+    color = color_dict[round(cs.model_sims.atmos_sim.params.a_i, digits=1)]
+    k_atm = 2:length(conv_fac_atm)+1
+    k_oce = 2:length(conv_fac_oce)+1
+    if compute_atm_conv_fac
+        scatter!(
+            k_atm,
+            conv_fac_atm,
+            label="atm",
+            legend=legend,
+            color=color,
+            markershape=:x,
+            markersize=5,
+            xlabel="k",
+            ylabel=ylabel,
+            ylim=(
+                0,
+                maximum([
+                    maximum(conv_fac_atm[.!isnan.(conv_fac_atm)]),
+                    maximum(conv_fac_oce[.!isnan.(conv_fac_oce)]),
+                ]) * 1.2,
+            ),
+        )
+    end
+    if compute_oce_conv_fac
+        scatter!(
+            k_oce,
+            conv_fac_oce,
+            label="oce",
+            legend=legend,
+            color=color,
+            markershape=:circle,
+            markersize=5,
+            xlabel="k",
+            ylabel=ylabel,
+            ylim=(
+                0,
+                maximum([
+                    maximum(conv_fac_atm[.!isnan.(conv_fac_atm)]),
+                    maximum(conv_fac_oce[.!isnan.(conv_fac_oce)]),
+                ]) * 1.2,
+            ),
+        )
+    end
+    if analytic_conv_fac
+        scatter!(
+            k_atm,
+            ones(length(k_atm)) * analytic_conv_fac_value,
+            label="analytic",
+            color=color,
+            markershape=:hline,
+            ylim=(0, analytic_conv_fac_value * 1.2),
+        )
+    end
+    display(current())
+end
