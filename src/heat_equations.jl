@@ -222,34 +222,32 @@ end
 function compute_ρ(atmos_vals_list, ocean_vals_list)
     ρ_atm = []
     ρ_oce = []
-    bound_error_atm = 0
-    bound_error_oce = 0
-    for i = 1:length(atmos_vals_list)-1
-        # Compute Schwarz iteration errors
-        pre_bound_error_atm = bound_error_atm
-        pre_bound_error_oce = bound_error_oce
+    pre_bound_error_atm = abs.(atmos_vals_list[1] .- atmos_vals_list[end])
+    pre_bound_error_oce = abs.(ocean_vals_list[1] .- ocean_vals_list[end])
+    for i = 2:length(atmos_vals_list)-1
         bound_error_atm = abs.(atmos_vals_list[i] .- atmos_vals_list[end])
         bound_error_oce = abs.(ocean_vals_list[i] .- ocean_vals_list[end])
-        tols_atm =
-            100 * eps.(max.(abs.(atmos_vals_list[i]), abs.(atmos_vals_list[end])))
-        tols_oce =
-            100 * eps.(max.(abs.(ocean_vals_list[i]), abs.(ocean_vals_list[end])))
 
-        # Compute convergence factor
-        if i > 1
-            indices_atm = findall(
-                (pre_bound_error_atm[1:end-1] .>= tols_atm[1:end-1]) .&
-                (bound_error_atm[1:end-1] .>= tols_atm[1:end-1]),
-            )
-            indices_oce = findall(
-                (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]) .&
-                (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]),
-            )
-            ρ_atm_value = norm(bound_error_atm[indices_atm]) / norm(pre_bound_error_atm[indices_atm])
-            ρ_oce_value = norm(bound_error_oce[indices_oce]) / norm(pre_bound_error_oce[indices_oce])
-            push!(ρ_atm, ρ_atm_value)
-            push!(ρ_oce, ρ_oce_value)
-        end
+        tols_atm = 100 * eps.(max.(abs.(atmos_vals_list[i]), abs.(atmos_vals_list[end])))
+        tols_oce = 100 * eps.(max.(abs.(ocean_vals_list[i]), abs.(ocean_vals_list[end])))
+
+        indices_atm = findall(
+            (pre_bound_error_atm[1:end-1] .>= tols_atm[1:end-1]) .&
+            (bound_error_atm[1:end-1] .>= tols_atm[1:end-1]),
+        )
+        indices_oce = findall(
+            (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]) .&
+            (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]),
+        )
+
+        ρ_atm_value = norm(bound_error_atm[indices_atm]) / norm(pre_bound_error_atm[indices_atm])
+        ρ_oce_value = norm(bound_error_oce[indices_oce]) / norm(pre_bound_error_oce[indices_oce])
+
+        push!(ρ_atm, ρ_atm_value)
+        push!(ρ_oce, ρ_oce_value)
+
+        pre_bound_error_atm = bound_error_atm
+        pre_bound_error_oce = bound_error_oce
     end
     return ρ_atm, ρ_oce
 end
