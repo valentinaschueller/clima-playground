@@ -22,8 +22,8 @@ function initial_value_range(cs)
     min_value = floatmax()
     for model_sim in cs.model_sims
         initial_values = parent(model_sim.Y_init)
-        min_value = minimum([min_value, minimum(initial_values)])
-        max_value = maximum([max_value, maximum(initial_values)])
+        min_value = min(min_value, minimum(initial_values))
+        max_value = max(max_value, maximum(initial_values))
     end
     return min_value, max_value
 end
