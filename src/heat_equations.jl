@@ -212,44 +212,25 @@ function solve_coupler!(
             reset_time!(cs, t)
         end
         if iterations > 1
-            ρ_atm, ρ_oce = compute_ρ(atmos_vals_list, ocean_vals_list)
+            ρ_atm, ρ_oce = compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
             return ρ_atm, ρ_oce
         end
     end
     return nothing, nothing
 end
 
-function compute_ρ(atmos_vals_list, ocean_vals_list)
-    ρ_atm = []
-    ρ_oce = []
-    pre_bound_error_atm = abs.(atmos_vals_list[1] .- atmos_vals_list[end])
-    pre_bound_error_oce = abs.(ocean_vals_list[1] .- ocean_vals_list[end])
-    for i = 2:length(atmos_vals_list)-1
-        bound_error_atm = abs.(atmos_vals_list[i] .- atmos_vals_list[end])
-        bound_error_oce = abs.(ocean_vals_list[i] .- ocean_vals_list[end])
-
-        tols_atm = 100 * eps.(max.(abs.(atmos_vals_list[i]), abs.(atmos_vals_list[end])))
-        tols_oce = 100 * eps.(max.(abs.(ocean_vals_list[i]), abs.(ocean_vals_list[end])))
-
-        indices_atm = findall(
-            (pre_bound_error_atm[1:end-1] .>= tols_atm[1:end-1]) .&
-            (bound_error_atm[1:end-1] .>= tols_atm[1:end-1]),
-        )
-        indices_oce = findall(
-            (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]) .&
-            (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]),
-        )
-
-        ρ_atm_value = norm(bound_error_atm[indices_atm]) / norm(pre_bound_error_atm[indices_atm])
-        ρ_oce_value = norm(bound_error_oce[indices_oce]) / norm(pre_bound_error_oce[indices_oce])
-
-        push!(ρ_atm, ρ_atm_value)
-        push!(ρ_oce, ρ_oce_value)
-
-        pre_bound_error_atm = bound_error_atm
-        pre_bound_error_oce = bound_error_oce
-    end
-    return ρ_atm, ρ_oce
+function run_simulation(
+    physical_values;
+    iterations=10,
+    parallel=false,
+)
+    cs = get_coupled_sim(physical_values)
+    ρ_atm, ρ_oce = solve_coupler!(
+        cs,
+        iterations=iterations,
+        parallel=parallel,
+    )
+    return cs, ρ_atm, ρ_oce
 end
 
 """
@@ -272,11 +253,6 @@ function coupled_heat_equations(;
     correct_for_a_i!(physical_values)
     compute_C_AO!(physical_values)
 
-    cs = get_coupled_sim(physical_values)
-    ρ_atm, ρ_oce = solve_coupler!(
-        cs,
-        iterations=iterations,
-        parallel=parallel,
-    )
+    cs, ρ_atm, ρ_oce = run_simulation(physical_values, iterations=iterations, parallel=parallel)
     return cs, ρ_atm, ρ_oce
 end;
