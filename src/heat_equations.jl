@@ -127,20 +127,8 @@ function solve_coupler!(
 
     @info("Starting coupling loop")
 
-    # Extract the initial values to be able to stop the simulation if the model goes unstable
-    starting_temp_atm = parent(cs.model_sims.atmos_sim.Y_init)
-    starting_temp_oce = parent(cs.model_sims.ocean_sim.Y_init)
-    starting_temp_ice = parent(cs.model_sims.ice_sim.Y_init)
-    upper_limit_temp = maximum([
-        maximum(starting_temp_oce),
-        maximum(starting_temp_atm),
-        maximum(starting_temp_ice),
-    ])
-    lower_limit_temp = minimum([
-        minimum(starting_temp_oce),
-        minimum(starting_temp_atm),
-        minimum(starting_temp_ice),
-    ])
+    # Extract the initial value range for stability check
+    lower_limit_temp, upper_limit_temp = initial_value_range(cs)
 
     for t in ((tspan[begin]+Δt_cpl):Δt_cpl:tspan[end])
         time = Int(t - Δt_cpl)
@@ -155,8 +143,6 @@ function solve_coupler!(
         ocean_vals_list = []
         bound_atmos_vals = nothing
         bound_ocean_vals = nothing
-        stopped_at_nan_atm = false
-        stopped_at_nan_oce = false
 
         ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
 
@@ -180,16 +166,15 @@ function solve_coupler!(
                 atmos_vals, bound_atmos_vals = update_ocean_values!(cs, ice_T)
             end
 
-            stable, stopped_at_nan_atm, stopped_at_nan_oce = is_stable(
-                atmos_vals,
-                ocean_vals,
-                upper_limit_temp,
-                lower_limit_temp,
-                iter,
+            if (
+                !is_stable(atmos_vals, upper_limit_temp, lower_limit_temp) ||
+                !is_stable(ocean_vals, upper_limit_temp, lower_limit_temp)
             )
-            if !stable
                 break
             end
+
+            push!(atmos_vals_list, bound_atmos_vals)
+            push!(ocean_vals_list, bound_ocean_vals)
 
             if has_converged(
                 bound_atmos_vals,
@@ -200,10 +185,6 @@ function solve_coupler!(
             )
                 break
             end
-
-            # Update lists for convergence factor computation
-            push!(atmos_vals_list, bound_atmos_vals)
-            push!(ocean_vals_list, bound_ocean_vals)
 
             Checkpointer.checkpoint_sims(cs)
             rename_files(cs, iter, time)
@@ -231,67 +212,25 @@ function solve_coupler!(
             reset_time!(cs, t)
         end
         if iterations > 1
-            conv_fac_atm, conv_fac_oce = compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
-            return conv_fac_atm, conv_fac_oce
+            ρ_atm, ρ_oce = compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
+            return ρ_atm, ρ_oce
         end
     end
     return nothing, nothing
 end
 
-function compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
-    if stopped_at_nan_atm || stopped_at_nan_oce
-        conv_fac_atm = stopped_at_nan_atm ? Inf : NaN
-        conv_fac_oce = stopped_at_nan_oce ? Inf : NaN
-        return conv_fac_atm, conv_fac_oce
-    end
-
-    conv_fac_atm = []
-    conv_fac_oce = []
-    bound_error_atm = 0
-    bound_error_oce = 0
-    end_of_loop = length(atmos_vals_list) - 1
-    for i = 1:end_of_loop
-        # Compute Schwarz iteration errors
-        pre_bound_error_atm = bound_error_atm
-        pre_bound_error_oce = bound_error_oce
-        bound_error_atm = abs.(atmos_vals_list[i] .- atmos_vals_list[end])
-        bound_error_oce = abs.(ocean_vals_list[i] .- ocean_vals_list[end])
-        tols_atm =
-            100 * eps.(max.(abs.(atmos_vals_list[i]), abs.(atmos_vals_list[end])))
-        tols_oce =
-            100 * eps.(max.(abs.(ocean_vals_list[i]), abs.(ocean_vals_list[end])))
-
-        # Compute convergence factor
-        if i > 1
-            indices_atm = findall(
-                (pre_bound_error_atm .>= tols_atm) .&
-                (bound_error_atm .>= tols_atm),
-            )
-            indices_oce = findall(
-                (pre_bound_error_oce .>= tols_oce) .&
-                (pre_bound_error_oce .>= tols_oce),
-            )
-            conv_fac_atm_value = sqrt(
-                sum(bound_error_atm[indices_atm][1:end-1] .^ 2) ./
-                sum(pre_bound_error_atm[indices_atm][1:end-1] .^ 2),
-            )
-            conv_fac_oce_value = sqrt(
-                sum(bound_error_oce[indices_oce][1:end-1] .^ 2) ./
-                sum(pre_bound_error_oce[indices_oce][1:end-1] .^ 2),
-            )
-            push!(conv_fac_atm, conv_fac_atm_value)
-            push!(conv_fac_oce, conv_fac_oce_value)
-        end
-    end
-    return conv_fac_atm, conv_fac_oce
-end
-
-function update_ρ_parallel(conv_fac_atm, conv_fac_oce)
-    conv_fac_atm = conv_fac_atm[1:end-1] .* conv_fac_atm[2:end]
-    conv_fac_oce = conv_fac_oce[1:end-1] .* conv_fac_oce[2:end]
-    conv_fac_atm[1:2:end] .= NaN
-    conv_fac_oce[2:2:end] .= NaN
-    return conv_fac_atm, conv_fac_oce
+function run_simulation(
+    physical_values;
+    iterations=10,
+    parallel=false,
+)
+    cs = get_coupled_sim(physical_values)
+    ρ_atm, ρ_oce = solve_coupler!(
+        cs,
+        iterations=iterations,
+        parallel=parallel,
+    )
+    return cs, ρ_atm, ρ_oce
 end
 
 """
@@ -314,11 +253,6 @@ function coupled_heat_equations(;
     correct_for_a_i!(physical_values)
     compute_C_AO!(physical_values)
 
-    cs = get_coupled_sim(physical_values)
-    conv_fac_atm, conv_fac_oce = solve_coupler!(
-        cs,
-        iterations=iterations,
-        parallel=parallel,
-    )
-    return cs, conv_fac_atm, conv_fac_oce
+    cs, ρ_atm, ρ_oce = run_simulation(physical_values, iterations=iterations, parallel=parallel)
+    return cs, ρ_atm, ρ_oce
 end;
