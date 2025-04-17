@@ -65,7 +65,7 @@ Computes the numerical convergence factor based on the parameters in physical_va
 """
 function compute_ρ_numerical(
     physical_values;
-    iterations=1,
+    iterations=10,
 )
     cs = get_coupled_sim(physical_values)
     ρ_atm, ρ_oce = solve_coupler!(
@@ -86,7 +86,7 @@ Computes the convergence factors based on the parameters in physical_values and 
 
 **Optional Keyword Arguments:**
 
--`iterations::Int`: Number of Schwarz iterations, default: 1.
+-`iterations::Int`: Number of Schwarz iterations, default: 10.
 -`a_i_variable::Array`: Values for `a_i` if this should vary as well, default: `nothing`.
 -`analytic::Boolean`: Whether to compute the analytical convergence factor, default: `false`.
 -`log_scale::Boolean`: Whether the variable is in logarithmic scale, needed to define a range for the corresponding analytical variable, default: `false`.
@@ -96,7 +96,7 @@ function get_ρs_one_variable(
     physical_values,
     vars,
     var_name;
-    iterations=1,
+    iterations=10,
     a_i_variable=nothing,
     analytic=false,
     log_scale=false,
