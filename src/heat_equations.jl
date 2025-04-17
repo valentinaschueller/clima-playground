@@ -260,14 +260,6 @@ function compute_ρ(atmos_vals_list, ocean_vals_list)
     return ρ_atm, ρ_oce
 end
 
-function update_ρ_parallel(ρ_atm, ρ_oce)
-    ρ_atm = ρ_atm[1:end-1] .* ρ_atm[2:end]
-    ρ_oce = ρ_oce[1:end-1] .* ρ_oce[2:end]
-    ρ_atm[1:2:end] .= NaN
-    ρ_oce[2:2:end] .= NaN
-    return ρ_atm, ρ_oce
-end
-
 """
 Setup for running the coupled simulation and running it.
 
