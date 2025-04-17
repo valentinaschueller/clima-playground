@@ -238,21 +238,15 @@ function compute_ρ(atmos_vals_list, ocean_vals_list)
         # Compute convergence factor
         if i > 1
             indices_atm = findall(
-                (pre_bound_error_atm .>= tols_atm) .&
-                (bound_error_atm .>= tols_atm),
+                (pre_bound_error_atm[1:end-1] .>= tols_atm[1:end-1]) .&
+                (bound_error_atm[1:end-1] .>= tols_atm[1:end-1]),
             )
             indices_oce = findall(
-                (pre_bound_error_oce .>= tols_oce) .&
-                (pre_bound_error_oce .>= tols_oce),
+                (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]) .&
+                (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]),
             )
-            ρ_atm_value = sqrt(
-                sum(bound_error_atm[indices_atm][1:end-1] .^ 2) ./
-                sum(pre_bound_error_atm[indices_atm][1:end-1] .^ 2),
-            )
-            ρ_oce_value = sqrt(
-                sum(bound_error_oce[indices_oce][1:end-1] .^ 2) ./
-                sum(pre_bound_error_oce[indices_oce][1:end-1] .^ 2),
-            )
+            ρ_atm_value = norm(bound_error_atm[indices_atm]) / norm(pre_bound_error_atm[indices_atm])
+            ρ_oce_value = norm(bound_error_oce[indices_oce]) / norm(pre_bound_error_oce[indices_oce])
             push!(ρ_atm, ρ_atm_value)
             push!(ρ_oce, ρ_oce_value)
         end
