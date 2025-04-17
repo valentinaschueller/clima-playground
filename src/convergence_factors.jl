@@ -185,19 +185,7 @@ function stability_check(physical_values, n_zs, n_ts, var1_name, var2_name)
 
             cs = get_coupled_sim(physical_values)
 
-            starting_temp_atm = parent(cs.model_sims.atmos_sim.Y_init)
-            starting_temp_oce = parent(cs.model_sims.ocean_sim.Y_init)
-            starting_temp_ice = parent(cs.model_sims.ice_sim.Y_init)
-            upper_limit_temp = maximum([
-                maximum(starting_temp_oce),
-                maximum(starting_temp_atm),
-                maximum(starting_temp_ice),
-            ])
-            lower_limit_temp = minimum([
-                minimum(starting_temp_oce),
-                minimum(starting_temp_atm),
-                minimum(starting_temp_ice),
-            ])
+            lower_limit_temp, upper_limit_temp = initial_value_range(cs)
 
             if domain == "atm"
                 Interfacer.step!(cs.model_sims.atmos_sim, physical_values[:Δt_cpl])
@@ -207,12 +195,7 @@ function stability_check(physical_values, n_zs, n_ts, var1_name, var2_name)
                 states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
             end
             vals = extract_matrix(states, domain)
-            if (
-                any(isnan, vals) ||
-                maximum(vals) > upper_limit_temp ||
-                minimum(vals) < lower_limit_temp
-            )
-                println("unstable")
+            if !is_stable(vals, upper_limit_temp, lower_limit_temp)
                 unstable_matrix[i, j] = Inf
             else
                 unstable_matrix[i, j] = NaN

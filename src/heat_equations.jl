@@ -127,20 +127,8 @@ function solve_coupler!(
 
     @info("Starting coupling loop")
 
-    # Extract the initial values to be able to stop the simulation if the model goes unstable
-    starting_temp_atm = parent(cs.model_sims.atmos_sim.Y_init)
-    starting_temp_oce = parent(cs.model_sims.ocean_sim.Y_init)
-    starting_temp_ice = parent(cs.model_sims.ice_sim.Y_init)
-    upper_limit_temp = maximum([
-        maximum(starting_temp_oce),
-        maximum(starting_temp_atm),
-        maximum(starting_temp_ice),
-    ])
-    lower_limit_temp = minimum([
-        minimum(starting_temp_oce),
-        minimum(starting_temp_atm),
-        minimum(starting_temp_ice),
-    ])
+    # Extract the initial value range for stability check
+    lower_limit_temp, upper_limit_temp = initial_value_range(cs)
 
     for t in ((tspan[begin]+Δt_cpl):Δt_cpl:tspan[end])
         time = Int(t - Δt_cpl)
@@ -155,8 +143,6 @@ function solve_coupler!(
         ocean_vals_list = []
         bound_atmos_vals = nothing
         bound_ocean_vals = nothing
-        stopped_at_nan_atm = false
-        stopped_at_nan_oce = false
 
         ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
 
@@ -180,14 +166,10 @@ function solve_coupler!(
                 atmos_vals, bound_atmos_vals = update_ocean_values!(cs, ice_T)
             end
 
-            stable, stopped_at_nan_atm, stopped_at_nan_oce = is_stable(
-                atmos_vals,
-                ocean_vals,
-                upper_limit_temp,
-                lower_limit_temp,
-                iter,
+            if (
+                !is_stable(atmos_vals, upper_limit_temp, lower_limit_temp) ||
+                !is_stable(ocean_vals, upper_limit_temp, lower_limit_temp)
             )
-            if !stable
                 break
             end
 
@@ -230,20 +212,14 @@ function solve_coupler!(
             reset_time!(cs, t)
         end
         if iterations > 1
-            ρ_atm, ρ_oce = compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
+            ρ_atm, ρ_oce = compute_ρ(atmos_vals_list, ocean_vals_list)
             return ρ_atm, ρ_oce
         end
     end
     return nothing, nothing
 end
 
-function compute_ρ(atmos_vals_list, ocean_vals_list, stopped_at_nan_atm, stopped_at_nan_oce)
-    if stopped_at_nan_atm || stopped_at_nan_oce
-        ρ_atm = stopped_at_nan_atm ? Inf : NaN
-        ρ_oce = stopped_at_nan_oce ? Inf : NaN
-        return ρ_atm, ρ_oce
-    end
-
+function compute_ρ(atmos_vals_list, ocean_vals_list)
     ρ_atm = []
     ρ_oce = []
     bound_error_atm = 0

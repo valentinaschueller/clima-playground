@@ -23,44 +23,35 @@ function extract_matrix(field_vecs, domain)
     return hcat(matrix...)
 end
 
+function initial_value_range(cs)
+    max_value = floatmin()
+    min_value = floatmax()
+    for model_sim in cs.model_sims
+        initial_values = parent(model_sim.Y_init)
+        min_value = minimum([min_value, minimum(initial_values)])
+        max_value = maximum([max_value, maximum(initial_values)])
+    end
+    return min_value, max_value
+end
+
 """
 Checks if the computed temperatures are reasonable or if the model has gone unstable.
 
 **Arguments:**
 
--`atmos_vals: Array`: Atmosphere temperatures.
--`ocean_vals: Array`: Ocean temperatures.
--`upper_limit_temp: Float64`: Maximum reasonable temperature.
--`lower_limit_temp: Float64`: Minimum reasonable temperature.
--`iter: Int`: Current iteration.
-
+-`values: Array`: Array of temperature values.
+-`upper_limit: Float64`: Maximum reasonable temperature.
+-`lower_limit: Float64`: Minimum reasonable temperature.
 """
-function is_stable(atmos_vals, ocean_vals, upper_limit_temp, lower_limit_temp, iter)
-    stable = true
-    stopped_at_nan_atm = false
-    stopped_at_nan_oce = false
+function is_stable(values, upper_limit, lower_limit)
     if (
-        any(isnan, ocean_vals) ||
-        maximum(ocean_vals) > upper_limit_temp ||
-        minimum(ocean_vals) < lower_limit_temp
+        any(isnan, values) ||
+        maximum(values) > upper_limit ||
+        minimum(values) < lower_limit
     )
-        println("stopped due to instability in ocean model")
-        stable = false
-        if iter == 1
-            stopped_at_nan_oce = true
-        end
-    elseif (
-        any(isnan, atmos_vals) ||
-        maximum(atmos_vals) > upper_limit_temp ||
-        minimum(atmos_vals) < lower_limit_temp
-    )
-        println("stopped due to instability in atmosphere model")
-        stable = false
-        if iter == 1
-            stopped_at_nan_atm = true
-        end
+        return false
     end
-    return stable, stopped_at_nan_atm, stopped_at_nan_oce
+    return true
 end
 
 """
