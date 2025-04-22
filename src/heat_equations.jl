@@ -61,7 +61,7 @@ function rename_files(cs::Interfacer.CoupledSimulation, iter, time, reverse=fals
 end
 
 """Resets integrator time."""
-function reset_time!(cs::Interfacer.CoupledSimulation, t)
+function reinit!(cs::Interfacer.CoupledSimulation, t)
     for sim in cs.model_sims
         Interfacer.reinit!(sim.integrator, sim.integrator.u, t0=t)
     end
@@ -105,6 +105,10 @@ function update_ocean_values!(cs, ice_T)
     return atmos_vals, bound_atmos_vals
 end
 
+function set_time!(cs::Interfacer.CoupledSimulation, t)
+    cs.dates.date[1] = TimeManager.current_date(cs, t)
+end
+
 """
 Runs the CoupledSimulation.
 
@@ -123,7 +127,6 @@ function solve_coupler!(
     parallel=false,
 )
     (; Δt_cpl, tspan) = cs
-    cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
 
     @info("Starting coupling loop")
 
@@ -135,7 +138,11 @@ function solve_coupler!(
 
     for t in ((tspan[begin]+Δt_cpl):Δt_cpl:tspan[end])
         time = Int(t - Δt_cpl)
-        @info(cs.dates.date[1])
+        set_time!(cs, time)
+        @info("Current time: $time")
+
+        # Sets u0 = u(time), t0 = time, and empties u
+        reinit!(cs, time)
 
         # Checkpoint to save initial values at this coupling step
         Checkpointer.checkpoint_sims(cs)
@@ -200,24 +207,13 @@ function solve_coupler!(
 
             # Reset values to beginning of coupling time step
             restart_sims!(cs)
-            reset_time!(cs, t - Δt_cpl)
-        end
-        # Update time and restart integrator at t with the current temperature value
-        cs.dates.date[1] = TimeManager.current_date(cs, t)
-        if t != tspan[end]
-            # TODO: This is a bit sneaky as it is not allowed if t >= sim.integrator.t
-            # However, it appears that sim.integrator.t always overshoots and is in fact larger.
-            # Is there a better method?
-            # It is needed because when running reset_time (reinit) all previous solution values are deleted.
-            # In the last iteration, we do not reset, and thus already have values in the solution 
-            # for the next time step. So the first iteration solution in this time step have additional 
-            # values, if this is not run to empty it.
-            reset_time!(cs, t)
+            reinit!(cs, time)
         end
         if iterations > 1
             ρ_atm, ρ_oce = compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
         end
     end
+    set_time!(cs, tspan[end])
     return ρ_atm, ρ_oce
 end
 
