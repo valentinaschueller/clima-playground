@@ -130,6 +130,9 @@ function solve_coupler!(
     # Extract the initial value range for stability check
     lower_limit_temp, upper_limit_temp = initial_value_range(cs)
 
+    ρ_atm = nothing
+    ρ_oce = nothing
+
     for t in ((tspan[begin]+Δt_cpl):Δt_cpl:tspan[end])
         time = Int(t - Δt_cpl)
         @info(cs.dates.date[1])
@@ -213,10 +216,9 @@ function solve_coupler!(
         end
         if iterations > 1
             ρ_atm, ρ_oce = compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
-            return ρ_atm, ρ_oce
         end
     end
-    return nothing, nothing
+    return ρ_atm, ρ_oce
 end
 
 function run_simulation(
