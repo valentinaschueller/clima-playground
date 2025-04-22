@@ -160,8 +160,12 @@ function solve_coupler!(
 
         ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
 
-        while true
+        for iter = 1:iterations
             @info("Current iter: $(iter)")
+            if iter > 1
+                restart_sims!(cs)
+                reinit!(cs, t)
+            end
 
             # Temperature values for the previous iteration.
             pre_bound_atmos_vals = bound_atmos_vals
@@ -197,21 +201,10 @@ function solve_coupler!(
                 bound_atmos_vals,
                 pre_bound_atmos_vals,
                 bound_ocean_vals,
-                pre_bound_ocean_vals,
-                iter,
+                pre_bound_ocean_vals
             )
                 break
             end
-
-            if iter == iterations
-                @info("Stopped at iter $iter due to limit on iterations")
-                break
-            end
-            iter += 1
-
-            # Reset values to beginning of coupling time step
-            restart_sims!(cs)
-            reinit!(cs, t)
         end
         if iterations > 1
             ρ_atm, ρ_oce = compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
