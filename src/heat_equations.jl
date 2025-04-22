@@ -28,7 +28,8 @@ When a file is saved, its always called the same thing. It has to be renamed for
 -`reverse::Boolean`: The file name sometimes needs to be reverted back to the original name, default: `false`.
 
 """
-function rename_files(cs::Interfacer.CoupledSimulation, iter, time, reverse=false)
+function rename_files(cs::Interfacer.CoupledSimulation, iter, reverse=false)
+    time = time_in_s(cs)
     for sim in cs.model_sims
         if !(Interfacer.name(sim) == "ConstantIce")
             original_file = joinpath(
@@ -70,12 +71,10 @@ end
 """Restarts simulations."""
 function restart_sims!(cs::Interfacer.CoupledSimulation)
     @info "Reading checkpoint!"
-    t = Dates.datetime2epochms(cs.dates.date[1])
-    t0 = Dates.datetime2epochms(cs.dates.date0[1])
-    time = Int((t - t0) / 1e3)
-    rename_files(cs, 0, time, true)
+    time = time_in_s(cs)
+    rename_files(cs, 0, true)
     Checkpointer.restart!(cs, cs.dirs.checkpoints, time)
-    rename_files(cs, 0, time)
+    rename_files(cs, 0)
 end
 
 
@@ -107,6 +106,12 @@ end
 
 function set_time!(cs::Interfacer.CoupledSimulation, t)
     cs.dates.date[1] = TimeManager.current_date(cs, t)
+end
+
+function time_in_s(cs::Interfacer.CoupledSimulation)
+    t = Dates.datetime2epochms(cs.dates.date[1])
+    t0 = Dates.datetime2epochms(cs.dates.date0[1])
+    return Int((t - t0) / 1e3)
 end
 
 """
@@ -146,7 +151,7 @@ function solve_coupler!(
 
         # Checkpoint to save initial values at this coupling step
         Checkpointer.checkpoint_sims(cs)
-        rename_files(cs, 0, time)
+        rename_files(cs, 0)
 
         iter = 1
         atmos_vals_list = []
@@ -197,7 +202,7 @@ function solve_coupler!(
             end
 
             Checkpointer.checkpoint_sims(cs)
-            rename_files(cs, iter, time)
+            rename_files(cs, iter)
 
             if iter == iterations
                 @info("Stopped at iter $iter due to limit on iterations")
