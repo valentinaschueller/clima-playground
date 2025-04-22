@@ -4,17 +4,17 @@ Returns the ylabel.
 **Arguments:**
 
 -`plot_numeric::Boolean`: Whether to plot the numerical convergence factor.
--`conv_fac_analytic::Array`: Containing the analytical convergence factors for a variable.
+-`ρ_analytic::Array`: Containing the analytical convergence factors for a variable.
 
 """
-function get_ylabel_or_nothing_to_plot(plot_numeric, conv_facs_analytic)
-    if plot_numeric && !isnothing(conv_facs_analytic)
+function get_ylabel_or_nothing_to_plot(plot_numeric, ρs_analytic)
+    if plot_numeric && !isnothing(ρs_analytic)
         ylabel = L"$\hat{\rho}$, $\rho$"
-    elseif plot_numeric && isnothing(conv_facs_analytic)
+    elseif plot_numeric && isnothing(ρs_analytic)
         ylabel = L"$\rho$"
-    elseif !plot_numeric && !isnothing(conv_facs_analytic)
+    elseif !plot_numeric && !isnothing(ρs_analytic)
         ylabel = L"$\hat{\rho}$"
-    elseif !plot_numeric && isnothing(conv_facs_analytic)
+    elseif !plot_numeric && isnothing(ρs_analytic)
         return nothing
     end
     return ylabel
@@ -25,14 +25,14 @@ Plots the convergence factors.
 
 **Arguments:**
 
--`conv_facs_oce::Array`: The ocean convergence factors.
--`conv_facs_atm::Array`: The atmosphere convergence factors.
+-`ρs_oce::Array`: The ocean convergence factors.
+-`ρs_atm::Array`: The atmosphere convergence factors.
 -`param_numeric::Array`: The values for the variable.
 -`param_name::String`: The name of the variable.
 
 **Optional Keyword Arguments:**
 
--`conv_facs_analytic::Array`: The analytic convergence factors, default: `nothing`.
+-`ρs_analytic::Array`: The analytic convergence factors, default: `nothing`.
 -`param_analytic::Array`: The analytical values for the variable, default: `nothing`.
 -`xscale::Symbol`: Plotting argument for x-scale, default: `:identity`.
 -`yscale::Symbol`: Plotting argument for y-scale, default: `:identity`.
@@ -43,16 +43,16 @@ Plots the convergence factors.
 -`yticks::Symbol or Array`: Defines the tick marks on the y-axis, default: `:auto`.
 -`ylim::Symbol or Tuple`: The limits for the y-axis, default: `:auto`.
 -`legend::Symbol`: Legend position, default: `:right`.
--`compute_atm_conv_fac::Boolean`: Whether to plot the atmosphere convergence factor, default: `true`.
--`compute_oce_conv_fac::Boolean`: Whether to plot the ocean convergence factor, default: `true`.
+-`compute_ρ_atm::Boolean`: Whether to plot the atmosphere convergence factor, default: `true`.
+-`compute_ρ_oce::Boolean`: Whether to plot the ocean convergence factor, default: `true`.
 
 """
 function plot_data(
-    conv_facs_oce,
-    conv_facs_atm,
+    ρs_oce,
+    ρs_atm,
     param_numeric,
     param_name;
-    conv_facs_analytic=nothing,
+    ρs_analytic=nothing,
     param_analytic=nothing,
     xscale=:identity,
     yscale=:identity,
@@ -63,25 +63,25 @@ function plot_data(
     yticks=:auto,
     ylim=:auto,
     legend=:right,
-    compute_atm_conv_fac=true,
-    compute_oce_conv_fac=true,
+    compute_ρ_atm=true,
+    compute_ρ_oce=true,
 )
     ylabel = get_ylabel_or_nothing_to_plot(
-        !isnothing(conv_facs_oce) || !isnothing(conv_facs_atm),
-        conv_facs_analytic,
+        !isnothing(ρs_oce) || !isnothing(ρs_atm),
+        ρs_analytic,
     )
     if isnothing(ylabel)
         return nothing
     end
-    if !isnothing(conv_facs_analytic)
+    if !isnothing(ρs_analytic)
         param_analytic_new =
-            yscale == :log10 ? param_analytic[conv_facs_analytic.>0] : param_analytic
-        conv_facs_analytic_new =
-            yscale == :log10 ? conv_facs_analytic[conv_facs_analytic.>0] :
-            conv_facs_analytic
+            yscale == :log10 ? param_analytic[ρs_analytic.>0] : param_analytic
+        ρs_analytic_new =
+            yscale == :log10 ? ρs_analytic[ρs_analytic.>0] :
+            ρs_analytic
         plot!(
             param_analytic_new,
-            conv_facs_analytic_new,
+            ρs_analytic_new,
             label="analytical" * label,
             color=color,
             xscale=xscale,
@@ -96,10 +96,10 @@ function plot_data(
             legendfontsize=12,
         )
     end
-    if compute_oce_conv_fac
+    if compute_ρ_oce
         plot!(
             param_numeric,
-            conv_facs_oce,
+            ρs_oce,
             label="numerical (oce)" * label,
             color=color,
             xscale=xscale,
@@ -115,10 +115,10 @@ function plot_data(
             legendfontsize=12,
         )
     end
-    if compute_atm_conv_fac
+    if compute_ρ_atm
         plot!(
             param_numeric,
-            conv_facs_atm,
+            ρs_atm,
             label="numerical (atm)" * label,
             color=color,
             xscale=xscale,
@@ -144,14 +144,14 @@ for instabilities has been added.
 
 **Arguments:**
 
--`conv_facs_oce::Array`: The ocean convergence factors.
--`conv_facs_atm::Array`: The atmosphere convergence factors.
+-`ρs_oce::Array`: The ocean convergence factors.
+-`ρs_atm::Array`: The atmosphere convergence factors.
 -`param_numeric::Array`: The values for the variable.
 -`param_name::String`: The name of the variable.
 
 **Optional Keyword Arguments:**
 
--`conv_facs_analytic::Array`: The analytic convergence factors, default: `nothing`.
+-`ρs_analytic::Array`: The analytic convergence factors, default: `nothing`.
 -`param_analytic::Array`: The analytical values for the variable, default: `nothing`.
 -`xscale::Symbol`: Plotting argument for x-scale, default: `:identity`.
 -`yscale::Symbol`: Plotting argument for y-scale, default: `:identity`.
@@ -161,17 +161,17 @@ for instabilities has been added.
 -`yticks::Symbol or Array`: Defines the tick marks on the y-axis, default: `:auto`.
 -`text_scaling::Tuple`: If the model goes unstable, there is plot in the text, this allows for different text positions, default: `(1, 5)`.
 -`legend::Symbol`: Legend position, default: `:right`.
--`compute_atm_conv_fac::Boolean`: Whether to plot the atmosphere convergence factor, default: `true`.
--`compute_oce_conv_fac::Boolean`: Whether to plot the ocean convergence factor, default: `true`.
+-`compute_ρ_atm::Boolean`: Whether to plot the atmosphere convergence factor, default: `true`.
+-`compute_ρ_oce::Boolean`: Whether to plot the ocean convergence factor, default: `true`.
 
 """
 function plot_wrt_a_i_and_one_param(
-    conv_facs_oce,
-    conv_facs_atm,
+    ρs_oce,
+    ρs_atm,
     a_is,
     param_numeric,
     param_name;
-    conv_facs_analytic=nothing,
+    ρs_analytic=nothing,
     param_analytic=nothing,
     xscale=:identity,
     yscale=:identity,
@@ -181,27 +181,27 @@ function plot_wrt_a_i_and_one_param(
     yticks=:auto,
     text_scaling=(1, 5),
     legend=:right,
-    compute_atm_conv_fac=true,
-    compute_oce_conv_fac=true,
+    compute_ρ_atm=true,
+    compute_ρ_oce=true,
 )
     gr()
     plot()
     # If there is instabilities, handle the text
-    unstable_oce_indices = isinf.(conv_facs_oce)
-    conv_facs_oce[unstable_oce_indices] .= NaN
+    unstable_oce_indices = isinf.(ρs_oce)
+    ρs_oce[unstable_oce_indices] .= NaN
 
-    unstable_atm_indices = isinf.(conv_facs_atm)
-    conv_facs_atm[unstable_atm_indices] .= NaN
+    unstable_atm_indices = isinf.(ρs_atm)
+    ρs_atm[unstable_atm_indices] .= NaN
 
-    analytic = !isnothing(conv_facs_analytic)
+    analytic = !isnothing(ρs_analytic)
 
     lowerbound, upperbound =
-        get_bounds(yscale, conv_facs_analytic, conv_facs_oce, conv_facs_atm)
+        get_bounds(yscale, ρs_analytic, ρs_oce, ρs_atm)
 
     for (i, ai) in enumerate(a_is)
-        conv_facs_oce_i = conv_facs_oce[i, :]
-        conv_facs_atm_i = conv_facs_atm[i, :]
-        conv_facs_analytic_i = analytic ? conv_facs_analytic[i, :] : nothing
+        ρs_oce_i = ρs_oce[i, :]
+        ρs_atm_i = ρs_atm[i, :]
+        ρs_analytic_i = analytic ? ρs_analytic[i, :] : nothing
 
         x_text_oce = param_numeric[unstable_oce_indices[i, :]]
         x_text_atm = param_numeric[unstable_atm_indices[i, :]]
@@ -238,11 +238,11 @@ function plot_wrt_a_i_and_one_param(
         end
 
         plot_data(
-            conv_facs_oce_i,
-            conv_facs_atm_i,
+            ρs_oce_i,
+            ρs_atm_i,
             param_numeric_i,
             param_name,
-            conv_facs_analytic=conv_facs_analytic_i,
+            ρs_analytic=ρs_analytic_i,
             param_analytic=param_analytic,
             xscale=xscale,
             yscale=yscale,
@@ -252,8 +252,8 @@ function plot_wrt_a_i_and_one_param(
             xticks=xticks,
             yticks=yticks,
             legend=legend,
-            compute_atm_conv_fac=compute_atm_conv_fac,
-            compute_oce_conv_fac=compute_oce_conv_fac,
+            compute_ρ_atm=compute_ρ_atm,
+            compute_ρ_oce=compute_ρ_oce,
         )
         for (k, txt) in enumerate(y_text_oce)
             annotate!(
@@ -279,13 +279,13 @@ Computes the upper and lower bounds for the unstable text.
 **Arguments:**
 
 -`yscale::Symbol`: Plotting argument for y-scale.
--`conv_facs_analytic::Array`: The analytic convergence factors.
+-`ρs_analytic::Array`: The analytic convergence factors.
 -`finite_oce_vals::Array`: The finite values of the ocean convergence factors.
 -`finite_atm_vals::Array`: The finite values of the atmosphere convergence factors.
 
 """
-function get_bounds(yscale, conv_facs_analytic, finite_oce_vals, finite_atm_vals)
-    matrices = filter(!isnothing, [conv_facs_analytic, finite_oce_vals, finite_atm_vals])
+function get_bounds(yscale, ρs_analytic, finite_oce_vals, finite_atm_vals)
+    matrices = filter(!isnothing, [ρs_analytic, finite_oce_vals, finite_atm_vals])
     filtered_matrices = [filter(!isnan, matrix) for matrix in matrices]
     filtered_matrices =
         yscale == :log10 && !isempty(filtered_matrices) ?
@@ -425,80 +425,66 @@ function plot_Δz_Δt(
 
 end
 
-function plot_ρ_over_k(iterations; parallel=false, analytic_conv_fac=true, combine_ρ_parallel=false, compute_atm_conv_fac=true, compute_oce_conv_fac=true, legend=:right)
-    cs, conv_fac_atm, conv_fac_oce = coupled_heat_equations(iterations=iterations, params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000))
+function plot_ρ_over_k(iterations; parallel=false, with_analytic_ρ=true, combine_ρ_parallel=false, plot_ρ_atm=true, plot_ρ_oce=true, legend=:right)
+    cs, ρ_atm, ρ_oce = coupled_heat_equations(iterations=iterations, parallel=parallel, params=Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000))
     physical_values = cs.model_sims.atmos_sim.params
 
-    if analytic_conv_fac
-        analytic_conv_fac_value = compute_ρ_analytical(physical_values)
+    if with_analytic_ρ
+        ρ_analytic = compute_ρ_analytical(physical_values)
         combine_ρ_parallel = true
     end
 
     if parallel && combine_ρ_parallel
-        conv_fac_atm, conv_fac_oce = update_ρ_parallel(conv_fac_atm, conv_fac_oce)
+        ρ_atm, ρ_oce = update_ρ_parallel(ρ_atm, ρ_oce)
         ylabel = L"$\rho_{k+1}\times\rho_k$"
     else
         ylabel = L"$\rho_k$"
     end
 
-    if analytic_conv_fac
+    if with_analytic_ρ
         ylabel *= L", $\hat{\rho}$"
     end
 
     gr()
     plot()
-    color_dict, _ = get_color_dict()
-    color = color_dict[round(cs.model_sims.atmos_sim.params.a_i, digits=1)]
-    k_atm = 2:length(conv_fac_atm)+1
-    k_oce = 2:length(conv_fac_oce)+1
-    if compute_atm_conv_fac
+    k_atm = 2:length(ρ_atm)+1
+    k_oce = 2:length(ρ_oce)+1
+    if plot_ρ_atm
         scatter!(
             k_atm,
-            conv_fac_atm,
+            ρ_atm,
             label="atm",
             legend=legend,
-            color=color,
+            color="black",
             markershape=:x,
             markersize=5,
             xlabel="k",
             ylabel=ylabel,
-            ylim=(
-                0,
-                maximum([
-                    maximum(conv_fac_atm[.!isnan.(conv_fac_atm)]),
-                    maximum(conv_fac_oce[.!isnan.(conv_fac_oce)]),
-                ]) * 1.2,
-            ),
+            yscale=:log10,
         )
     end
-    if compute_oce_conv_fac
+    if plot_ρ_oce
         scatter!(
             k_oce,
-            conv_fac_oce,
+            ρ_oce,
             label="oce",
             legend=legend,
-            color=color,
+            color="black",
             markershape=:circle,
             markersize=5,
             xlabel="k",
             ylabel=ylabel,
-            ylim=(
-                0,
-                maximum([
-                    maximum(conv_fac_atm[.!isnan.(conv_fac_atm)]),
-                    maximum(conv_fac_oce[.!isnan.(conv_fac_oce)]),
-                ]) * 1.2,
-            ),
+            yscale=:log10,
         )
     end
-    if analytic_conv_fac
-        scatter!(
+    if with_analytic_ρ
+        plot!(
             k_atm,
-            ones(length(k_atm)) * analytic_conv_fac_value,
+            ones(length(k_atm)) * ρ_analytic,
             label="analytic",
-            color=color,
+            color="black",
             markershape=:hline,
-            ylim=(0, analytic_conv_fac_value * 1.2),
+            yscale=:log10,
         )
     end
     display(current())
@@ -607,7 +593,7 @@ function plot_unstable_range(component; a_is=[])
 end
 
 
-function plot_ρ_over_a_i(iterations=10, analytic_conv_fac=true)
+function plot_ρ_over_a_i(iterations=10, with_ρ_analytic=true)
     xscale = :identity
     yscale = :log10
     legend = :right
@@ -617,23 +603,23 @@ function plot_ρ_over_a_i(iterations=10, analytic_conv_fac=true)
     physical_values = define_realistic_vals()
     params = Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000)
     merge!(physical_values, params)
-    conv_facs_atm, conv_facs_oce, param_analytic, conv_facs_analytic =
-        get_conv_facs_one_variable(
+    ρs_atm, ρs_oce, param_analytic, ρs_analytic =
+        get_ρs_one_variable(
             physical_values,
             a_is,
             "a_i",
             iterations=iterations,
-            analytic=analytic_conv_fac,
+            analytic=with_ρ_analytic,
             log_scale=(xscale == :log10),
         )
     xticks = a_is
     plot_wrt_a_i_and_one_param(
-        conv_facs_oce,
-        conv_facs_atm,
+        ρs_oce,
+        ρs_atm,
         [physical_values[:a_i]],
         a_is,
         L"$a^I$",
-        conv_facs_analytic=conv_facs_analytic,
+        ρs_analytic=ρs_analytic,
         param_analytic=param_analytic,
         xticks=xticks,
         yticks=yticks,
@@ -643,12 +629,12 @@ function plot_ρ_over_a_i(iterations=10, analytic_conv_fac=true)
         linestyles=[:solid],
         text_scaling=text_scaling,
         legend=legend,
-        compute_atm_conv_fac=true,
-        compute_oce_conv_fac=false,
+        compute_ρ_atm=true,
+        compute_ρ_oce=false,
     )
 end
 
-function plot_ρ_over_var(iterations, var_name; a_is=[], analytic_conv_fac=true, xticks=nothing, xscale=:identity)
+function plot_ρ_over_var(iterations, var_name; a_is=[], with_ρ_analytic=true, xticks=nothing, xscale=:identity)
     yscale = :log10
     legend = :right
     yticks = :auto
@@ -660,46 +646,46 @@ function plot_ρ_over_var(iterations, var_name; a_is=[], analytic_conv_fac=true,
     variable_dict = get_var_dict()
     color_dict, linestyle_dict = get_color_dict()
     var = variable_dict[Symbol(var_name)][1]
-    conv_facs_atm, conv_facs_oce, param_analytic, conv_facs_analytic =
+    ρs_atm, ρs_oce, param_analytic, ρs_analytic =
         isempty(a_is) ?
-        get_conv_facs_one_variable(
+        get_ρs_one_variable(
             physical_values,
             var,
             var_name,
             iterations=iterations,
-            analytic=analytic_conv_fac,
+            analytic=with_ρ_analytic,
             log_scale=(xscale == :log10),
         ) :
-        get_conv_facs_one_variable(
+        get_ρs_one_variable(
             physical_values,
             var,
             var_name,
             iterations=iterations,
             a_i_variable=a_is,
-            analytic=analytic_conv_fac,
+            analytic=with_ρ_analytic,
             log_scale=(xscale == :log10),
         )
-    var, conv_facs_oce, conv_facs_atm, param_analytic, conv_facs_analytic =
+    var, ρs_oce, ρs_atm, param_analytic, ρs_analytic =
         handle_variable(
             var,
             var_name,
-            conv_facs_oce,
-            conv_facs_atm,
+            ρs_oce,
+            ρs_atm,
             physical_values;
             dims=2,
             param_analytic=param_analytic,
-            conv_facs_analytic=conv_facs_analytic,
+            ρs_analytic=ρs_analytic,
         )
 
     xticks = !isnothing(xticks) ? xticks : var
     if isempty(a_is)
         plot_wrt_a_i_and_one_param(
-            conv_facs_oce,
-            conv_facs_atm,
+            ρs_oce,
+            ρs_atm,
             [physical_values[:a_i]],
             var,
             variable_dict[Symbol(var_name)][2],
-            conv_facs_analytic=conv_facs_analytic,
+            ρs_analytic=ρs_analytic,
             param_analytic=param_analytic,
             xticks=xticks,
             yticks=yticks,
@@ -709,17 +695,17 @@ function plot_ρ_over_var(iterations, var_name; a_is=[], analytic_conv_fac=true,
             linestyles=[linestyle_dict[round(physical_values[:a_i], digits=1)]],
             text_scaling=text_scaling,
             legend=legend,
-            compute_atm_conv_fac=true,
-            compute_oce_conv_fac=false,
+            compute_ρ_atm=true,
+            compute_ρ_oce=false,
         )
     else
         plot_wrt_a_i_and_one_param(
-            conv_facs_oce,
-            conv_facs_atm,
+            ρs_oce,
+            ρs_atm,
             a_is,
             var,
             variable_dict[Symbol(var_name)][2],
-            conv_facs_analytic=conv_facs_analytic,
+            ρs_analytic=ρs_analytic,
             param_analytic=param_analytic,
             xticks=xticks,
             yticks=yticks,
@@ -729,8 +715,8 @@ function plot_ρ_over_var(iterations, var_name; a_is=[], analytic_conv_fac=true,
             linestyles=[linestyle_dict[round(a_i, digits=1)] for a_i in a_is],
             text_scaling=text_scaling,
             legend=legend,
-            compute_atm_conv_fac=true,
-            compute_oce_conv_fac=false,
+            compute_ρ_atm=true,
+            compute_ρ_oce=false,
         )
     end
 end

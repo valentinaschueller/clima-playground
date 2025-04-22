@@ -51,31 +51,38 @@ function compute_ρ_analytical(physical_values)
     )
 end
 
-"""
-Computes the numerical convergence factor based on the parameters in physical_values.
 
-**Arguments:**
+function compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
+    ρ_atm = []
+    ρ_oce = []
+    pre_bound_error_atm = abs.(atmos_vals_list[1] .- atmos_vals_list[end])
+    pre_bound_error_oce = abs.(ocean_vals_list[1] .- ocean_vals_list[end])
+    for i = 2:length(atmos_vals_list)-1
+        bound_error_atm = abs.(atmos_vals_list[i] .- atmos_vals_list[end])
+        bound_error_oce = abs.(ocean_vals_list[i] .- ocean_vals_list[end])
 
--`physical_values::Dict`: Can be defined using `define_realistic_vals()`.
+        tols_atm = 100 * eps.(max.(abs.(atmos_vals_list[i]), abs.(atmos_vals_list[end])))
+        tols_oce = 100 * eps.(max.(abs.(ocean_vals_list[i]), abs.(ocean_vals_list[end])))
 
-**Optional Keyword Arguments:**
+        indices_atm = findall(
+            (pre_bound_error_atm[1:end-1] .>= tols_atm[1:end-1]) .&
+            (bound_error_atm[1:end-1] .>= tols_atm[1:end-1]),
+        )
+        indices_oce = findall(
+            (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]) .&
+            (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]),
+        )
 
--`iterations::Int`: Number of Schwarz iterations, default: 1.
--`return_conv_facs::Boolean`: Whether to return the convergence factors, default: `true`.
--`plot_conv_facs::Boolean`: Whether to plot the convergence factor as a function of iteration, default: `false`.
--`print_conv_facs::Boolean`: Whether to print the convergence factors for each iteration, default: `false`.
+        ρ_atm_value = norm(bound_error_atm[indices_atm]) / norm(pre_bound_error_atm[indices_atm])
+        ρ_oce_value = norm(bound_error_oce[indices_oce]) / norm(pre_bound_error_oce[indices_oce])
 
-"""
-function compute_ρ_numerical(
-    physical_values;
-    iterations=1,
-)
-    cs = get_coupled_sim(physical_values)
-    conv_fac_atm, conv_fac_oce = solve_coupler!(
-        cs,
-        iterations=iterations,
-    )
-    return conv_fac_atm, conv_fac_oce
+        push!(ρ_atm, ρ_atm_value)
+        push!(ρ_oce, ρ_oce_value)
+
+        pre_bound_error_atm = bound_error_atm
+        pre_bound_error_oce = bound_error_oce
+    end
+    return ρ_atm, ρ_oce
 end
 
 """
@@ -89,25 +96,25 @@ Computes the convergence factors based on the parameters in physical_values and 
 
 **Optional Keyword Arguments:**
 
--`iterations::Int`: Number of Schwarz iterations, default: 1.
+-`iterations::Int`: Number of Schwarz iterations, default: 10.
 -`a_i_variable::Array`: Values for `a_i` if this should vary as well, default: `nothing`.
 -`analytic::Boolean`: Whether to compute the analytical convergence factor, default: `false`.
 -`log_scale::Boolean`: Whether the variable is in logarithmic scale, needed to define a range for the corresponding analytical variable, default: `false`.
 
 """
-function get_conv_facs_one_variable(
+function get_ρs_one_variable(
     physical_values,
     vars,
     var_name;
-    iterations=1,
+    iterations=10,
     a_i_variable=nothing,
     analytic=false,
     log_scale=false,
 )
     vary_a_i = !isnothing(a_i_variable)
     a_i_variable = vary_a_i ? a_i_variable : [physical_values[:a_i]]
-    conv_facs_atm = zeros(length(a_i_variable), length(vars))
-    conv_facs_oce = zeros(length(a_i_variable), length(vars))
+    ρs_atm = zeros(length(a_i_variable), length(vars))
+    ρs_oce = zeros(length(a_i_variable), length(vars))
 
     if analytic
         if log_scale
@@ -115,7 +122,7 @@ function get_conv_facs_one_variable(
         else
             variable2_range = range(vars[1], vars[end], length=100)
         end
-        conv_facs_analytic = zeros(length(a_i_variable), length(variable2_range))
+        ρs_analytic = zeros(length(a_i_variable), length(variable2_range))
     else
         variable2_range = nothing
     end
@@ -142,10 +149,8 @@ function get_conv_facs_one_variable(
             elseif var_name == "t_max"
                 physical_values[:Δt_cpl] = var
             end
-            conv_fac_atm, conv_fac_oce =
-                compute_ρ_numerical(physical_values, iterations=iterations)
-            conv_facs_atm[j, k], conv_facs_oce[j, k] =
-                extract_conv_fac(conv_fac_atm, conv_fac_oce)
+            _, ρ_atm, ρ_oce = run_simulation(physical_values, iterations=iterations)
+            ρs_atm[j, k], ρs_oce[j, k] = extract_ρ(ρ_atm, ρ_oce)
         end
         if analytic
             for (k, var) in enumerate(variable2_range)
@@ -155,14 +160,14 @@ function get_conv_facs_one_variable(
                 elseif var_name == "t_max"
                     physical_values[:w_min] = π / var
                 end
-                conv_fac_analytic = compute_ρ_analytical(physical_values)
-                conv_facs_analytic[j, k] = conv_fac_analytic
+                ρ_analytic = compute_ρ_analytical(physical_values)
+                ρs_analytic[j, k] = ρ_analytic
             end
         else
-            conv_facs_analytic = nothing
+            ρs_analytic = nothing
         end
     end
-    return conv_facs_atm, conv_facs_oce, variable2_range, conv_facs_analytic
+    return ρs_atm, ρs_oce, variable2_range, ρs_analytic
 end
 
 """
@@ -188,19 +193,7 @@ function stability_check(physical_values, n_zs, n_ts, var1_name, var2_name)
 
             cs = get_coupled_sim(physical_values)
 
-            starting_temp_atm = parent(cs.model_sims.atmos_sim.Y_init)
-            starting_temp_oce = parent(cs.model_sims.ocean_sim.Y_init)
-            starting_temp_ice = parent(cs.model_sims.ice_sim.Y_init)
-            upper_limit_temp = maximum([
-                maximum(starting_temp_oce),
-                maximum(starting_temp_atm),
-                maximum(starting_temp_ice),
-            ])
-            lower_limit_temp = minimum([
-                minimum(starting_temp_oce),
-                minimum(starting_temp_atm),
-                minimum(starting_temp_ice),
-            ])
+            lower_limit_temp, upper_limit_temp = initial_value_range(cs)
 
             if domain == "atm"
                 Interfacer.step!(cs.model_sims.atmos_sim, physical_values[:Δt_cpl])
@@ -210,12 +203,7 @@ function stability_check(physical_values, n_zs, n_ts, var1_name, var2_name)
                 states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
             end
             vals = extract_matrix(states, domain)
-            if (
-                any(isnan, vals) ||
-                maximum(vals) > upper_limit_temp ||
-                minimum(vals) < lower_limit_temp
-            )
-                println("unstable")
+            if !is_stable(vals, upper_limit_temp, lower_limit_temp)
                 unstable_matrix[i, j] = Inf
             else
                 unstable_matrix[i, j] = NaN
