@@ -141,13 +141,12 @@ function solve_coupler!(
     ρ_atm = nothing
     ρ_oce = nothing
 
-    for t in ((tspan[begin]+Δt_cpl):Δt_cpl:tspan[end])
-        time = Int(t - Δt_cpl)
-        set_time!(cs, time)
-        @info("Current time: $time")
+    for t = tspan[begin]:Δt_cpl:(tspan[end]-Δt_cpl)
+        set_time!(cs, t)
+        @info("Current time: $t")
 
-        # Sets u0 = u(time), t0 = time, and empties u
-        reinit!(cs, time)
+        # Sets u0 = u(t), t0 = t, and empties u
+        reinit!(cs, t)
 
         # Checkpoint to save initial values at this coupling step
         Checkpointer.checkpoint_sims(cs)
@@ -169,15 +168,15 @@ function solve_coupler!(
             pre_bound_ocean_vals = bound_ocean_vals
 
             if parallel
-                FieldExchanger.step_model_sims!(cs.model_sims, t)
+                FieldExchanger.step_model_sims!(cs.model_sims, t + Δt_cpl)
                 atmos_vals, bound_atmos_vals = update_atmos_values!(cs, ice_T)
                 ocean_vals, bound_ocean_vals = update_ocean_values!(cs, ice_T)
             else
-                Interfacer.step!(cs.model_sims.ice_sim, t)
-                Interfacer.step!(cs.model_sims.ocean_sim, t)
+                Interfacer.step!(cs.model_sims.ice_sim, t + Δt_cpl)
+                Interfacer.step!(cs.model_sims.ocean_sim, t + Δt_cpl)
                 ocean_vals, bound_ocean_vals = update_atmos_values!(cs, ice_T)
 
-                Interfacer.step!(cs.model_sims.atmos_sim, t)
+                Interfacer.step!(cs.model_sims.atmos_sim, t + Δt_cpl)
                 atmos_vals, bound_atmos_vals = update_ocean_values!(cs, ice_T)
             end
 
@@ -212,7 +211,7 @@ function solve_coupler!(
 
             # Reset values to beginning of coupling time step
             restart_sims!(cs)
-            reinit!(cs, time)
+            reinit!(cs, t)
         end
         if iterations > 1
             ρ_atm, ρ_oce = compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
