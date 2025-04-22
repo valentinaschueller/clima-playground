@@ -190,6 +190,9 @@ function solve_coupler!(
             push!(atmos_vals_list, bound_atmos_vals)
             push!(ocean_vals_list, bound_ocean_vals)
 
+            Checkpointer.checkpoint_sims(cs)
+            rename_files(cs, iter)
+
             if has_converged(
                 bound_atmos_vals,
                 pre_bound_atmos_vals,
@@ -199,9 +202,6 @@ function solve_coupler!(
             )
                 break
             end
-
-            Checkpointer.checkpoint_sims(cs)
-            rename_files(cs, iter)
 
             if iter == iterations
                 @info("Stopped at iter $iter due to limit on iterations")
