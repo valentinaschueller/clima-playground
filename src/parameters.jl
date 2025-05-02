@@ -54,7 +54,7 @@ end
 function compute_derived_quantities!(params)
     params[:λ_u] = sqrt(params[:ρ_atm] / params[:ρ_oce])
     params[:λ_T] = params[:λ_u] * params[:c_atm] / params[:c_oce]
-    params[:μ] = params[:nu_O] / params[:nu_A]
+    params[:μ] = params[:ν_O] / params[:ν_A]
     params[:α_o] = params[:k_oce] / (params[:ρ_oce] * params[:c_oce])
     params[:α_a] = params[:k_atm] / (params[:ρ_atm] * params[:c_atm])
     params[:L_OA] = params[:λ_u]^2 / (params[:T_atm_ini] * params[:α_eos] * params[:λ_T])
@@ -71,8 +71,8 @@ function define_realistic_vals()
         :ρ_oce => 1e3,
         :c_atm => 1005.0,
         :c_oce => 4182.0,
-        :nu_O => 1e-6,
-        :nu_A => 1.5e-5,
+        :ν_O => 1e-6,
+        :ν_A => 1.5e-5,
         :κ => 0.4,
         :k_atm => 0.02364,
         :k_oce => 0.58,
