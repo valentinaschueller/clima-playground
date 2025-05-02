@@ -247,8 +247,7 @@ function coupled_heat_equations(;
 )
     physical_values = define_realistic_vals()
     merge!(physical_values, params)
-    correct_for_a_i!(physical_values)
-    compute_C_AO!(physical_values)
+    compute_derived_quantities!(physical_values)
 
     cs, ρ_atm, ρ_oce = run_simulation(physical_values, iterations=iterations, parallel=parallel)
     return cs, ρ_atm, ρ_oce
