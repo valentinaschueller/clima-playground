@@ -1,19 +1,47 @@
 using Plots
 
-"""
-Plots the dependence of `C_AO` on `L_AO` or the dependence of `C_AI` on `L_AI` and `a_i`.
 
-**Arguments:**
-
--`C_variable_name::String`: `"C_AO"` or `"C_AI"` depending on desired plot.
-
-"""
-function plot_obukhov_C_dependencies(C_variable_name)
-    if !(C_variable_name in ["C_AO", "C_AI"])
-        return nothing
-    end
+function plot_C_AO_dependence()
     physical_values = define_realistic_vals()
-    a_is = C_variable_name == "C_AO" ? [physical_values[:a_i]] : 0:0.01:1
+
+    neg_vars = -200:-50
+    pos_vars = 10:200
+
+    C_neg = zeros(length(neg_vars))
+    C_pos = zeros(length(pos_vars))
+    for (j, neg_var) in enumerate(neg_vars)
+        physical_values[:L_AO] = neg_var
+        physical_values[:L_AI] = physical_values[:L_AI]
+        compute_C_AO!(physical_values)
+        C_neg[j] = physical_values[:C_AO]
+    end
+    for (j, pos_var) in enumerate(pos_vars)
+        physical_values[:L_AO] = pos_var
+        physical_values[:L_AI] = physical_values[:L_AI]
+        compute_C_AO!(physical_values)
+        C_pos[j] = physical_values[:C_AO]
+    end
+
+    println(maximum([maximum(C_neg), maximum(C_pos)]))
+    println(minimum([minimum(C_neg), minimum(C_pos)]))
+
+    gr()
+    plot(
+        neg_vars,
+        C_neg,
+        xlabel=L"$L^A_O$",
+        ylabel=L"$C^A_O$",
+        label="",
+        color=:black,
+    )
+    plot!(pos_vars, C_pos, label="", color=:black)
+    display(current())
+end
+
+
+function plot_C_AI_dependence()
+    physical_values = define_realistic_vals()
+    a_is = 0:0.01:1
 
     neg_vars = -200:-50
     pos_vars = 10:200
@@ -21,53 +49,28 @@ function plot_obukhov_C_dependencies(C_variable_name)
     C_pos = zeros(length(a_is), length(pos_vars))
     for (i, a_i) in enumerate(a_is)
         for (j, neg_var) in enumerate(neg_vars)
-            physical_values[:L_AO] =
-                (C_variable_name == "C_AO") ? neg_var : physical_values[:L_AO]
-            physical_values[:L_AI] =
-                (C_variable_name == "C_AI") ? neg_var : physical_values[:L_AI]
-            physical_values =
-                (C_variable_name == "C_AO") ? update_C_AO(physical_values) :
-                update_physical_values(a_i, physical_values)
-            C_neg[i, j] =
-                (C_variable_name == "C_AO") ? physical_values[:C_AO] :
-                physical_values[:C_AI]
+            physical_values[:L_AO] = physical_values[:L_AO]
+            physical_values[:L_AI] = neg_var
+            physical_values[:a_i] = a_i
+            correct_for_a_i!(physical_values)
+            C_neg[i, j] = physical_values[:C_AI]
         end
         for (j, pos_var) in enumerate(pos_vars)
-            physical_values[:L_AO] =
-                (C_variable_name == "C_AO") ? pos_var : physical_values[:L_AO]
-            physical_values[:L_AI] =
-                (C_variable_name == "C_AI") ? pos_var : physical_values[:L_AI]
-            physical_values =
-                (C_variable_name == "C_AO") ? update_C_AO(physical_values) :
-                update_physical_values(a_i, physical_values)
-            C_pos[i, j] =
-                (C_variable_name == "C_AO") ? physical_values[:C_AO] :
-                physical_values[:C_AI]
+            physical_values[:L_AO] = physical_values[:L_AO]
+            physical_values[:L_AI] = pos_var
+            correct_for_a_i!(physical_values)
+            C_pos[i, j] = physical_values[:C_AI]
         end
     end
 
-    if C_variable_name == "C_AO"
-        gr()
-        println(maximum([maximum(C_neg), maximum(C_pos)]))
-        println(minimum([minimum(C_neg), minimum(C_pos)]))
-        plot(
-            neg_vars,
-            vec(C_neg),
-            xlabel=L"$L^A_O$",
-            ylabel=L"$C^A_O$",
-            label="",
-            color=:black,
-        )
-        plot!(pos_vars, vec(C_pos), label="", color=:black)
-        display(current())
-    elseif C_variable_name == "C_AI"
-        plotly()
-        println(maximum([maximum(C_neg), maximum(C_pos)]))
-        println(minimum([minimum(C_neg), minimum(C_pos)]))
-        surface(a_is, neg_vars, C_neg', xlabel="aᴵ", ylabel="Lᴬᴵ", zlabel="Cᴬᴵ")
-        surface!(a_is, pos_vars, C_pos')
-    end
+    println(maximum([maximum(C_neg), maximum(C_pos)]))
+    println(minimum([minimum(C_neg), minimum(C_pos)]))
+
+    plotly()
+    surface(a_is, neg_vars, C_neg', xlabel="aᴵ", ylabel="Lᴬᴵ", zlabel="Cᴬᴵ")
+    surface!(a_is, pos_vars, C_pos')
 end
+
 
 """Computes and plots the analytical convergence factor as a function of `ν` and `ω`."""
 function analytical_convergence_factor_dependence()

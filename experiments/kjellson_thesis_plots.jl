@@ -13,11 +13,11 @@ function figure72b()
 end
 
 function figure73a()
-    plot_obukhov_C_dependencies("C_AO")
+    plot_C_AO_dependence()
 end
 
 function figure73b()
-    plot_obukhov_C_dependencies("C_AI")
+    plot_C_AI_dependence()
 end
 
 function figure74a()
