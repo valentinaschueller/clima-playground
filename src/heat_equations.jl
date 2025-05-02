@@ -28,7 +28,8 @@ When a file is saved, its always called the same thing. It has to be renamed for
 -`reverse::Boolean`: The file name sometimes needs to be reverted back to the original name, default: `false`.
 
 """
-function rename_files(cs::Interfacer.CoupledSimulation, iter, time, reverse=false)
+function rename_files(cs::Interfacer.CoupledSimulation, iter, reverse=false)
+    time = time_in_s(cs)
     for sim in cs.model_sims
         if !(Interfacer.name(sim) == "ConstantIce")
             original_file = joinpath(
@@ -61,7 +62,7 @@ function rename_files(cs::Interfacer.CoupledSimulation, iter, time, reverse=fals
 end
 
 """Resets integrator time."""
-function reset_time!(cs::Interfacer.CoupledSimulation, t)
+function reinit!(cs::Interfacer.CoupledSimulation, t)
     for sim in cs.model_sims
         Interfacer.reinit!(sim.integrator, sim.integrator.u, t0=t)
     end
@@ -70,12 +71,10 @@ end
 """Restarts simulations."""
 function restart_sims!(cs::Interfacer.CoupledSimulation)
     @info "Reading checkpoint!"
-    t = Dates.datetime2epochms(cs.dates.date[1])
-    t0 = Dates.datetime2epochms(cs.dates.date0[1])
-    time = Int((t - t0) / 1e3)
-    rename_files(cs, 0, time, true)
+    time = time_in_s(cs)
+    rename_files(cs, 0, true)
     Checkpointer.restart!(cs, cs.dirs.checkpoints, time)
-    rename_files(cs, 0, time)
+    rename_files(cs, 0)
 end
 
 
@@ -105,6 +104,16 @@ function update_ocean_values!(cs, ice_T)
     return atmos_vals, bound_atmos_vals
 end
 
+function set_time!(cs::Interfacer.CoupledSimulation, t)
+    cs.dates.date[1] = TimeManager.current_date(cs, t)
+end
+
+function time_in_s(cs::Interfacer.CoupledSimulation)
+    t = Dates.datetime2epochms(cs.dates.date[1])
+    t0 = Dates.datetime2epochms(cs.dates.date0[1])
+    return Int((t - t0) / 1e3)
+end
+
 """
 Runs the CoupledSimulation.
 
@@ -123,7 +132,6 @@ function solve_coupler!(
     parallel=false,
 )
     (; Δt_cpl, tspan) = cs
-    cs.dates.date[1] = TimeManager.current_date(cs, tspan[begin])
 
     @info("Starting coupling loop")
 
@@ -133,13 +141,16 @@ function solve_coupler!(
     ρ_atm = nothing
     ρ_oce = nothing
 
-    for t in ((tspan[begin]+Δt_cpl):Δt_cpl:tspan[end])
-        time = Int(t - Δt_cpl)
-        @info(cs.dates.date[1])
+    for t = tspan[begin]:Δt_cpl:(tspan[end]-Δt_cpl)
+        set_time!(cs, t)
+        @info("Current time: $t")
+
+        # Sets u0 = u(t), t0 = t, and empties u
+        reinit!(cs, t)
 
         # Checkpoint to save initial values at this coupling step
         Checkpointer.checkpoint_sims(cs)
-        rename_files(cs, 0, time)
+        rename_files(cs, 0)
 
         iter = 1
         atmos_vals_list = []
@@ -149,75 +160,59 @@ function solve_coupler!(
 
         ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
 
-        while true
+        for iter = 1:iterations
             @info("Current iter: $(iter)")
+            if iter > 1
+                restart_sims!(cs)
+                reinit!(cs, t)
+            end
 
             # Temperature values for the previous iteration.
             pre_bound_atmos_vals = bound_atmos_vals
             pre_bound_ocean_vals = bound_ocean_vals
 
             if parallel
-                FieldExchanger.step_model_sims!(cs.model_sims, t)
+                FieldExchanger.step_model_sims!(cs.model_sims, t + Δt_cpl)
                 atmos_vals, bound_atmos_vals = update_atmos_values!(cs, ice_T)
                 ocean_vals, bound_ocean_vals = update_ocean_values!(cs, ice_T)
             else
-                Interfacer.step!(cs.model_sims.ice_sim, t)
-                Interfacer.step!(cs.model_sims.ocean_sim, t)
+                Interfacer.step!(cs.model_sims.ice_sim, t + Δt_cpl)
+                Interfacer.step!(cs.model_sims.ocean_sim, t + Δt_cpl)
                 ocean_vals, bound_ocean_vals = update_atmos_values!(cs, ice_T)
 
-                Interfacer.step!(cs.model_sims.atmos_sim, t)
+                Interfacer.step!(cs.model_sims.atmos_sim, t + Δt_cpl)
                 atmos_vals, bound_atmos_vals = update_ocean_values!(cs, ice_T)
             end
 
-            if (
-                !is_stable(atmos_vals, upper_limit_temp, lower_limit_temp) ||
-                !is_stable(ocean_vals, upper_limit_temp, lower_limit_temp)
-            )
-                break
+            atm_stable = is_stable(atmos_vals, upper_limit_temp, lower_limit_temp)
+            oce_stable = is_stable(ocean_vals, upper_limit_temp, lower_limit_temp)
+            if !(atm_stable && oce_stable)
+                @info("Unstable simulation!")
+                ρ_atm = atm_stable ? NaN : Inf
+                ρ_oce = oce_stable ? NaN : Inf
+                return ρ_atm, ρ_oce
             end
 
             push!(atmos_vals_list, bound_atmos_vals)
             push!(ocean_vals_list, bound_ocean_vals)
 
+            Checkpointer.checkpoint_sims(cs)
+            rename_files(cs, iter)
+
             if has_converged(
                 bound_atmos_vals,
                 pre_bound_atmos_vals,
                 bound_ocean_vals,
-                pre_bound_ocean_vals,
-                iter,
+                pre_bound_ocean_vals
             )
                 break
             end
-
-            Checkpointer.checkpoint_sims(cs)
-            rename_files(cs, iter, time)
-
-            if iter == iterations
-                @info("Stopped at iter $iter due to limit on iterations")
-                break
-            end
-            iter += 1
-
-            # Reset values to beginning of coupling time step
-            restart_sims!(cs)
-            reset_time!(cs, t - Δt_cpl)
-        end
-        # Update time and restart integrator at t with the current temperature value
-        cs.dates.date[1] = TimeManager.current_date(cs, t)
-        if t != tspan[end]
-            # TODO: This is a bit sneaky as it is not allowed if t >= sim.integrator.t
-            # However, it appears that sim.integrator.t always overshoots and is in fact larger.
-            # Is there a better method?
-            # It is needed because when running reset_time (reinit) all previous solution values are deleted.
-            # In the last iteration, we do not reset, and thus already have values in the solution 
-            # for the next time step. So the first iteration solution in this time step have additional 
-            # values, if this is not run to empty it.
-            reset_time!(cs, t)
         end
         if iterations > 1
             ρ_atm, ρ_oce = compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
         end
     end
+    set_time!(cs, tspan[end])
     return ρ_atm, ρ_oce
 end
 

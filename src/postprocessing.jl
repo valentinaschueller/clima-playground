@@ -64,10 +64,9 @@ function has_converged(
     bound_atmos_vals,
     pre_bound_atmos_vals,
     bound_ocean_vals,
-    pre_bound_ocean_vals,
-    iter,
+    pre_bound_ocean_vals
 )
-    if iter == 1
+    if isnothing(pre_bound_atmos_vals)
         return false
     end
     bound_errors_atm_iter = abs.(bound_atmos_vals .- pre_bound_atmos_vals)
@@ -75,10 +74,8 @@ function has_converged(
     tols_atm = 100 * eps.(max.(abs.(bound_atmos_vals), abs.(pre_bound_atmos_vals)))
     tols_oce = 100 * eps.(max.(abs.(bound_ocean_vals), abs.(pre_bound_ocean_vals)))
     if all(bound_errors_atm_iter .< tols_atm)
-        println("Stopped at iter $iter for the atmosphere")
         return true
     elseif all(bound_errors_oce_iter .< tols_oce)
-        println("Stopped at iter $iter for the ocean")
         return true
     else
         return false

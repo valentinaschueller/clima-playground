@@ -13,11 +13,11 @@ function figure72b()
 end
 
 function figure73a()
-    plot_obukhov_C_dependencies("C_AO")
+    plot_C_AO_dependence()
 end
 
 function figure73b()
-    plot_obukhov_C_dependencies("C_AI")
+    plot_C_AI_dependence()
 end
 
 function figure74a()
@@ -44,11 +44,11 @@ function figure76b()
     plot_ρ_over_var(10, "n_oce", a_is=[0.1, 0.4, 0.7], xscale=:log10)
 end
 
-function figure77a()
+function figure77()
     plot_unstable_range("atm", a_is=[0.1, 0.4, 0.7])
 end
 
-function figure77b()
+function figure78()
     plot_unstable_range("oce", a_is=[0.1, 0.4, 0.7])
 end
 
