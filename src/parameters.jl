@@ -45,6 +45,17 @@ function Ψ(ξ, atm, stable, heat)
     end
 end
 
+function compute_derived_quantities!(params)
+    params[:λ_u] = sqrt(params[:ρ_atm] / params[:ρ_oce])
+    params[:λ_T] = params[:λ_u] * params[:c_atm] / params[:c_oce]
+    params[:μ] = params[:nu_O] / params[:nu_A]
+    params[:α_o] = params[:k_oce] / (params[:ρ_oce] * params[:c_oce])
+    params[:α_a] = params[:k_atm] / (params[:ρ_atm] * params[:c_atm])
+    params[:L_OA] = params[:λ_u]^2 / (params[:T_atm_ini] * params[:α_eos] * params[:λ_T])
+    compute_C_AO!(params)
+    correct_for_a_i!(params)
+end
+
 """Defines realistic physical and numerical values for simulation."""
 function define_realistic_vals()
     params = Dict(
@@ -85,14 +96,7 @@ function define_realistic_vals()
         :sin_field_atm => false,
         :sin_field_oce => false,
     )
-    params[:λ_u] = sqrt(params[:ρ_atm] / params[:ρ_oce])
-    params[:λ_T] = params[:λ_u] * params[:c_atm] / params[:c_oce]
-    params[:μ] = params[:nu_O] / params[:nu_A]
-    params[:α_o] = params[:k_oce] / (params[:ρ_oce] * params[:c_oce])
-    params[:α_a] = params[:k_atm] / (params[:ρ_atm] * params[:c_atm])
-    params[:L_OA] = params[:λ_u]^2 / (params[:T_atm_ini] * params[:α_eos] * params[:λ_T])
-    compute_C_AO!(params)
-    correct_for_a_i!(params)
+    compute_derived_quantities!(params)
     return params
 end
 
