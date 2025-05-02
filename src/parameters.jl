@@ -92,7 +92,6 @@ function define_realistic_vals()
     )
     physical_values[:L_OA] = physical_values[:λ_u]^2 /
                              (physical_values[:T_atm_ini] * physical_values[:α_eos] * physical_values[:λ_T])
-    physical_values[:w_min] = π / physical_values[:t_max]
     compute_C_AO!(physical_values)
     correct_for_a_i!(physical_values)
     return physical_values

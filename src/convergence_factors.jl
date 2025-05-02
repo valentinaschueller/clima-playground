@@ -15,8 +15,9 @@ Computes the analytical convergence factor based on the parameters in physical_v
 
 """
 function compute_ρ_analytical(physical_values)
-    σ_o = sqrt(abs(physical_values[:w_min]) / (2 * physical_values[:α_o])) * (1 + im)
-    σ_a = sqrt(abs(physical_values[:w_min]) / (2 * physical_values[:α_a])) * (1 + im)
+    w_min = π / physical_values[:t_max]
+    σ_o = sqrt(0.5 * w_min / physical_values[:α_o]) * (1 + im)
+    σ_a = sqrt(0.5 * w_min / physical_values[:α_a]) * (1 + im)
     η_AO =
         physical_values[:C_AO] *
         abs(physical_values[:u_atm] - physical_values[:u_oce]) *
@@ -158,7 +159,7 @@ function get_ρs_one_variable(
                 if var_name == "a_i"
                     correct_for_a_i!(physical_values)
                 elseif var_name == "t_max"
-                    physical_values[:w_min] = π / var
+                    physical_values[:t_max] = var
                 end
                 ρ_analytic = compute_ρ_analytical(physical_values)
                 ρs_analytic[j, k] = ρ_analytic
