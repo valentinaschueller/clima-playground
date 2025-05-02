@@ -44,11 +44,11 @@ function figure76b()
     plot_ρ_over_var(10, "n_oce", a_is=[0.1, 0.4, 0.7], xscale=:log10)
 end
 
-function figure77a()
+function figure77()
     plot_unstable_range("atm", a_is=[0.1, 0.4, 0.7])
 end
 
-function figure77b()
+function figure78()
     plot_unstable_range("oce", a_is=[0.1, 0.4, 0.7])
 end
 
