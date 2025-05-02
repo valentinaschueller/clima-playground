@@ -47,22 +47,17 @@ end
 
 """Defines realistic physical and numerical values for simulation."""
 function define_realistic_vals()
-    physical_values = Dict(
+    params = Dict(
         :a_i => Float64(0),
         :ρ_atm => Float64(1.225),
         :ρ_oce => Float64(1000.0),
         :c_atm => Float64(1005.0),
         :c_oce => Float64(4182.0),
-        :λ_u => Float64(sqrt(1.225 / 1000.0)),
-        :λ_T => Float64(sqrt(1.225 / 1000.0) * 1005.0 / 4182.0),
         :nu_O => Float64(1e-6),
         :nu_A => Float64(1.5e-5),
-        :μ => Float64(1e-6 / 1.5e-5),
         :κ => Float64(0.4),
         :k_atm => Float64(0.02364),
         :k_oce => Float64(0.58),
-        :α_o => Float64(0.58 / (1000.0 * 4182.0)),
-        :α_a => Float64(0.02364 / (1.225 * 1005.0)),
         :α_eos => Float64(1.8e-4),
         :z_0numA => Float64(10.0),
         :z_0numO => Float64(1.0),
@@ -90,11 +85,15 @@ function define_realistic_vals()
         :sin_field_atm => false,
         :sin_field_oce => false,
     )
-    physical_values[:L_OA] = physical_values[:λ_u]^2 /
-                             (physical_values[:T_atm_ini] * physical_values[:α_eos] * physical_values[:λ_T])
-    compute_C_AO!(physical_values)
-    correct_for_a_i!(physical_values)
-    return physical_values
+    params[:λ_u] = sqrt(params[:ρ_atm] / params[:ρ_oce])
+    params[:λ_T] = params[:λ_u] * params[:c_atm] / params[:c_oce]
+    params[:μ] = params[:nu_O] / params[:nu_A]
+    params[:α_o] = params[:k_oce] / (params[:ρ_oce] * params[:c_oce])
+    params[:α_a] = params[:k_atm] / (params[:ρ_atm] * params[:c_atm])
+    params[:L_OA] = params[:λ_u]^2 / (params[:T_atm_ini] * params[:α_eos] * params[:λ_T])
+    compute_C_AO!(params)
+    correct_for_a_i!(params)
+    return params
 end
 
 """
