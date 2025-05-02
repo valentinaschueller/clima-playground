@@ -184,11 +184,13 @@ function solve_coupler!(
                 atmos_vals, bound_atmos_vals = update_ocean_values!(cs, ice_T)
             end
 
-            if (
-                !is_stable(atmos_vals, upper_limit_temp, lower_limit_temp) ||
-                !is_stable(ocean_vals, upper_limit_temp, lower_limit_temp)
-            )
-                break
+            atm_stable = is_stable(atmos_vals, upper_limit_temp, lower_limit_temp)
+            oce_stable = is_stable(ocean_vals, upper_limit_temp, lower_limit_temp)
+            if !(atm_stable && oce_stable)
+                @info("Unstable simulation!")
+                ρ_atm = atm_stable ? NaN : Inf
+                ρ_oce = oce_stable ? NaN : Inf
+                return ρ_atm, ρ_oce
             end
 
             push!(atmos_vals_list, bound_atmos_vals)
