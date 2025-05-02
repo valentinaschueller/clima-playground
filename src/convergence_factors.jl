@@ -138,11 +138,11 @@ function get_ρs_one_variable(
 
     for (j, a_i) in enumerate(a_i_variable)
         physical_values[:a_i] = a_i
-        correct_for_a_i!(physical_values)
+        compute_derived_quantities!(physical_values)
         for (k, var) in enumerate(vars)
             physical_values[Symbol(var_name)] = var
             if var_name == "a_i"
-                correct_for_a_i!(physical_values)
+                compute_derived_quantities!(physical_values)
             elseif var_name == "h_atm"
                 physical_values[:n_atm] = Int((var - physical_values[:z_0numA]) / Δz_atm)
             elseif var_name == "h_oce"
@@ -157,7 +157,7 @@ function get_ρs_one_variable(
             for (k, var) in enumerate(variable2_range)
                 physical_values[Symbol(var_name)] = var
                 if var_name == "a_i"
-                    correct_for_a_i!(physical_values)
+                    compute_derived_quantities!(physical_values)
                 elseif var_name == "t_max"
                     physical_values[:t_max] = var
                 end
