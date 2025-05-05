@@ -1,11 +1,3 @@
-import Dates
-import SciMLBase
-import ClimaComms
-import ClimaCore as CC
-import ClimaTimeSteppers as CTS
-import ClimaCoupler:
-    Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
-
 function Ψ_A_T(ζ)
     if ζ > 0
         a = 1.0
