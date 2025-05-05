@@ -1,87 +1,92 @@
-import Dates
-import SciMLBase
-import ClimaComms
-import ClimaCore as CC
-import ClimaTimeSteppers as CTS
-import ClimaCoupler:
-    Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
-
-"""
-Computes the stability profile function evaluated at the stability parameter `ξ`.
-
-**Arguments**
-
--`ξ::Float64`: The stability parameter.
--`atm::Boolean`: Whether to compute the atmosphere or ocean stability profile function.
--`stable::Boolean`: Whether to consider a stable or unstable atmosphere.
--`heat::Boolean`: Whether to consider the heat or momentum stability profile functions.
-
-"""
-function Ψ(ξ, atm, stable, heat)
-    if stable
-        if atm && heat
-            return -2 / 3 * (ξ - (5 / 0.35)) * exp(-0.35 * ξ) - (1 + (2 * ξ / 3))^1.5 -
-                   ((2 / 3) * 5 / 0.35) + 1
-        elseif atm && !heat
-            return -2 / 3 * (ξ - (5 / 0.35)) * exp(-0.35 * ξ) - ξ - ((2 / 3) * 5 / 0.35)
-        elseif !atm
-            return -5 * ξ
-        end
-    else
-        if !atm && heat
-            x = (1 - 25 * ξ)^(1 / 3)
-            return sqrt(3) * (atan(sqrt(3)) - atan(1 / sqrt(3) * (2 * x + 1))) +
-                   (3 / 2) * log((x^2 + x + 1) / 3)
-        elseif !atm && !heat
-            x = (1 - 14 * ξ)^(1 / 3)
-            return sqrt(3) * (atan(sqrt(3)) - atan(1 / sqrt(3) * (2 * x + 1))) +
-                   (3 / 2) * log((x^2 + x + 1) / 3)
-        elseif atm && heat
-            return 2 * log((1 + (1 - 16 * ξ)^(1 / 2)) / 2)
-        else
-            x = (1 - 16 * ξ)^(1 / 4)
-            return π / 2 - 2 * atan(x) + log((1 + x)^2 * (1 + x^2) / 8)
-        end
+function Ψ_A_T(ζ)
+    if ζ > 0
+        a = 1.0
+        b = 2 / 3
+        c = 5.0
+        d = 0.35
+        return -b * (ζ - (c / d)) * exp(-d * ζ) - b * c / d - (1 + b * a * ζ)^1.5 + 1
     end
+    x = (1 - 16 * ζ)^(1 / 4)
+    return 2 * log(0.5 * (1 + x^2))
+end
+
+function Ψ_A_u(ζ)
+    if ζ > 0
+        a = 1.0
+        b = 2 / 3
+        c = 5.0
+        d = 0.35
+        return -b * (ζ - (c / d)) * exp(-d * ζ) - b * c / d - a * ζ
+    end
+    x = (1 - 16 * ζ)^(1 / 4)
+    return π / 2 - 2 * atan(x) + log((1 + x)^2 * (1 + x^2) / 8)
+end
+
+function Ψ_O_unstable(x)
+    return sqrt(3) * (atan(sqrt(3)) - atan(1 / sqrt(3) * (2 * x + 1))) +
+           (3 / 2) * log((x^2 + x + 1) / 3)
+end
+
+function Ψ_O_T(ζ)
+    if ζ > 0
+        return -5 * ζ
+    end
+    x = (1 - 25 * ζ)^(1 / 3)
+    return ψ_O_unstable(x)
+end
+
+function Ψ_O_u(ζ)
+    if ζ > 0
+        return -5 * ζ
+    end
+    x = (1 - 14 * ζ)^(1 / 3)
+    return ψ_O_unstable(x)
+end
+
+function compute_derived_quantities!(params)
+    params[:λ_u] = sqrt(params[:ρ_atm] / params[:ρ_oce])
+    params[:λ_T] = params[:λ_u] * params[:c_atm] / params[:c_oce]
+    params[:μ] = params[:ν_O] / params[:ν_A]
+    params[:α_o] = params[:k_oce] / (params[:ρ_oce] * params[:c_oce])
+    params[:α_a] = params[:k_atm] / (params[:ρ_atm] * params[:c_atm])
+    params[:L_OA] = params[:λ_u]^2 / (params[:T_atm_ini] * params[:α_eos] * params[:λ_T])
+    params[:z_ruAI] = max(1e-3, 0.93e-3 * (1 - params[:a_i]) + 6.05e-3 * exp(-17 * (params[:a_i] - 0.5)^2))
+    params[:C_AO] = compute_C_AO(params)
+    params[:C_AI] = compute_C_AI(params)
 end
 
 """Defines realistic physical and numerical values for simulation."""
 function define_realistic_vals()
-    physical_values = Dict(
-        :a_i => Float64(0),
-        :ρ_atm => Float64(1.225),
-        :ρ_oce => Float64(1000.0),
-        :c_atm => Float64(1005.0),
-        :c_oce => Float64(4182.0),
-        :λ_u => Float64(sqrt(1.225 / 1000.0)),
-        :λ_T => Float64(sqrt(1.225 / 1000.0) * 1005.0 / 4182.0),
-        :nu_O => Float64(1e-6),
-        :nu_A => Float64(1.5e-5),
-        :μ => Float64(1e-6 / 1.5e-5),
-        :κ => Float64(0.4),
-        :k_atm => Float64(0.02364),
-        :k_oce => Float64(0.58),
-        :α_o => Float64(0.58 / (1000.0 * 4182.0)),
-        :α_a => Float64(0.02364 / (1.225 * 1005.0)),
-        :α_eos => Float64(1.8e-4),
-        :z_0numA => Float64(10.0),
-        :z_0numO => Float64(1.0),
-        :z_ruAO => Float64(2e-4),
-        :z_rTAO => Float64(2e-4),
-        :z_rTAI => Float64(1e-3),
-        :C_OI => Float64(5e-3),
-        :h_oce => Float64(51.0),
-        :h_atm => Float64(210.0),
-        :u_atm => Float64(5.0),
-        :u_oce => Float64(1.0),
-        :L_AO => Float64(50.0),
-        :L_AI => Float64(50.0),
-        :T_atm_ini => Float64(267.0),
-        :T_oce_ini => Float64(271.0),
-        :T_ice_ini => Float64(270.0),
-        :t_max => Float64(3600.0),
-        :Δt_cpl => Float64(100),
-        :Δt_min => Float64(1.0),
+    params = Dict(
+        :a_i => 0.0,
+        :ρ_atm => 1.225,
+        :ρ_oce => 1e3,
+        :c_atm => 1005.0,
+        :c_oce => 4182.0,
+        :ν_O => 1e-6,
+        :ν_A => 1.5e-5,
+        :κ => 0.4,
+        :k_atm => 0.02364,
+        :k_oce => 0.58,
+        :α_eos => 1.8e-4,
+        :z_0numA => 10.0,
+        :z_0numO => 1.0,
+        :z_ruAO => 2e-4,
+        :z_rTAO => 2e-4,
+        :z_rTAI => 1e-3,
+        :C_OI => 5e-3,
+        :h_oce => 51.0,
+        :h_atm => 210.0,
+        :u_atm => 5.0,
+        :u_oce => 1.0,
+        :L_AO => 50.0,
+        :L_AI => 50.0,
+        :T_atm_ini => 267.0,
+        :T_oce_ini => 271.0,
+        :T_ice_ini => 270.0,
+        :t_max => 3600.0,
+        :Δt_cpl => 100.0,
+        :Δt_min => 1.0,
         :n_t_atm => 50,
         :n_t_oce => 1,
         :n_atm => 200,
@@ -90,98 +95,25 @@ function define_realistic_vals()
         :sin_field_atm => false,
         :sin_field_oce => false,
     )
-    physical_values[:L_OA] = physical_values[:λ_u]^2 /
-                             (physical_values[:T_atm_ini] * physical_values[:α_eos] * physical_values[:λ_T])
-    physical_values[:w_min] = π / physical_values[:t_max]
-    compute_C_AO!(physical_values)
-    correct_for_a_i!(physical_values)
-    return physical_values
+    compute_derived_quantities!(params)
+    return params
 end
 
-"""
-Updates the physical values based on a new sea ice concentration.
-
-**Arguments:**
-
--`a_i::Float64`: The sea ice concentration.
--`physical_values::Dict`: Can be defined using `define_realistic_vals()`.
-
-"""
-function correct_for_a_i!(physical_values)
-    a_i = physical_values[:a_i]
-    z_ruAI = Float64(max(1e-3, 0.93e-3 * (1 - a_i) + 6.05e-3 * exp(-17 * (a_i - 0.5)^2)))
-    C_AI =
-        physical_values[:κ]^2 / (
-            (
-                log(physical_values[:z_0numA] / z_ruAI) - Ψ(
-                    physical_values[:z_0numA] / physical_values[:L_AI],
-                    true,
-                    physical_values[:L_AI] > 0,
-                    false,
-                )
-            ) * (
-                log(physical_values[:z_0numA] / physical_values[:z_rTAI]) - Ψ(
-                    physical_values[:z_0numA] / physical_values[:L_AI],
-                    true,
-                    physical_values[:L_AI] > 0,
-                    true,
-                )
-            )
-        )
-    physical_values[:z_ruAI] = z_ruAI
-    physical_values[:C_AI] = C_AI
+function compute_C_AI(params)
+    momentum_contribution = log(params[:z_0numA] / params[:z_ruAI]) - Ψ_A_u(params[:z_0numA] / params[:L_AI])
+    heat_contribution = log(params[:z_0numA] / params[:z_rTAI]) - Ψ_A_T(params[:z_0numA] / params[:L_AI])
+    return params[:κ]^2 / (momentum_contribution * heat_contribution)
 end
 
-"""
-Updates the physical value for `C_AO`.
+function compute_C_AO(params)
+    momentum_atm = log(params[:z_0numA] / params[:z_ruAO]) - Ψ_A_u(params[:z_0numA] / params[:L_AO])
+    momentum_oce = log(params[:λ_u] * params[:z_0numO] / (params[:z_ruAO] * params[:μ])) - Ψ_O_u(params[:z_0numO] / params[:L_OA])
+    momentum_contribution = momentum_atm + params[:λ_u] * momentum_oce
 
-**Arguments:**
-
--`physical_values::Dict`: Can be defined using `define_realistic_vals()`.
-
-"""
-function compute_C_AO!(physical_values)
-    C_AO =
-        physical_values[:κ]^2 / (
-            (
-                log(physical_values[:z_0numA] / physical_values[:z_ruAO]) - Ψ(
-                    physical_values[:z_0numA] / physical_values[:L_AO],
-                    true,
-                    physical_values[:L_AO] > 0,
-                    false,
-                ) +
-                physical_values[:λ_u] * (
-                    log(
-                        physical_values[:λ_u] * physical_values[:z_0numO] /
-                        (physical_values[:z_ruAO] * physical_values[:μ]),
-                    ) - Ψ(
-                        physical_values[:z_0numO] / physical_values[:L_OA],
-                        false,
-                        physical_values[:L_OA] > 0,
-                        false,
-                    )
-                )
-            ) * (
-                log(physical_values[:z_0numA] / physical_values[:z_rTAO]) - Ψ(
-                    physical_values[:z_0numA] / physical_values[:L_AO],
-                    true,
-                    physical_values[:L_AO] > 0,
-                    true,
-                ) +
-                physical_values[:λ_T] * (
-                    log(
-                        physical_values[:λ_T] * physical_values[:z_0numO] /
-                        (physical_values[:z_rTAO] * physical_values[:μ]),
-                    ) - Ψ(
-                        physical_values[:z_0numO] / physical_values[:L_OA],
-                        false,
-                        physical_values[:L_OA] > 0,
-                        true,
-                    )
-                )
-            )
-        )
-    physical_values[:C_AO] = C_AO
+    heat_atm = log(params[:z_0numA] / params[:z_rTAO]) - Ψ_A_T(params[:z_0numA] / params[:L_AO])
+    heat_oce = log(params[:λ_T] * params[:z_0numO] / (params[:z_rTAO] * params[:μ])) - Ψ_O_T(params[:z_0numO] / params[:L_OA])
+    heat_contribution = heat_atm + params[:λ_T] * heat_oce
+    return params[:κ]^2 / (momentum_contribution * heat_contribution)
 end
 
 """Creates a dict with values and names for all variables."""

@@ -48,18 +48,14 @@ function plot_C_AI_dependence()
     C_neg = zeros(length(a_is), length(neg_vars))
     C_pos = zeros(length(a_is), length(pos_vars))
     for (i, a_i) in enumerate(a_is)
+        physical_values[:a_i] = a_i
         for (j, neg_var) in enumerate(neg_vars)
-            physical_values[:L_AO] = physical_values[:L_AO]
             physical_values[:L_AI] = neg_var
-            physical_values[:a_i] = a_i
-            correct_for_a_i!(physical_values)
-            C_neg[i, j] = physical_values[:C_AI]
+            C_neg[i, j] = compute_C_AI(physical_values)
         end
         for (j, pos_var) in enumerate(pos_vars)
-            physical_values[:L_AO] = physical_values[:L_AO]
             physical_values[:L_AI] = pos_var
-            correct_for_a_i!(physical_values)
-            C_pos[i, j] = physical_values[:C_AI]
+            C_pos[i, j] = compute_C_AI(physical_values)
         end
     end
 

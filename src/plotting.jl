@@ -492,8 +492,7 @@ end
 
 function plot_unstable_range(component; a_is=[])
     physical_values = define_realistic_vals()
-    correct_for_a_i!(physical_values)
-    compute_C_AO!(physical_values)
+    compute_derived_quantities!(physical_values)
     physical_values[:Δt_min] = 100
     color_dict, _ = get_color_dict()
 
