@@ -1,7 +1,7 @@
 name = "clima_playground"
 uuid = "366f1826-f195-47e4-a4a5-3fa8cfc1c36d"
 authors = ["Valentina Schüller <valentina.schuller@math.lu.se>"]
-version = "0.1.0"
+version = "0.3.0"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
