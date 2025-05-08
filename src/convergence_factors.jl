@@ -7,10 +7,12 @@ import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
 
-function compute_ρ_analytical(p::SimulationParameters)
-    w_min = π / p.t_max
-    σ_o = sqrt(0.5 * w_min / p.α_o) * (1 + im)
-    σ_a = sqrt(0.5 * w_min / p.α_a) * (1 + im)
+function compute_ρ_analytical(p::SimulationParameters; s=nothing)
+    if isnothing(s)
+        s = im * π / p.t_max
+    end
+    σ_o = sqrt(s / p.α_o)
+    σ_a = sqrt(s / p.α_a)
     ρ = abs((1 - p.a_i)^2 * p.C_AO^2 / (
         (
             p.k_oce *

@@ -1,9 +1,6 @@
 module clima_playground
 
 export coupled_heat_equations
-export plot_C_AI_dependence
-export plot_C_AO_dependence
-export analytical_convergence_factor_dependence
 export compute_ρ_analytical
 export SimulationParameters
 export compute_C_H_AI
@@ -20,6 +17,5 @@ using Statistics
 using LaTeXStrings
 
 include("heat_equations.jl")
-include("analytical_plots.jl")
 
 end
