@@ -5,7 +5,10 @@ export plot_C_AI_dependence
 export plot_C_AO_dependence
 export analytical_convergence_factor_dependence
 export compute_ρ_analytical
-export define_realistic_vals
+export SimulationParameters
+export compute_C_H_AI
+export compute_C_H_AO
+export restore_physical_values!
 export plot_ρ_over_k
 export plot_unstable_range
 export plot_ρ_over_a_i

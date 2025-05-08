@@ -5,11 +5,7 @@ function figure71()
 end
 
 function figure72a()
-    plot_ρ_over_var(10, "u_atm", a_is=[0.1, 0.4, 0.7])
-end
-
-function figure72b()
-    plot_ρ_over_var(10, "u_oce", a_is=[0.1, 0.4, 0.7])
+    plot_ρ_over_var(10, :Δu_AO, a_is=[0.1, 0.4, 0.7])
 end
 
 function figure73a()
@@ -21,27 +17,27 @@ function figure73b()
 end
 
 function figure74a()
-    plot_ρ_over_var(10, "C_AO", a_is=[0.1, 0.4, 0.7])
+    plot_ρ_over_var(10, :C_H_AO, a_is=[0.1, 0.4, 0.7])
 end
 
 function figure74b()
-    plot_ρ_over_var(10, "C_AI", a_is=[0.1, 0.4, 0.7])
+    plot_ρ_over_var(10, :C_H_AI, a_is=[0.1, 0.4, 0.7])
 end
 
 function figure74c()
-    plot_ρ_over_var(10, "C_OI", a_is=[0.1, 0.4, 0.7])
+    plot_ρ_over_var(10, :C_H_IO, a_is=[0.1, 0.4, 0.7])
 end
 
 function figure75()
-    plot_ρ_over_var(10, "t_max", a_is=[0.1, 0.4, 0.7], xscale=:log10)
+    plot_ρ_over_var(10, :Δt_cpl, a_is=[0.1, 0.4, 0.7], xscale=:log10)
 end
 
 function figure76a()
-    plot_ρ_over_var(10, "n_atm", a_is=[0.1, 0.4, 0.7], xscale=:log10)
+    plot_ρ_over_var(10, :n_atm, a_is=[0.1, 0.4, 0.7], xscale=:log10)
 end
 
 function figure76b()
-    plot_ρ_over_var(10, "n_oce", a_is=[0.1, 0.4, 0.7], xscale=:log10)
+    plot_ρ_over_var(10, :n_oce, a_is=[0.1, 0.4, 0.7], xscale=:log10)
 end
 
 function figure77()

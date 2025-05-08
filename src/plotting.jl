@@ -491,19 +491,18 @@ function plot_ρ_over_k(iterations; parallel=false, with_analytic_ρ=true, combi
 end
 
 function plot_unstable_range(component; a_is=[])
-    physical_values = define_realistic_vals()
-    compute_derived_quantities!(physical_values)
-    physical_values[:Δt_min] = 100
+    p = SimulationParameters(Δt_min=100)
+
     color_dict, _ = get_color_dict()
 
     Δz = 10 .^ LinRange(log10(0.001), log10(1), 50)
     Δt = 10 .^ LinRange(log10(1), log10(100), 50)
     if component == "atm"
-        n_zs_atm = Int.(round.((physical_values[:h_atm] - physical_values[:z_0numA]) ./ reverse(Δz)))
-        n_ts_atm = Int.(round.(physical_values[:Δt_min] ./ reverse(Δt)))
+        n_zs_atm = Int.(round.((p.h_atm - p.z_0numA) ./ reverse(Δz)))
+        n_ts_atm = Int.(round.(p.Δt_min ./ reverse(Δt)))
     elseif component == "oce"
-        n_zs_oce = Int.(round.((physical_values[:h_oce] - physical_values[:z_0numO]) ./ reverse(Δz)))
-        n_ts_oce = Int.(round.(physical_values[:Δt_min] ./ reverse(Δt)))
+        n_zs_oce = Int.(round.((p.h_oce - p.z_0numO) ./ reverse(Δz)))
+        n_ts_oce = Int.(round.(p.Δt_min ./ reverse(Δt)))
     else
         error("Component must be 'atm' or 'oce'.")
     end
@@ -514,28 +513,31 @@ function plot_unstable_range(component; a_is=[])
     yticks = [0.001, 0.01, 0.1]
     legend = :right
 
-    a_is = !isempty(a_is) ? a_is : [physical_values[:a_i]]
+    a_is = !isempty(a_is) ? a_is : [p.a_i]
 
     plot()
     for a_i in a_is
-        physical_values[:a_i] = a_i
+        p.a_i = a_i
+        p.C_H_AO = compute_C_H_AO(p)
+        p.C_H_AI = compute_C_H_AI(p)
+        restore_physical_values!(p)
         if component == "atm"
             unstable_matrix_atm =
-                stability_check(physical_values, n_zs_atm, n_ts_atm, "n_atm", "n_t_atm")
+                stability_check(p, n_zs_atm, n_ts_atm, :n_atm, :n_t_atm)
             Δz, _, unstable_matrix_atm, _, _ = handle_variable(
                 n_zs_atm,
-                "n_atm",
+                :n_atm,
                 nothing,
                 unstable_matrix_atm,
-                physical_values;
+                p;
                 dims=1,
             )
             Δt, _, unstable_matrix_atm, _, _ = handle_variable(
                 n_ts_atm,
-                "n_t_atm",
+                :n_t_atm,
                 nothing,
                 unstable_matrix_atm,
-                physical_values;
+                p;
                 dims=2,
             )
 
@@ -555,21 +557,21 @@ function plot_unstable_range(component; a_is=[])
             )
         else
             unstable_matrix_oce =
-                stability_check(physical_values, n_zs_oce, n_ts_oce, "n_oce", "n_t_oce")
+                stability_check(p, n_zs_oce, n_ts_oce, :n_oce, :n_t_oce)
             Δz, unstable_matrix_oce, _, _, _ = handle_variable(
                 n_zs_oce,
-                "n_oce",
+                :n_oce,
                 unstable_matrix_oce,
                 nothing,
-                physical_values;
+                p;
                 dims=1,
             )
             Δt, unstable_matrix_oce, _, _, _ = handle_variable(
                 n_ts_oce,
-                "n_t_oce",
+                :n_t_oce,
                 unstable_matrix_oce,
                 nothing,
-                physical_values;
+                p;
                 dims=2,
             )
             plot_Δz_Δt(
@@ -599,14 +601,12 @@ function plot_ρ_over_a_i(iterations=10, with_ρ_analytic=true)
     yticks = :auto
     a_is = 0:0.1:1
     text_scaling = (1, 5)
-    physical_values = define_realistic_vals()
-    params = Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000)
-    merge!(physical_values, params)
+    physical_values = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000)
     ρs_atm, ρs_oce, param_analytic, ρs_analytic =
         get_ρs_one_variable(
             physical_values,
             a_is,
-            "a_i",
+            :a_i,
             iterations=iterations,
             analytic=with_ρ_analytic,
             log_scale=(xscale == :log10),
@@ -615,7 +615,7 @@ function plot_ρ_over_a_i(iterations=10, with_ρ_analytic=true)
     plot_wrt_a_i_and_one_param(
         ρs_oce,
         ρs_atm,
-        [physical_values[:a_i]],
+        [physical_values.a_i],
         a_is,
         L"$a^I$",
         ρs_analytic=ρs_analytic,
@@ -638,9 +638,7 @@ function plot_ρ_over_var(iterations, var_name; a_is=[], with_ρ_analytic=true, 
     legend = :right
     yticks = :auto
     text_scaling = (1, 5)
-    physical_values = define_realistic_vals()
-    params = Dict(:Δt_min => 10, :t_max => 1000, :Δt_cpl => 1000)
-    merge!(physical_values, params)
+    physical_values = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000)
     # Plot convergence factor with respect to some parameter, and different a_i
     variable_dict = get_var_dict()
     color_dict, linestyle_dict = get_color_dict()
@@ -690,8 +688,8 @@ function plot_ρ_over_var(iterations, var_name; a_is=[], with_ρ_analytic=true, 
             yticks=yticks,
             xscale=xscale,
             yscale=yscale,
-            colors=[color_dict[round(physical_values[:a_i], digits=1)]],
-            linestyles=[linestyle_dict[round(physical_values[:a_i], digits=1)]],
+            colors=[color_dict[round(physical_values.a_i, digits=1)]],
+            linestyles=[linestyle_dict[round(physical_values.a_i, digits=1)]],
             text_scaling=text_scaling,
             legend=legend,
             compute_ρ_atm=true,

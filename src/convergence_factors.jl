@@ -6,50 +6,27 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
-"""
-Computes the analytical convergence factor based on the parameters in physical_values.
 
-**Arguments:**
-
--`physical_values::Dict`: Can be defined using `define_realistic_vals()`.
-
-"""
-function compute_ρ_analytical(physical_values)
-    w_min = π / physical_values[:t_max]
-    σ_o = sqrt(0.5 * w_min / physical_values[:α_o]) * (1 + im)
-    σ_a = sqrt(0.5 * w_min / physical_values[:α_a]) * (1 + im)
-    η_AO =
-        physical_values[:C_AO] *
-        abs(physical_values[:u_atm] - physical_values[:u_oce]) *
-        physical_values[:ρ_atm] *
-        physical_values[:c_atm]
-    η_OI =
-        physical_values[:C_OI] *
-        abs(physical_values[:u_oce]) *
-        physical_values[:ρ_oce] *
-        physical_values[:c_oce]
-    η_AI =
-        physical_values[:C_AI] *
-        abs(physical_values[:u_atm]) *
-        physical_values[:ρ_atm] *
-        physical_values[:c_atm]
-    return abs(
-        (1 - physical_values[:a_i])^2 * η_AO^2 / (
-            (
-                physical_values[:k_oce] *
-                σ_o *
-                (1 / tanh(σ_o * (physical_values[:h_oce] - physical_values[:z_0numO]))) +
-                (1 - physical_values[:a_i]) * η_AO +
-                physical_values[:a_i] * η_OI
-            ) * (
-                physical_values[:k_atm] *
-                σ_a *
-                (1 / tanh(σ_a * (physical_values[:h_atm] - physical_values[:z_0numA]))) +
-                (1 - physical_values[:a_i]) * η_AO +
-                physical_values[:a_i] * η_AI
-            )
-        ),
-    )
+function compute_ρ_analytical(p::SimulationParameters)
+    w_min = π / p.t_max
+    σ_o = sqrt(0.5 * w_min / p.α_o) * (1 + im)
+    σ_a = sqrt(0.5 * w_min / p.α_a) * (1 + im)
+    ρ = abs((1 - p.a_i)^2 * p.C_AO^2 / (
+        (
+            p.k_oce *
+            σ_o *
+            (1 / tanh(σ_o * (p.h_oce - p.z_0numO))) +
+            (1 - p.a_i) * p.C_AO +
+            p.a_i * p.C_IO
+        ) * (
+            p.k_atm *
+            σ_a *
+            (1 / tanh(σ_a * (p.h_atm - p.z_0numA))) +
+            (1 - p.a_i) * p.C_AO +
+            p.a_i * p.C_AI
+        )
+    ))
+    return ρ
 end
 
 
@@ -104,7 +81,7 @@ Computes the convergence factors based on the parameters in physical_values and 
 
 """
 function get_ρs_one_variable(
-    physical_values,
+    p::SimulationParameters,
     vars,
     var_name;
     iterations=10,
@@ -113,7 +90,7 @@ function get_ρs_one_variable(
     log_scale=false,
 )
     vary_a_i = !isnothing(a_i_variable)
-    a_i_variable = vary_a_i ? a_i_variable : [physical_values[:a_i]]
+    a_i_variable = vary_a_i ? a_i_variable : [p.a_i]
     ρs_atm = zeros(length(a_i_variable), length(vars))
     ρs_oce = zeros(length(a_i_variable), length(vars))
 
@@ -130,38 +107,35 @@ function get_ρs_one_variable(
 
     if var_name == "h_atm"
         Δz_atm =
-            (physical_values[:h_atm] - physical_values[:z_0numA]) / physical_values[:n_atm]
+            (p.h_atm - p.z_0numA) / p.n_atm
     elseif var_name == "h_oce"
         Δz_oce =
-            (physical_values[:h_oce] - physical_values[:z_0numO]) / physical_values[:n_oce]
+            (p.h_oce - p.z_0numO) / p.n_oce
     end
 
     for (j, a_i) in enumerate(a_i_variable)
-        physical_values[:a_i] = a_i
-        compute_derived_quantities!(physical_values)
+        p.a_i = a_i
         for (k, var) in enumerate(vars)
-            physical_values[Symbol(var_name)] = var
-            if var_name == "a_i"
-                compute_derived_quantities!(physical_values)
+            setproperty!(p, var_name, var)
+            restore_physical_values!(p)
+            if var_name == :Δt_cpl
+                p.t_max = var
             elseif var_name == "h_atm"
-                physical_values[:n_atm] = Int((var - physical_values[:z_0numA]) / Δz_atm)
+                p.n_atm = Int((var - p.z_0numA) / Δz_atm)
             elseif var_name == "h_oce"
-                physical_values[:n_oce] = Int((var - physical_values[:z_0numO]) / Δz_oce)
-            elseif var_name == "t_max"
-                physical_values[:Δt_cpl] = var
+                p.n_oce = Int((var - p.z_0numO) / Δz_oce)
             end
-            _, ρ_atm, ρ_oce = run_simulation(physical_values, iterations=iterations)
+            _, ρ_atm, ρ_oce = run_simulation(p, iterations=iterations)
             ρs_atm[j, k], ρs_oce[j, k] = extract_ρ(ρ_atm, ρ_oce)
         end
         if analytic
             for (k, var) in enumerate(variable2_range)
-                physical_values[Symbol(var_name)] = var
-                if var_name == "a_i"
-                    compute_derived_quantities!(physical_values)
-                elseif var_name == "t_max"
-                    physical_values[:t_max] = var
+                setproperty!(p, var_name, var)
+                restore_physical_values!(p)
+                if var_name == :Δt_cpl
+                    p.t_max = var
                 end
-                ρ_analytic = compute_ρ_analytical(physical_values)
+                ρ_analytic = compute_ρ_analytical(p)
                 ρs_analytic[j, k] = ρ_analytic
             end
         else
@@ -183,24 +157,24 @@ Computes for which `Δzᴬ` and `Δtᴬ` or `Δzᴼ` and `Δtᴼ` the model beco
 -`var1_name::String`: Either `"Δtᴬ"` or `"Δtᴼ"`.
 
 """
-function stability_check(physical_values, n_zs, n_ts, var1_name, var2_name)
-    domain = var1_name[end-2:end]
+function stability_check(p::SimulationParameters, n_zs, n_ts, var1, var2)
+    domain = var1 == :n_atm ? "atm" : "oce"
     unstable_matrix = zeros(length(n_ts), length(n_zs))
 
     for (i, n_z) in enumerate(n_zs)
         for (j, n_t) in enumerate(n_ts)
-            physical_values[Symbol(var1_name)] = n_z
-            physical_values[Symbol(var2_name)] = n_t
+            setproperty!(p, var1, n_z)
+            setproperty!(p, var2, n_t)
 
-            cs = get_coupled_sim(physical_values)
+            cs = get_coupled_sim(p)
 
             lower_limit_temp, upper_limit_temp = initial_value_range(cs)
 
             if domain == "atm"
-                Interfacer.step!(cs.model_sims.atmos_sim, physical_values[:Δt_cpl])
+                Interfacer.step!(cs.model_sims.atmos_sim, p.Δt_cpl)
                 states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
-            elseif domain == "oce"
-                Interfacer.step!(cs.model_sims.ocean_sim, physical_values[:Δt_cpl])
+            else
+                Interfacer.step!(cs.model_sims.ocean_sim, p.Δt_cpl)
                 states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
             end
             vals = extract_matrix(states, domain)

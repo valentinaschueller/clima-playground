@@ -2,10 +2,11 @@ include("components/atmosphere.jl")
 include("components/ocean.jl")
 include("components/ice.jl")
 include("plotting.jl")
+include("parameters.jl")
 include("coupled_simulation.jl")
 include("convergence_factors.jl")
+include("monin_obukhov.jl")
 include("postprocessing.jl")
-include("parameters.jl")
 import Dates
 import SciMLBase
 import ClimaComms
@@ -243,11 +244,16 @@ Setup for running the coupled simulation and running it.
 function coupled_heat_equations(;
     iterations=1,
     parallel=false,
-    params=Dict{Symbol,Int}(),
+    monin_obukhov=true,
+    kwargs...,
 )
-    physical_values = define_realistic_vals()
-    merge!(physical_values, params)
-    compute_derived_quantities!(physical_values)
+    physical_values = SimulationParameters(; kwargs...)
+
+    if monin_obukhov
+        physical_values.C_H_AO = compute_C_H_AO(physical_values)
+        physical_values.C_H_AI = compute_C_H_AI(physical_values)
+        restore_physical_values!(physical_values)
+    end
 
     cs, ρ_atm, ρ_oce = run_simulation(physical_values, iterations=iterations, parallel=parallel)
     return cs, ρ_atm, ρ_oce

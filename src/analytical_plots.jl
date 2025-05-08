@@ -2,7 +2,7 @@ using Plots
 
 
 function plot_C_AO_dependence()
-    physical_values = define_realistic_vals()
+    params = SimulationParameters()
 
     neg_vars = -200:-50
     pos_vars = 10:200
@@ -10,16 +10,10 @@ function plot_C_AO_dependence()
     C_neg = zeros(length(neg_vars))
     C_pos = zeros(length(pos_vars))
     for (j, neg_var) in enumerate(neg_vars)
-        physical_values[:L_AO] = neg_var
-        physical_values[:L_AI] = physical_values[:L_AI]
-        compute_C_AO!(physical_values)
-        C_neg[j] = physical_values[:C_AO]
+        C_neg[j] = compute_C_H_AO(params; L_AO=neg_var)
     end
     for (j, pos_var) in enumerate(pos_vars)
-        physical_values[:L_AO] = pos_var
-        physical_values[:L_AI] = physical_values[:L_AI]
-        compute_C_AO!(physical_values)
-        C_pos[j] = physical_values[:C_AO]
+        C_pos[j] = compute_C_H_AO(params; L_AO=pos_var)
     end
 
     println(maximum([maximum(C_neg), maximum(C_pos)]))
@@ -40,7 +34,7 @@ end
 
 
 function plot_C_AI_dependence()
-    physical_values = define_realistic_vals()
+    params = SimulationParameters()
     a_is = 0:0.01:1
 
     neg_vars = -200:-50
@@ -48,14 +42,12 @@ function plot_C_AI_dependence()
     C_neg = zeros(length(a_is), length(neg_vars))
     C_pos = zeros(length(a_is), length(pos_vars))
     for (i, a_i) in enumerate(a_is)
-        physical_values[:a_i] = a_i
+        params.a_i = a_i
         for (j, neg_var) in enumerate(neg_vars)
-            physical_values[:L_AI] = neg_var
-            C_neg[i, j] = compute_C_AI(physical_values)
+            C_neg[i, j] = compute_C_H_AI(params; L_AI=neg_var)
         end
         for (j, pos_var) in enumerate(pos_vars)
-            physical_values[:L_AI] = pos_var
-            C_pos[i, j] = compute_C_AI(physical_values)
+            C_pos[i, j] = compute_C_H_AI(params; L_AI=pos_var)
         end
     end
 
@@ -74,16 +66,14 @@ function analytical_convergence_factor_dependence()
     ωs = range(0.001, stop=10, length=50)
     a_is = range(0.001, stop=1, length=10)
     ρs = zeros(length(νs), length(ωs), length(a_is))
-    physical_values = define_realistic_vals()
+    params = SimulationParameters()
 
     # Loop over values
     for (k, a_i) in enumerate(a_is)
         for (i, ν) in enumerate(νs)
             for (j, ω) in enumerate(ωs)
-                physical_values[:ω] = ω
-                physical_values[:ν] = ν
-                physical_values[:a_i] = a_i
-                ρ = compute_ρ_analytical_with_ν_and_ω_variable(physical_values)
+                params.a_i = a_i
+                ρ = compute_ρ_analytical_with_ν_and_ω_variable(params, ν, ω)
                 ρs[i, j, k] = ρ
             end
         end
@@ -106,50 +96,36 @@ function analytical_convergence_factor_dependence()
     )
 end
 
-"""
-Computes the analytical convergence factor as a function of `ν` and `ω`.
 
-**Arguments:**
-
--`params::Dict`: Can be defined using `define_realistic_vals()`, but should also have the keys `:omega` and `:nu`.
-
-"""
-function compute_ρ_analytical_with_ν_and_ω_variable(params)
+function compute_ρ_analytical_with_ν_and_ω_variable(params, ν, ω)
     real_part_o =
-        sqrt((sqrt(params[:ν]^2 + params[:ω]^2) + params[:ν]) / (2 * params[:α_o]))
+        sqrt((sqrt(ν^2 + ω^2) + ν) / (2 * params.α_o))
     imag_part_o =
         im *
-        sign(params[:ω]) *
-        sqrt((sqrt(params[:ν]^2 + params[:ω]^2) - params[:ν]) / (2 * params[:α_o]))
+        sign(ω) *
+        sqrt((sqrt(ν^2 + ω^2) - ν) / (2 * params.α_o))
     σ_o = real_part_o + imag_part_o
     real_part_a =
-        sqrt((sqrt(params[:ν]^2 + params[:ω]^2) + params[:ν]) / (2 * params[:α_a]))
+        sqrt((sqrt(ν^2 + ω^2) + ν) / (2 * params.α_a))
     imag_part_a =
         im *
-        sign(params[:ω]) *
-        sqrt((sqrt(params[:ν]^2 + params[:ω]^2) - params[:ν]) / (2 * params[:α_a]))
+        sign(ω) *
+        sqrt((sqrt(ν^2 + ω^2) - ν) / (2 * params.α_a))
     σ_a = real_part_a + imag_part_a
-    η_AO =
-        params[:C_AO] *
-        abs(params[:u_atm] - params[:u_oce]) *
-        params[:ρ_atm] *
-        params[:c_atm]
-    η_OI = params[:C_OI] * abs(params[:u_oce]) * params[:ρ_oce] * params[:c_oce]
-    η_AI = params[:C_AI] * abs(params[:u_atm]) * params[:ρ_atm] * params[:c_atm]
     return abs(
-        (1 - params[:a_i])^2 * η_AO^2 / (
+        (1 - params.a_i)^2 * params.C_AO^2 / (
             (
-                params[:k_oce] *
+                params.k_oce *
                 σ_o *
-                (1 / tanh(σ_o * (params[:h_oce] - params[:z_0numO]))) +
-                (1 - params[:a_i]) * η_AO +
-                params[:a_i] * η_OI
+                (1 / tanh(σ_o * (params.h_oce - params.z_0numO))) +
+                (1 - params.a_i) * params.C_AO +
+                params.a_i * params.C_IO
             ) * (
-                params[:k_atm] *
+                params.k_atm *
                 σ_a *
-                (1 / tanh(σ_a * (params[:h_atm] - params[:z_0numA]))) +
-                (1 - params[:a_i]) * η_AO +
-                params[:a_i] * η_AI
+                (1 / tanh(σ_a * (params.h_atm - params.z_0numA))) +
+                (1 - params.a_i) * params.C_AO +
+                params.a_i * params.C_AI
             )
         ),
     )

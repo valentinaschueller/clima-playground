@@ -105,33 +105,33 @@ function handle_variable(
     var_name,
     ρs_oce,
     ρs_atm,
-    physical_values;
+    p::SimulationParameters;
     dims=1,
     param_analytic=nothing,
     ρs_analytic=nothing,
 )
     # Special treatment of n_atm and n_oce.
-    if var_name == "n_atm"
-        var = (physical_values[:h_atm] - physical_values[:z_0numA]) ./ reverse(var)
+    if var_name == :n_atm
+        var = (p.h_atm - p.z_0numA) ./ reverse(var)
         if !isnothing(ρs_analytic) && !isnothing(param_analytic)
             param_analytic = reverse(
-                (physical_values[:h_atm] - physical_values[:z_0numA]) ./ param_analytic,
+                (p.h_atm - p.z_0numA) ./ param_analytic,
             )
         end
-    elseif var_name == "n_oce"
-        var = (physical_values[:h_oce] - physical_values[:z_0numO]) ./ reverse(var)
+    elseif var_name == :n_oce
+        var = (p.h_oce - p.z_0numO) ./ reverse(var)
         if !isnothing(ρs_analytic) && !isnothing(param_analytic)
             param_analytic = reverse(
-                (physical_values[:h_oce] - physical_values[:z_0numO]) ./ param_analytic,
+                (p.h_oce - p.z_0numO) ./ param_analytic,
             )
         end
-    elseif var_name == "n_t_atm" || var_name == "n_t_oce"
-        var = physical_values[:Δt_min] ./ reverse(var)
+    elseif var_name == :n_t_atm || var_name == :n_t_oce
+        var = p.Δt_min ./ reverse(var)
         if !isnothing(ρs_analytic) && !isnothing(param_analytic)
-            param_analytic = reverse(physical_values[:Δt_min] ./ param_analytic)
+            param_analytic = reverse(p.Δt_min ./ param_analytic)
         end
     end
-    if var_name in ["n_atm", "n_oce", "n_t_atm", "n_t_oce"]
+    if var_name in [:n_atm, :n_oce, :n_t_atm, :n_t_oce]
         ρs_oce =
             !isnothing(ρs_oce) ? reverse(ρs_oce, dims=dims) : nothing
         ρs_atm =
