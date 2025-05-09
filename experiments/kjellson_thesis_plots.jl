@@ -6,7 +6,7 @@ function figure71()
     plot_ρ_over_a_i()
 end
 
-function figure72a()
+function figure72()
     plot_ρ_over_var(10, :Δu_AO, a_is=[0.1, 0.4, 0.7])
 end
 
