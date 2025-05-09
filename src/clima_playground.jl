@@ -17,5 +17,6 @@ using Statistics
 using LaTeXStrings
 
 include("heat_equations.jl")
+include("plotting.jl")
 
 end

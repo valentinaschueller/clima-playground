@@ -1,7 +1,6 @@
 include("components/atmosphere.jl")
 include("components/ocean.jl")
 include("components/ice.jl")
-include("plotting.jl")
 include("parameters.jl")
 include("coupled_simulation.jl")
 include("convergence_factors.jl")
