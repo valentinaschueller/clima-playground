@@ -1,141 +1,71 @@
-function Ψ_A_T(ζ)
-    if ζ > 0
-        a = 1.0
-        b = 2 / 3
-        c = 5.0
-        d = 0.35
-        return -b * (ζ - (c / d)) * exp(-d * ζ) - b * c / d - (1 + b * a * ζ)^1.5 + 1
-    end
-    x = (1 - 16 * ζ)^(1 / 4)
-    return 2 * log(0.5 * (1 + x^2))
+Base.@kwdef mutable struct SimulationParameters
+    a_i::Float64 = 0.0
+    ρ_atm::Float64 = 1.225
+    ρ_oce = 1e3
+    c_atm = 1005.0
+    c_oce = 4182.0
+    ν_O = 1e-6
+    ν_A = 1.5e-5
+    k_atm = 0.02364
+    k_oce = 0.58
+    C_H_IO = 5e-3
+    C_H_AI = 1.4e-3
+    C_H_AO = 1e-3
+    Δu_AO = 4.0
+    Δu_AI = 5.0
+    Δu_IO = 1.0
+    h_oce = 51.0
+    h_atm = 210.0
+    z_0numA = 10.0
+    z_0numO = 1.0
+    T_atm_ini = 267.0
+    T_oce_ini = 271.0
+    T_ice_ini = 270.0
+    t_max = 3600.0
+    Δt_cpl = 100.0
+    Δt_min = 1.0
+    n_t_atm = 50
+    n_t_oce = 1
+    n_atm = 200
+    n_oce = 50
+    boundary_mapping = "mean"
+    sin_field_atm = false
+    sin_field_oce = false
+    α_o::Float64 = k_oce / (ρ_oce * c_oce)
+    α_a::Float64 = k_atm / (ρ_atm * c_atm)
+    C_AO::Float64 = ρ_atm * c_atm * C_H_AO * Δu_AO
+    C_AI::Float64 = ρ_atm * c_atm * C_H_AI * Δu_AI
+    C_IO::Float64 = ρ_oce * c_oce * C_H_IO * Δu_IO
 end
 
-function Ψ_A_u(ζ)
-    if ζ > 0
-        a = 1.0
-        b = 2 / 3
-        c = 5.0
-        d = 0.35
-        return -b * (ζ - (c / d)) * exp(-d * ζ) - b * c / d - a * ζ
-    end
-    x = (1 - 16 * ζ)^(1 / 4)
-    return π / 2 - 2 * atan(x) + log((1 + x)^2 * (1 + x^2) / 8)
+function restore_physical_values!(p::SimulationParameters)
+    p.α_o = p.k_oce / (p.ρ_oce * p.c_oce)
+    p.α_a = p.k_atm / (p.ρ_atm * p.c_atm)
+    p.C_AO = p.ρ_atm * p.c_atm * p.C_H_AO * p.Δu_AO
+    p.C_AI = p.ρ_atm * p.c_atm * p.C_H_AI * p.Δu_AI
+    p.C_IO = p.ρ_oce * p.c_oce * p.C_H_IO * p.Δu_IO
 end
 
-function Ψ_O_unstable(x)
-    return sqrt(3) * (atan(sqrt(3)) - atan(1 / sqrt(3) * (2 * x + 1))) +
-           (3 / 2) * log((x^2 + x + 1) / 3)
-end
-
-function Ψ_O_T(ζ)
-    if ζ > 0
-        return -5 * ζ
-    end
-    x = (1 - 25 * ζ)^(1 / 3)
-    return ψ_O_unstable(x)
-end
-
-function Ψ_O_u(ζ)
-    if ζ > 0
-        return -5 * ζ
-    end
-    x = (1 - 14 * ζ)^(1 / 3)
-    return ψ_O_unstable(x)
-end
-
-function compute_derived_quantities!(params)
-    params[:λ_u] = sqrt(params[:ρ_atm] / params[:ρ_oce])
-    params[:λ_T] = params[:λ_u] * params[:c_atm] / params[:c_oce]
-    params[:μ] = params[:ν_O] / params[:ν_A]
-    params[:α_o] = params[:k_oce] / (params[:ρ_oce] * params[:c_oce])
-    params[:α_a] = params[:k_atm] / (params[:ρ_atm] * params[:c_atm])
-    params[:L_OA] = params[:λ_u]^2 / (params[:T_atm_ini] * params[:α_eos] * params[:λ_T])
-    params[:z_ruAI] = max(1e-3, 0.93e-3 * (1 - params[:a_i]) + 6.05e-3 * exp(-17 * (params[:a_i] - 0.5)^2))
-    params[:C_AO] = compute_C_AO(params)
-    params[:C_AI] = compute_C_AI(params)
-end
-
-"""Defines realistic physical and numerical values for simulation."""
-function define_realistic_vals()
-    params = Dict(
-        :a_i => 0.0,
-        :ρ_atm => 1.225,
-        :ρ_oce => 1e3,
-        :c_atm => 1005.0,
-        :c_oce => 4182.0,
-        :ν_O => 1e-6,
-        :ν_A => 1.5e-5,
-        :κ => 0.4,
-        :k_atm => 0.02364,
-        :k_oce => 0.58,
-        :α_eos => 1.8e-4,
-        :z_0numA => 10.0,
-        :z_0numO => 1.0,
-        :z_ruAO => 2e-4,
-        :z_rTAO => 2e-4,
-        :z_rTAI => 1e-3,
-        :C_OI => 5e-3,
-        :h_oce => 51.0,
-        :h_atm => 210.0,
-        :u_atm => 5.0,
-        :u_oce => 1.0,
-        :L_AO => 50.0,
-        :L_AI => 50.0,
-        :T_atm_ini => 267.0,
-        :T_oce_ini => 271.0,
-        :T_ice_ini => 270.0,
-        :t_max => 3600.0,
-        :Δt_cpl => 100.0,
-        :Δt_min => 1.0,
-        :n_t_atm => 50,
-        :n_t_oce => 1,
-        :n_atm => 200,
-        :n_oce => 50,
-        :boundary_mapping => "mean",
-        :sin_field_atm => false,
-        :sin_field_oce => false,
-    )
-    compute_derived_quantities!(params)
-    return params
-end
-
-function compute_C_AI(params)
-    momentum_contribution = log(params[:z_0numA] / params[:z_ruAI]) - Ψ_A_u(params[:z_0numA] / params[:L_AI])
-    heat_contribution = log(params[:z_0numA] / params[:z_rTAI]) - Ψ_A_T(params[:z_0numA] / params[:L_AI])
-    return params[:κ]^2 / (momentum_contribution * heat_contribution)
-end
-
-function compute_C_AO(params)
-    momentum_atm = log(params[:z_0numA] / params[:z_ruAO]) - Ψ_A_u(params[:z_0numA] / params[:L_AO])
-    momentum_oce = log(params[:λ_u] * params[:z_0numO] / (params[:z_ruAO] * params[:μ])) - Ψ_O_u(params[:z_0numO] / params[:L_OA])
-    momentum_contribution = momentum_atm + params[:λ_u] * momentum_oce
-
-    heat_atm = log(params[:z_0numA] / params[:z_rTAO]) - Ψ_A_T(params[:z_0numA] / params[:L_AO])
-    heat_oce = log(params[:λ_T] * params[:z_0numO] / (params[:z_rTAO] * params[:μ])) - Ψ_O_T(params[:z_0numO] / params[:L_OA])
-    heat_contribution = heat_atm + params[:λ_T] * heat_oce
-    return params[:κ]^2 / (momentum_contribution * heat_contribution)
-end
 
 """Creates a dict with values and names for all variables."""
 function get_var_dict()
     variable_dict = Dict(
-        :t_max =>
+        :Δt_cpl =>
             [Float64.([10, 100, 1000, 10000, 100000, 1000000]), L"$\Delta t_{cpl}$"],
         :h_atm => [Float64.([15, 50, 100, 200, 300, 500, 700, 1500]), L"$H^A$"],
         :h_oce => [Float64.([6, 10, 50, 100, 125, 150, 175, 200]), L"$H^O$"],
         :n_atm => [[20, 200, 2000, 20000, 200000], L"$\Delta z^A$"],
         :n_oce => [[5, 50, 500, 5000, 50000], L"$\Delta z^O$"],
-        :C_AI => [
+        :C_H_AI => [
             Float64.(LinRange(0.0008691059360985882, 0.0027815836784748733, 10)),
             L"$C^A_I$",
         ],
-        :C_AO => [
+        :C_H_AO => [
             Float64.(LinRange(0.0006765386884900067, 0.0014898726741724184, 10)),
             L"$C^A_O$",
         ],
-        :C_OI => [Float64.(LinRange(0.001, 0.01, 10)), L"$C^O_I$"],
-        :u_atm => [Float64.([0.1, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]), L"$u^A$"],
-        :u_oce => [Float64.([0.1, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]), L"$u^O$"],
+        :C_H_IO => [Float64.(LinRange(0.001, 0.01, 10)), L"$C^O_I$"],
+        :Δu_AO => [Float64.([0.1, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]), L"$\Delta u$"],
         :T_atm_ini =>
             [Float64.([260, 262, 264, 266, 268, 270, 273, 276]), L"$T^A(0,z)$"],
         :T_oce_ini => [Float64.([270, 271, 272, 273, 274, 275, 276]), L"$T^O(0,z)$"],

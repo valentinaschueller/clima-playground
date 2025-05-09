@@ -17,32 +17,20 @@ function heat_oce_rhs!(dT, T, cache, t)
     if cache.boundary_mapping == "mean"
         F_sfc = (
             cache.a_i *
-            cache.C_OI *
-            cache.ρ_oce *
-            cache.c_oce *
-            abs(cache.u_oce) *
+            cache.C_IO *
             (parent(cache.T_ice)[1] - T[end]) +
             (1 - cache.a_i) *
             cache.C_AO *
-            cache.ρ_atm *
-            cache.c_atm *
-            abs(cache.u_atm - cache.u_oce) *
             (parent(cache.T_air)[1] - T[end])
         )
     else
         index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_air)) .- t))
         F_sfc = (
             cache.a_i *
-            cache.C_OI *
-            cache.ρ_oce *
-            cache.c_oce *
-            abs(cache.u_oce) *
+            cache.C_IO *
             (parent(cache.T_ice)[1] - T[end]) +
             (1 - cache.a_i) *
             cache.C_AO *
-            cache.ρ_atm *
-            cache.c_atm *
-            abs(cache.u_atm - cache.u_oce) *
             (parent(cache.T_air)[index] - T[end])
         )
     end

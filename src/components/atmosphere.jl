@@ -18,15 +18,9 @@ function heat_atm_rhs!(dT, T, cache, t)
         F_sfc = (
             cache.a_i *
             cache.C_AI *
-            cache.ρ_atm *
-            cache.c_atm *
-            abs(cache.u_atm) *
             (T[1] - parent(cache.T_ice)[1]) +
             (1 - cache.a_i) *
             cache.C_AO *
-            cache.ρ_atm *
-            cache.c_atm *
-            abs(cache.u_atm - cache.u_oce) *
             (T[1] - parent(cache.T_sfc)[1])
         )
     else
@@ -34,15 +28,9 @@ function heat_atm_rhs!(dT, T, cache, t)
         F_sfc = (
             cache.a_i *
             cache.C_AI *
-            cache.ρ_atm *
-            cache.c_atm *
-            abs(cache.u_atm) *
             (T[1] - parent(cache.T_ice)[1]) +
             (1 - cache.a_i) *
             cache.C_AO *
-            cache.ρ_atm *
-            cache.c_atm *
-            abs(cache.u_atm - cache.u_oce) *
             (T[1] - parent(cache.T_sfc)[index])
         )
     end
