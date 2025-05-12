@@ -82,67 +82,6 @@ function has_converged(
     end
 end
 
-"""
-Special treatment when varying some variables.
-
-**Arguments:**
-
--`var::Array`: Values for the variable.
--`var_name::String`: The variable name.
--`ρs_oce::Array`: Ocean convergence factors.
--`ρs_atm::Array`: Atmosphere convergence factors.
--`physical_values::Dict`: Can be defined using `define_realistic_vals()`.
-
-**Optional Keyword Arguments:**
-
--`dims::Int`: Dimensions over which to  reverse the convergence factor matrices, default: `1`.
--`param_analytic::Array`: The analytical values for the variable, default: `nothing`.
--`ρs_analytic::Array`: The analytical convergence factors, default: `nothing`.
-
-"""
-function handle_variable(
-    var,
-    var_name,
-    ρs_oce,
-    ρs_atm,
-    p::SimulationParameters;
-    dims=1,
-    param_analytic=nothing,
-    ρs_analytic=nothing,
-)
-    # Special treatment of n_atm and n_oce.
-    if var_name == :n_atm
-        var = (p.h_atm - p.z_0numA) ./ reverse(var)
-        if !isnothing(ρs_analytic) && !isnothing(param_analytic)
-            param_analytic = reverse(
-                (p.h_atm - p.z_0numA) ./ param_analytic,
-            )
-        end
-    elseif var_name == :n_oce
-        var = (p.h_oce - p.z_0numO) ./ reverse(var)
-        if !isnothing(ρs_analytic) && !isnothing(param_analytic)
-            param_analytic = reverse(
-                (p.h_oce - p.z_0numO) ./ param_analytic,
-            )
-        end
-    elseif var_name == :n_t_atm || var_name == :n_t_oce
-        var = p.Δt_min ./ reverse(var)
-        if !isnothing(ρs_analytic) && !isnothing(param_analytic)
-            param_analytic = reverse(p.Δt_min ./ param_analytic)
-        end
-    end
-    if var_name in [:n_atm, :n_oce, :n_t_atm, :n_t_oce]
-        ρs_oce =
-            !isnothing(ρs_oce) ? reverse(ρs_oce, dims=dims) : nothing
-        ρs_atm =
-            !isnothing(ρs_atm) ? reverse(ρs_atm, dims=dims) : nothing
-        ρs_analytic =
-            !isnothing(ρs_analytic) ? reverse(ρs_analytic, dims=dims) :
-            nothing
-    end
-    return var, ρs_oce, ρs_atm, param_analytic, ρs_analytic
-end
-
 """ 
 Extracts the first convergence factors.
 
