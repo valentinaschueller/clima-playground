@@ -13,7 +13,7 @@ function load_timestep(cs; index=nothing)
         end
         space = axes(u[index].data)
         coord_data = parent(CC.Spaces.coordinates_data(space).z)[:, 1]
-        sol_data = vec(u[end].data)
+        sol_data = vec(u[index].data)
         push!(coords, coord_data)
         push!(solution, sol_data)
     end
