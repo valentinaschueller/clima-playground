@@ -47,8 +47,7 @@ function analytical_convergence_factor_dependence()
         for (i, ν) in enumerate(νs)
             for (j, ω) in enumerate(ωs)
                 params.a_i = a_i
-                ρ = compute_ρ_analytical(params; s=ν + im * ω)
-                ϱs[i, j, k] = ρ
+                ϱs[i, j, k] = compute_ρ_analytical(params; s=ν + im * ω)
             end
         end
         i_max, j_max = Tuple(CartesianIndices(ϱs)[argmax(ϱs)])
@@ -57,8 +56,6 @@ function analytical_convergence_factor_dependence()
         println("supremum at ν=$ν_max and ω=$ω_max")
     end
 
-
-    plotly()
     surface(
         ωs,
         νs,
@@ -66,7 +63,7 @@ function analytical_convergence_factor_dependence()
         color=:viridis,
         xlabel="ω",
         ylabel="ν",
-        zlabel="̂ρ(ν+iω)",
+        zlabel="ϱ(ν+iω)",
     )
 end
 
