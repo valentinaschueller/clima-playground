@@ -47,7 +47,7 @@ function analytical_convergence_factor_dependence()
         for (i, ν) in enumerate(νs)
             for (j, ω) in enumerate(ωs)
                 params.a_I = a_I
-                ϱs[i, j, k] = compute_ρ_analytical(params; s=ν + im * ω)
+                ϱs[i, j, k] = compute_ϱ_analytical(params; s=ν + im * ω)
             end
         end
         i_max, j_max = Tuple(CartesianIndices(ϱs)[argmax(ϱs)])
@@ -378,7 +378,7 @@ function get_ϱs_one_variable(
         if var_name == :Δt_cpl
             p.t_max = var
         end
-        ϱs_analytic[k] = compute_ρ_analytical(p)
+        ϱs_analytic[k] = compute_ϱ_analytical(p)
     end
     return ϱs_atm, ϱs_oce, finely_spaced_var, ϱs_analytic
 end
