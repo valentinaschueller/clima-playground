@@ -1,8 +1,6 @@
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
-using CSV
-using DataFrames
 
 struct HeatEquationAtmos{P,Y,D,I} <: Interfacer.AtmosModelSimulation
     params::P

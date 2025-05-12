@@ -2,8 +2,6 @@ import SciMLBase
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
-using CSV
-using DataFrames
 
 struct HeatEquationOcean{P,Y,D,I} <: Interfacer.OceanModelSimulation
     params::P
