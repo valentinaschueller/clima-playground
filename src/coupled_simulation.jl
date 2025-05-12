@@ -55,7 +55,7 @@ function get_coupled_sim(p::SimulationParameters)
     if p.sin_field_A
         coord_field_atm = map(x -> x.z, CC.Fields.coordinate_field(center_space_atm))
         field_atm =
-            p[:T_A_ini] .* (
+            p.T_A_ini .* (
                 1 .-
                 sin.(
                     (coord_field_atm .- parent(coord_field_atm)[1]) ./
@@ -75,7 +75,7 @@ function get_coupled_sim(p::SimulationParameters)
                 (coord_field_oce .- parent(coord_field_oce)[1]) ./
                 (parent(coord_field_oce)[end] .- parent(coord_field_oce)[1]) .* (π / 50)
             )
-        field_oce = p[:T_O_ini] .* (field_oce .- (parent(field_oce)[end] - 1))
+        field_oce = p.T_O_ini .* (field_oce .- (parent(field_oce)[end] - 1))
 
     else
         field_oce = CC.Fields.ones(Float64, center_space_oce) .* p.T_O_ini
