@@ -2,7 +2,7 @@ module clima_playground
 
 export coupled_heat_equations
 export run_simulation
-export compute_ρ_analytical
+export compute_ϱ_analytical
 export SimulationParameters
 export compute_C_H_AI
 export compute_C_H_AO

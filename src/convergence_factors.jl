@@ -7,13 +7,13 @@ import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
 
-function compute_ρ_analytical(p::SimulationParameters; s=nothing)
+function compute_ϱ_analytical(p::SimulationParameters; s=nothing)
     if isnothing(s)
         s = im * π / p.t_max
     end
     σ_o = sqrt(s / p.α_O)
     σ_a = sqrt(s / p.α_A)
-    ρ = abs((1 - p.a_I)^2 * p.C_AO^2 / (
+    ϱ = abs((1 - p.a_I)^2 * p.C_AO^2 / (
         (
             p.k_O *
             σ_o *
@@ -28,41 +28,41 @@ function compute_ρ_analytical(p::SimulationParameters; s=nothing)
             p.a_I * p.C_AI
         )
     ))
-    return ρ
+    return ϱ
 end
 
 
-function compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
-    ρ_A = []
-    ρ_O = []
-    pre_bound_error_atm = abs.(atmos_vals_list[1] .- atmos_vals_list[end])
-    pre_bound_error_oce = abs.(ocean_vals_list[1] .- ocean_vals_list[end])
+function compute_ϱ_numerical(atmos_vals_list, ocean_vals_list)
+    ϱ_A = []
+    ϱ_O = []
+    pre_bound_error_A = abs.(atmos_vals_list[1] .- atmos_vals_list[end])
+    pre_bound_error_O = abs.(ocean_vals_list[1] .- ocean_vals_list[end])
     for i = 2:length(atmos_vals_list)-1
-        bound_error_atm = abs.(atmos_vals_list[i] .- atmos_vals_list[end])
-        bound_error_oce = abs.(ocean_vals_list[i] .- ocean_vals_list[end])
+        bound_error_A = abs.(atmos_vals_list[i] .- atmos_vals_list[end])
+        bound_error_O = abs.(ocean_vals_list[i] .- ocean_vals_list[end])
 
         tols_atm = 100 * eps.(max.(abs.(atmos_vals_list[i]), abs.(atmos_vals_list[end])))
         tols_oce = 100 * eps.(max.(abs.(ocean_vals_list[i]), abs.(ocean_vals_list[end])))
 
-        indices_atm = findall(
-            (pre_bound_error_atm[1:end-1] .>= tols_atm[1:end-1]) .&
-            (bound_error_atm[1:end-1] .>= tols_atm[1:end-1]),
+        indices_A = findall(
+            (pre_bound_error_A[1:end-1] .>= tols_atm[1:end-1]) .&
+            (bound_error_A[1:end-1] .>= tols_atm[1:end-1]),
         )
-        indices_oce = findall(
-            (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]) .&
-            (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]),
+        indices_O = findall(
+            (pre_bound_error_O[1:end-1] .>= tols_oce[1:end-1]) .&
+            (pre_bound_error_O[1:end-1] .>= tols_oce[1:end-1]),
         )
 
-        ρ_A_value = norm(bound_error_atm[indices_atm]) / norm(pre_bound_error_atm[indices_atm])
-        ρ_O_value = norm(bound_error_oce[indices_oce]) / norm(pre_bound_error_oce[indices_oce])
+        ρ_A_value = norm(bound_error_A[indices_A]) / norm(pre_bound_error_A[indices_A])
+        ρ_O_value = norm(bound_error_O[indices_O]) / norm(pre_bound_error_O[indices_O])
 
-        push!(ρ_A, ρ_A_value)
-        push!(ρ_O, ρ_O_value)
+        push!(ϱ_A, ρ_A_value)
+        push!(ϱ_O, ρ_O_value)
 
-        pre_bound_error_atm = bound_error_atm
-        pre_bound_error_oce = bound_error_oce
+        pre_bound_error_A = bound_error_A
+        pre_bound_error_O = bound_error_O
     end
-    return ρ_A, ρ_O
+    return ϱ_A, ϱ_O
 end
 
 
