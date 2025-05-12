@@ -13,7 +13,7 @@ Interfacer.name(::ConstantIce) = "ConstantIce"
 
 function heat_ice_rhs!(dT, T, cache, t)
     # note: here we can add an update for the sea ice
-    dT.ice = 0
+    dT.data = 0
 end
 
 function ice_init(stepping, ics, space, cache)

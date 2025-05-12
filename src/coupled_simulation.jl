@@ -81,10 +81,10 @@ function get_coupled_sim(p::SimulationParameters)
         field_oce = CC.Fields.ones(Float64, center_space_oce) .* p.T_O_ini
     end
 
-    T_atm_0 = CC.Fields.FieldVector(atm=field_atm)
-    T_oce_0 = CC.Fields.FieldVector(oce=field_oce)
+    T_atm_0 = CC.Fields.FieldVector(data=field_atm)
+    T_oce_0 = CC.Fields.FieldVector(data=field_oce)
     T_ice_0 = CC.Fields.FieldVector(
-        ice=CC.Fields.ones(Float64, point_space_ice) .* p.T_I_ini,
+        data=CC.Fields.ones(Float64, point_space_ice) .* p.T_I_ini,
     )
 
     if p.boundary_mapping == "cit"

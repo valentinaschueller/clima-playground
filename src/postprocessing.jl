@@ -10,7 +10,7 @@ Extracts an Array from an Array of FieldVectors.
 function extract_matrix(field_vecs, domain)
     matrix = []
     for field_vec in field_vecs
-        field = (domain == "atm") ? field_vec.atm : field_vec.oce
+        field = field_vec.data
         values = parent(field)
         push!(matrix, values)
     end

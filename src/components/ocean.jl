@@ -43,7 +43,7 @@ function heat_oce_rhs!(dT, T, cache, t)
     ᶠgradᵥ = CC.Operators.GradientC2F()
     ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
-    @. dT.oce = ᶜdivᵥ(cache.k_O * ᶠgradᵥ(T.oce)) / (cache.ρ_O * cache.c_O)
+    @. dT.data = ᶜdivᵥ(cache.k_O * ᶠgradᵥ(T.data)) / (cache.ρ_O * cache.c_O)
 end
 
 function ocean_init(stepping, ics, space, cache)

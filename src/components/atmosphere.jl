@@ -42,7 +42,7 @@ function heat_atm_rhs!(dT, T, cache, t)
     ᶠgradᵥ = CC.Operators.GradientC2F()
     ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
-    @. dT.atm = ᶜdivᵥ(cache.k_A * ᶠgradᵥ(T.atm)) / (cache.ρ_A * cache.c_A)
+    @. dT.data = ᶜdivᵥ(cache.k_A * ᶠgradᵥ(T.data)) / (cache.ρ_A * cache.c_A)
 end
 
 function atmos_init(stepping, ics, space, cache)
