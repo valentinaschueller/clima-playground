@@ -210,7 +210,7 @@ function plot_Δz_Δt(
 
 end
 
-function plot_unstable_range(component; a_is=[])
+function plot_unstable_range(component; a_is=[0.0])
     p = SimulationParameters(Δt_min=100)
 
     Δz = 10 .^ LinRange(log10(0.001), log10(1), 50)
@@ -235,9 +235,6 @@ function plot_unstable_range(component; a_is=[])
 
     xticks = [1, 10, 100]
     yticks = [0.001, 0.01, 0.1]
-    legend = :right
-
-    a_is = !isempty(a_is) ? a_is : [p.a_i]
 
     plot()
     for a_i in a_is
@@ -275,7 +272,6 @@ function plot_unstable_range(component; a_is=[])
             yticks=yticks,
             color=:black,
             a_i=a_i,
-            legend=legend,
             fillalpha=0.5 * (1 - a_i),
         )
     end
