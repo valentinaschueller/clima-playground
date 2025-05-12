@@ -25,8 +25,5 @@ If you want to use the parallel Schwarz iteration, run:
 coupled_heat_equations(iterations=10, parallel=true)
 ```
 
-To reproduce the figures from Hanna Kjellson's MSc thesis, run, e.g.:
-```julia
-include("experiments/kjellson_thesis_plots.jl")
-figure71() # creates the plot corresponding to Fig. 7.1 in the thesis
-```
+The directory `experiments` contains scripts for plotting analytical and numerical results with this code.
+- `kjellson_thesis_plots.jl` creates plots resembling figures from Hanna Kjellson's MSc thesis. 

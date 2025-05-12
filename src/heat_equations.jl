@@ -138,8 +138,8 @@ function solve_coupler!(
     # Extract the initial value range for stability check
     lower_limit_temp, upper_limit_temp = initial_value_range(cs)
 
-    ρ_atm = nothing
-    ρ_oce = nothing
+    ϱ_A = nothing
+    ϱ_O = nothing
 
     for t = tspan[begin]:Δt_cpl:(tspan[end]-Δt_cpl)
         set_time!(cs, t)
@@ -188,9 +188,9 @@ function solve_coupler!(
             oce_stable = is_stable(ocean_vals, upper_limit_temp, lower_limit_temp)
             if !(atm_stable && oce_stable)
                 @info("Unstable simulation!")
-                ρ_atm = atm_stable ? NaN : Inf
-                ρ_oce = oce_stable ? NaN : Inf
-                return ρ_atm, ρ_oce
+                ϱ_A = atm_stable ? NaN : Inf
+                ϱ_O = oce_stable ? NaN : Inf
+                return ϱ_A, ϱ_O
             end
 
             push!(atmos_vals_list, bound_atmos_vals)
@@ -209,11 +209,11 @@ function solve_coupler!(
             end
         end
         if iterations > 1
-            ρ_atm, ρ_oce = compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
+            ϱ_A, ϱ_O = compute_ϱ_numerical(atmos_vals_list, ocean_vals_list)
         end
     end
     set_time!(cs, tspan[end])
-    return ρ_atm, ρ_oce
+    return ϱ_A, ϱ_O
 end
 
 function run_simulation(
@@ -222,12 +222,12 @@ function run_simulation(
     parallel=false,
 )
     cs = get_coupled_sim(physical_values)
-    ρ_atm, ρ_oce = solve_coupler!(
+    ϱ_A, ϱ_O = solve_coupler!(
         cs,
         iterations=iterations,
         parallel=parallel,
     )
-    return cs, ρ_atm, ρ_oce
+    return cs, ϱ_A, ϱ_O
 end
 
 """
@@ -254,6 +254,6 @@ function coupled_heat_equations(;
         restore_physical_values!(physical_values)
     end
 
-    cs, ρ_atm, ρ_oce = run_simulation(physical_values, iterations=iterations, parallel=parallel)
-    return cs, ρ_atm, ρ_oce
+    cs, ϱ_A, ϱ_O = run_simulation(physical_values, iterations=iterations, parallel=parallel)
+    return cs, ϱ_A, ϱ_O
 end;

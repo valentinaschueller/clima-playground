@@ -1,8 +1,6 @@
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
-using CSV
-using DataFrames
 
 struct HeatEquationAtmos{P,Y,D,I} <: Interfacer.AtmosModelSimulation
     params::P
@@ -16,20 +14,20 @@ Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 function heat_atm_rhs!(dT, T, cache, t)
     if cache.boundary_mapping == "mean"
         F_sfc = (
-            cache.a_i *
+            cache.a_I *
             cache.C_AI *
             (T[1] - parent(cache.T_ice)[1]) +
-            (1 - cache.a_i) *
+            (1 - cache.a_I) *
             cache.C_AO *
             (T[1] - parent(cache.T_sfc)[1])
         )
     else
         index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_sfc)) .- t))
         F_sfc = (
-            cache.a_i *
+            cache.a_I *
             cache.C_AI *
             (T[1] - parent(cache.T_ice)[1]) +
-            (1 - cache.a_i) *
+            (1 - cache.a_I) *
             cache.C_AO *
             (T[1] - parent(cache.T_sfc)[index])
         )
@@ -44,7 +42,7 @@ function heat_atm_rhs!(dT, T, cache, t)
     ᶠgradᵥ = CC.Operators.GradientC2F()
     ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
-    @. dT.atm = ᶜdivᵥ(cache.k_atm * ᶠgradᵥ(T.atm)) / (cache.ρ_atm * cache.c_atm)
+    @. dT.atm = ᶜdivᵥ(cache.k_A * ᶠgradᵥ(T.atm)) / (cache.ρ_A * cache.c_A)
 end
 
 function atmos_init(stepping, ics, space, cache)
