@@ -18,21 +18,21 @@ function get_coupled_sim(p::SimulationParameters)
     context = CC.ClimaComms.context()
     device = CC.ClimaComms.device(context)
 
-    domain_atm = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(p.z_0numA),
-        CC.Geometry.ZPoint{Float64}(p.h_atm);
+    domain_A = CC.Domains.IntervalDomain(
+        CC.Geometry.ZPoint{Float64}(p.z_A0),
+        CC.Geometry.ZPoint{Float64}(p.h_A);
         boundary_names=(:bottom, :top),
     )
-    mesh_atm = CC.Meshes.IntervalMesh(domain_atm, nelems=p.n_atm)
-    center_space_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_atm)
+    mesh_A = CC.Meshes.IntervalMesh(domain_A, nelems=p.n_A)
+    center_space_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_A)
 
-    domain_oce = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(-p.h_oce),
-        CC.Geometry.ZPoint{Float64}(-p.z_0numO);
+    domain_O = CC.Domains.IntervalDomain(
+        CC.Geometry.ZPoint{Float64}(-p.h_O),
+        CC.Geometry.ZPoint{Float64}(-p.z_O0);
         boundary_names=(:bottom, :top),
     )
-    mesh_oce = CC.Meshes.IntervalMesh(domain_oce, nelems=p.n_oce)
-    center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_oce)
+    mesh_O = CC.Meshes.IntervalMesh(domain_O, nelems=p.n_O)
+    center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_O)
 
     coord = CC.Geometry.ZPoint{Float64}(0.0)
     point_space_ice = CC.Spaces.PointSpace(context, coord)
@@ -48,14 +48,14 @@ function get_coupled_sim(p::SimulationParameters)
         timerange=(Float64(0.0), Float64(p.t_max)),
         Δt_coupler=Float64(p.Δt_cpl),
         odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
-        nsteps_atm=p.n_t_atm,
-        nsteps_oce=p.n_t_oce,
+        nsteps_atm=p.n_t_A,
+        nsteps_oce=p.n_t_O,
         nsteps_ice=1,
     )
-    if p.sin_field_atm
+    if p.sin_field_A
         coord_field_atm = map(x -> x.z, CC.Fields.coordinate_field(center_space_atm))
         field_atm =
-            p[:T_atm_ini] .* (
+            p[:T_A_ini] .* (
                 1 .-
                 sin.(
                     (coord_field_atm .- parent(coord_field_atm)[1]) ./
@@ -64,10 +64,10 @@ function get_coupled_sim(p::SimulationParameters)
                 )
             )
     else
-        field_atm = CC.Fields.ones(Float64, center_space_atm) .* p.T_atm_ini
+        field_atm = CC.Fields.ones(Float64, center_space_atm) .* p.T_A_ini
     end
 
-    if p.sin_field_oce
+    if p.sin_field_O
         coord_field_oce = map(x -> x.z, CC.Fields.coordinate_field(center_space_oce))
         field_oce =
             1 .+
@@ -75,16 +75,16 @@ function get_coupled_sim(p::SimulationParameters)
                 (coord_field_oce .- parent(coord_field_oce)[1]) ./
                 (parent(coord_field_oce)[end] .- parent(coord_field_oce)[1]) .* (π / 50)
             )
-        field_oce = p[:T_oce_ini] .* (field_oce .- (parent(field_oce)[end] - 1))
+        field_oce = p[:T_O_ini] .* (field_oce .- (parent(field_oce)[end] - 1))
 
     else
-        field_oce = CC.Fields.ones(Float64, center_space_oce) .* p.T_oce_ini
+        field_oce = CC.Fields.ones(Float64, center_space_oce) .* p.T_O_ini
     end
 
     T_atm_0 = CC.Fields.FieldVector(atm=field_atm)
     T_oce_0 = CC.Fields.FieldVector(oce=field_oce)
     T_ice_0 = CC.Fields.FieldVector(
-        ice=CC.Fields.ones(Float64, point_space_ice) .* p.T_ice_ini,
+        ice=CC.Fields.ones(Float64, point_space_ice) .* p.T_I_ini,
     )
 
     if p.boundary_mapping == "cit"
@@ -109,11 +109,11 @@ function get_coupled_sim(p::SimulationParameters)
         )
         space_time_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_oce)
         space_time_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_atm)
-        T_sfc = p.T_oce_ini .* CC.Fields.ones(space_time_oce)
-        T_air = p.T_atm_ini .* CC.Fields.ones(space_time_atm)
+        T_sfc = p.T_O_ini .* CC.Fields.ones(space_time_oce)
+        T_air = p.T_A_ini .* CC.Fields.ones(space_time_atm)
     else
-        T_sfc = p.T_oce_ini .* CC.Fields.ones(boundary_space)
-        T_air = p.T_atm_ini .* CC.Fields.ones(boundary_space)
+        T_sfc = p.T_O_ini .* CC.Fields.ones(boundary_space)
+        T_air = p.T_A_ini .* CC.Fields.ones(boundary_space)
     end
 
     parameter_dict = Dict(key => getfield(p, key) for key ∈ fieldnames(SimulationParameters))

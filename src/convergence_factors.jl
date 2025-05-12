@@ -11,21 +11,21 @@ function compute_ρ_analytical(p::SimulationParameters; s=nothing)
     if isnothing(s)
         s = im * π / p.t_max
     end
-    σ_o = sqrt(s / p.α_o)
-    σ_a = sqrt(s / p.α_a)
-    ρ = abs((1 - p.a_i)^2 * p.C_AO^2 / (
+    σ_o = sqrt(s / p.α_O)
+    σ_a = sqrt(s / p.α_A)
+    ρ = abs((1 - p.a_I)^2 * p.C_AO^2 / (
         (
-            p.k_oce *
+            p.k_O *
             σ_o *
-            (1 / tanh(σ_o * (p.h_oce - p.z_0numO))) +
-            (1 - p.a_i) * p.C_AO +
-            p.a_i * p.C_IO
+            (1 / tanh(σ_o * (p.h_O - p.z_O0))) +
+            (1 - p.a_I) * p.C_AO +
+            p.a_I * p.C_IO
         ) * (
-            p.k_atm *
+            p.k_A *
             σ_a *
-            (1 / tanh(σ_a * (p.h_atm - p.z_0numA))) +
-            (1 - p.a_i) * p.C_AO +
-            p.a_i * p.C_AI
+            (1 / tanh(σ_a * (p.h_A - p.z_A0))) +
+            (1 - p.a_I) * p.C_AO +
+            p.a_I * p.C_AI
         )
     ))
     return ρ
@@ -33,8 +33,8 @@ end
 
 
 function compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
-    ρ_atm = []
-    ρ_oce = []
+    ρ_A = []
+    ρ_O = []
     pre_bound_error_atm = abs.(atmos_vals_list[1] .- atmos_vals_list[end])
     pre_bound_error_oce = abs.(ocean_vals_list[1] .- ocean_vals_list[end])
     for i = 2:length(atmos_vals_list)-1
@@ -53,16 +53,16 @@ function compute_ρ_numerical(atmos_vals_list, ocean_vals_list)
             (pre_bound_error_oce[1:end-1] .>= tols_oce[1:end-1]),
         )
 
-        ρ_atm_value = norm(bound_error_atm[indices_atm]) / norm(pre_bound_error_atm[indices_atm])
-        ρ_oce_value = norm(bound_error_oce[indices_oce]) / norm(pre_bound_error_oce[indices_oce])
+        ρ_A_value = norm(bound_error_atm[indices_atm]) / norm(pre_bound_error_atm[indices_atm])
+        ρ_O_value = norm(bound_error_oce[indices_oce]) / norm(pre_bound_error_oce[indices_oce])
 
-        push!(ρ_atm, ρ_atm_value)
-        push!(ρ_oce, ρ_oce_value)
+        push!(ρ_A, ρ_A_value)
+        push!(ρ_O, ρ_O_value)
 
         pre_bound_error_atm = bound_error_atm
         pre_bound_error_oce = bound_error_oce
     end
-    return ρ_atm, ρ_oce
+    return ρ_A, ρ_O
 end
 
 
@@ -80,7 +80,7 @@ Computes for which `Δzᴬ` and `Δtᴬ` or `Δzᴼ` and `Δtᴼ` the model beco
 
 """
 function stability_check(p::SimulationParameters, n_zs, n_ts, var1, var2)
-    domain = var1 == :n_atm ? "atm" : "oce"
+    domain = var1 == :n_A ? "atm" : "oce"
     unstable_matrix = zeros(length(n_ts), length(n_zs))
 
     for (i, n_z) in enumerate(n_zs)

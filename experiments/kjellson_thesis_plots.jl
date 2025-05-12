@@ -20,33 +20,33 @@ function plot_C_H_AO_dependence()
 end
 
 function plot_C_H_AI_dependence()
-    a_is = 0:0.01:1
+    a_Is = 0:0.01:1
     L_AIs = vec(-200:200)
     params = SimulationParameters()
-    C_H_AI = zeros(length(a_is), length(L_AIs))
-    for (i, a_i) in enumerate(a_is)
-        params.a_i = a_i
+    C_H_AI = zeros(length(a_Is), length(L_AIs))
+    for (i, a_I) in enumerate(a_Is)
+        params.a_I = a_I
         for (j, L_AI) in enumerate(L_AIs)
             C_H_AI[i, j] = compute_C_H_AI(params; L_AI=L_AI)
         end
     end
     plot()
-    surface(L_AIs, a_is, C_H_AI, xlabel=L"L_{AI}", ylabel=L"a_I", zlabel=L"C_{H,AI}")
+    surface(L_AIs, a_Is, C_H_AI, xlabel=L"L_{AI}", ylabel=L"a_I", zlabel=L"C_{H,AI}")
 end
 
 
 function analytical_convergence_factor_dependence()
     νs = range(0, stop=10, length=50)
     ωs = range(0.001, stop=10, length=50)
-    a_is = range(0.001, stop=1, length=10)
-    ϱs = zeros(length(νs), length(ωs), length(a_is))
+    a_Is = range(0.001, stop=1, length=10)
+    ϱs = zeros(length(νs), length(ωs), length(a_Is))
     params = SimulationParameters()
 
     # Loop over values
-    for (k, a_i) in enumerate(a_is)
+    for (k, a_I) in enumerate(a_Is)
         for (i, ν) in enumerate(νs)
             for (j, ω) in enumerate(ωs)
-                params.a_i = a_i
+                params.a_I = a_I
                 ϱs[i, j, k] = compute_ρ_analytical(params; s=ν + im * ω)
             end
         end
@@ -115,7 +115,7 @@ function plot_Δz_Δt(
     yscale=:identity,
     xticks=:auto,
     yticks=:auto,
-    a_i=Float64(0.5),
+    a_I=Float64(0.5),
     color=:green,
     legend=:right,
     kwargs...
@@ -158,7 +158,7 @@ function plot_Δz_Δt(
         yticks=yticks,
         xlabel=Δt_name,
         ylabel=Δz_name,
-        label="Unstable regime, aᴵ=$a_i",
+        label="Unstable regime, aᴵ=$a_I",
         color=color,
         fillrange=minimum(Δzs),
         xlim=(xticks[1], xticks[end]),
@@ -210,23 +210,23 @@ function plot_Δz_Δt(
 
 end
 
-function plot_unstable_range(component; a_is=[0.0])
+function plot_unstable_range(component; a_Is=[0.0])
     p = SimulationParameters(Δt_min=100)
 
     Δz = 10 .^ LinRange(log10(0.001), log10(1), 50)
     Δt = 10 .^ LinRange(log10(1), log10(100), 50)
     if component == "atm"
-        n_zs = Int.(round.((p.h_atm - p.z_0numA) ./ reverse(Δz)))
+        n_zs = Int.(round.((p.h_A - p.z_A0) ./ reverse(Δz)))
         n_ts = Int.(round.(p.Δt_min ./ reverse(Δt)))
-        space_field = :n_atm
-        time_field = :n_t_atm
+        space_field = :n_A
+        time_field = :n_t_A
         xlabel = L"$\Delta z^A$"
         ylabel = L"$\Delta t^A$"
     elseif component == "oce"
-        n_zs = Int.(round.((p.h_oce - p.z_0numO) ./ reverse(Δz)))
+        n_zs = Int.(round.((p.h_O - p.z_O0) ./ reverse(Δz)))
         n_ts = Int.(round.(p.Δt_min ./ reverse(Δt)))
-        space_field = :n_oce
-        time_field = :n_t_oce
+        space_field = :n_O
+        time_field = :n_t_O
         xlabel = L"$\Delta z^O$"
         ylabel = L"$\Delta t^O$"
     else
@@ -237,8 +237,8 @@ function plot_unstable_range(component; a_is=[0.0])
     yticks = [0.001, 0.01, 0.1]
 
     plot()
-    for a_i in a_is
-        p.a_i = a_i
+    for a_I in a_Is
+        p.a_I = a_I
         p.C_H_AO = compute_C_H_AO(p)
         p.C_H_AI = compute_C_H_AI(p)
         restore_physical_values!(p)
@@ -271,8 +271,8 @@ function plot_unstable_range(component; a_is=[0.0])
             xticks=xticks,
             yticks=yticks,
             color=:black,
-            a_i=a_i,
-            fillalpha=0.5 * (1 - a_i),
+            a_I=a_I,
+            fillalpha=0.5 * (1 - a_I),
         )
     end
     display(current())
@@ -282,8 +282,8 @@ end
 function plot_ϱ_over_var(var_name; iterations=10, kwargs...)
     variable_dict = Dict(
         :Δt_cpl => [Base.logrange(10, 1e6, length=6), L"$\Delta t_{cpl}$"],
-        :n_atm => [Int.(Base.logrange(20, 2e5, length=5)), L"$\Delta z_A$"],
-        :n_oce => [Int.(Base.logrange(5, 5e5, length=6)), L"$\Delta z_O$"],
+        :n_A => [Int.(Base.logrange(20, 2e5, length=5)), L"$\Delta z_A$"],
+        :n_O => [Int.(Base.logrange(5, 5e5, length=6)), L"$\Delta z_O$"],
         :C_H_AI => [
             Float64.(LinRange(0.0008691059360985882, 0.0027815836784748733, 10)),
             L"$C_{H,AI}$",
@@ -294,15 +294,15 @@ function plot_ϱ_over_var(var_name; iterations=10, kwargs...)
         ],
         :C_H_IO => [Float64.(LinRange(0.001, 0.01, 10)), L"$C_{H,OI}$"],
         :Δu_AO => [Float64.([0.1, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]), L"$\Delta u$"],
-        :n_t_atm =>
+        :n_t_A =>
             [Float64.(10 .^ LinRange(log10(1), log10(1000), 10)), L"$\Delta t_A$"],
-        :n_t_oce =>
+        :n_t_O =>
             [Float64.(10 .^ LinRange(log10(1), log10(1000), 10)), L"$\Delta t_O$"],
-        :a_i => [vec(0:0.1:1), L"a_I"],
+        :a_I => [vec(0:0.1:1), L"a_I"],
     )
     var = variable_dict[var_name][1]
     par_name = variable_dict[var_name][2]
-    physical_values = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, a_i=0.0)
+    physical_values = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=0.0)
     ϱs_atm, ϱs_oce, param_analytic, ϱs_analytic =
         get_ϱs_one_variable(
             physical_values,
@@ -394,28 +394,28 @@ function treat_grid_sizes(
     param_analytic=nothing,
     ϱs_analytic=nothing,
 )
-    # Special treatment of n_atm and n_oce.
-    if var_name == :n_atm
-        var = (p.h_atm - p.z_0numA) ./ reverse(var)
+    # Special treatment of n_A and n_O.
+    if var_name == :n_A
+        var = (p.h_A - p.z_A0) ./ reverse(var)
         if !isnothing(ϱs_analytic) && !isnothing(param_analytic)
             param_analytic = reverse(
-                (p.h_atm - p.z_0numA) ./ param_analytic,
+                (p.h_A - p.z_A0) ./ param_analytic,
             )
         end
-    elseif var_name == :n_oce
-        var = (p.h_oce - p.z_0numO) ./ reverse(var)
+    elseif var_name == :n_O
+        var = (p.h_O - p.z_O0) ./ reverse(var)
         if !isnothing(ϱs_analytic) && !isnothing(param_analytic)
             param_analytic = reverse(
-                (p.h_oce - p.z_0numO) ./ param_analytic,
+                (p.h_O - p.z_O0) ./ param_analytic,
             )
         end
-    elseif var_name == :n_t_atm || var_name == :n_t_oce
+    elseif var_name == :n_t_A || var_name == :n_t_O
         var = p.Δt_min ./ reverse(var)
         if !isnothing(ϱs_analytic) && !isnothing(param_analytic)
             param_analytic = reverse(p.Δt_min ./ param_analytic)
         end
     end
-    if var_name in [:n_atm, :n_oce, :n_t_atm, :n_t_oce]
+    if var_name in [:n_A, :n_O, :n_t_A, :n_t_O]
         ϱs_oce =
             !isnothing(ϱs_oce) ? reverse(ϱs_oce, dims=dims) : nothing
         ϱs_atm =

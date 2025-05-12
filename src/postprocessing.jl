@@ -87,24 +87,24 @@ Extracts the first convergence factors.
 
 **Arguments:**
 
--`ρ_atm::Array`: Atmosphere convergence factor.
--`ρ_oce::Array`: Ocean convergence factor.
+-`ρ_A::Array`: Atmosphere convergence factor.
+-`ρ_O::Array`: Ocean convergence factor.
 
 """
-function extract_ρ(ρ_atm, ρ_oce)
-    if ρ_atm isa AbstractArray
-        ρ_atm = !isempty(ρ_atm) ? ρ_atm[1] : NaN
+function extract_ρ(ρ_A, ρ_O)
+    if ρ_A isa AbstractArray
+        ρ_A = !isempty(ρ_A) ? ρ_A[1] : NaN
     end
-    if ρ_oce isa AbstractArray
-        ρ_oce = !isempty(ρ_oce) ? ρ_oce[1] : NaN
+    if ρ_O isa AbstractArray
+        ρ_O = !isempty(ρ_O) ? ρ_O[1] : NaN
     end
-    return ρ_atm, ρ_oce
+    return ρ_A, ρ_O
 end
 
-function update_ρ_parallel(ρ_atm, ρ_oce)
-    ρ_atm = ρ_atm[1:end-1] .* ρ_atm[2:end]
-    ρ_oce = ρ_oce[1:end-1] .* ρ_oce[2:end]
-    ρ_atm[1:2:end] .= NaN
-    ρ_oce[2:2:end] .= NaN
-    return ρ_atm, ρ_oce
+function update_ρ_parallel(ρ_A, ρ_O)
+    ρ_A = ρ_A[1:end-1] .* ρ_A[2:end]
+    ρ_O = ρ_O[1:end-1] .* ρ_O[2:end]
+    ρ_A[1:2:end] .= NaN
+    ρ_O[2:2:end] .= NaN
+    return ρ_A, ρ_O
 end

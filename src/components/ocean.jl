@@ -14,20 +14,20 @@ Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 function heat_oce_rhs!(dT, T, cache, t)
     if cache.boundary_mapping == "mean"
         F_sfc = (
-            cache.a_i *
+            cache.a_I *
             cache.C_IO *
             (parent(cache.T_ice)[1] - T[end]) +
-            (1 - cache.a_i) *
+            (1 - cache.a_I) *
             cache.C_AO *
             (parent(cache.T_air)[1] - T[end])
         )
     else
         index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_air)) .- t))
         F_sfc = (
-            cache.a_i *
+            cache.a_I *
             cache.C_IO *
             (parent(cache.T_ice)[1] - T[end]) +
-            (1 - cache.a_i) *
+            (1 - cache.a_I) *
             cache.C_AO *
             (parent(cache.T_air)[index] - T[end])
         )
@@ -43,7 +43,7 @@ function heat_oce_rhs!(dT, T, cache, t)
     ᶠgradᵥ = CC.Operators.GradientC2F()
     ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
-    @. dT.oce = ᶜdivᵥ(cache.k_oce * ᶠgradᵥ(T.oce)) / (cache.ρ_oce * cache.c_oce)
+    @. dT.oce = ᶜdivᵥ(cache.k_O * ᶠgradᵥ(T.oce)) / (cache.ρ_O * cache.c_O)
 end
 
 function ocean_init(stepping, ics, space, cache)
