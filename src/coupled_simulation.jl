@@ -6,26 +6,22 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
+function get_vertical_space(device, lower_boundary, upper_boundary, nelems)
+    domain = CC.Domains.IntervalDomain(
+        CC.Geometry.ZPoint{Float64}(lower_boundary),
+        CC.Geometry.ZPoint{Float64}(upper_boundary);
+        boundary_names=(:bottom, :top),
+    )
+    mesh = CC.Meshes.IntervalMesh(domain, nelems=nelems)
+    return CC.Spaces.CenterFiniteDifferenceSpace(device, mesh)
+end
 
 function get_coupled_sim(p::SimulationParameters)
     context = CC.ClimaComms.context()
     device = CC.ClimaComms.device(context)
 
-    domain_A = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(p.z_A0),
-        CC.Geometry.ZPoint{Float64}(p.h_A);
-        boundary_names=(:bottom, :top),
-    )
-    mesh_A = CC.Meshes.IntervalMesh(domain_A, nelems=p.n_A)
-    center_space_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_A)
-
-    domain_O = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(-p.h_O),
-        CC.Geometry.ZPoint{Float64}(-p.z_O0);
-        boundary_names=(:bottom, :top),
-    )
-    mesh_O = CC.Meshes.IntervalMesh(domain_O, nelems=p.n_O)
-    center_space_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_O)
+    center_space_atm = get_vertical_space(device, p.z_A0, p.h_A, p.n_A)
+    center_space_oce = get_vertical_space(device, -p.h_O, -p.z_O0, p.n_O)
 
     coord = CC.Geometry.ZPoint{Float64}(0.0)
     point_space_ice = CC.Spaces.PointSpace(context, coord)
