@@ -3,6 +3,8 @@ import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
 
+export HeatEquationOcean, heat_oce_rhs!, ocean_init, get_field, update_field!
+
 struct HeatEquationOcean{P,Y,D,I} <: Interfacer.OceanModelSimulation
     params::P
     Y_init::Y

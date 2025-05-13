@@ -2,6 +2,8 @@ import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
 
+export HeatEquationAtmos, heat_atm_rhs!, atmos_init, get_field, update_field!
+
 struct HeatEquationAtmos{P,Y,D,I} <: Interfacer.AtmosModelSimulation
     params::P
     Y_init::Y

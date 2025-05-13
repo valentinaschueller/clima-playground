@@ -1,3 +1,5 @@
+export compute_C_H_AI, compute_C_H_AO
+
 function Ψ_A_T(ζ)
     if ζ > 0
         a = 1.0

@@ -14,6 +14,8 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
+export coupled_heat_equations, solve_coupler!, run_simulation
+
 """
 When a file is saved, its always called the same thing. It has to be renamed for each iteration to not overwrite the old one.
 

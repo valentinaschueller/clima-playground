@@ -1,3 +1,5 @@
+export SimulationParameters, restore_physical_values!
+
 Base.@kwdef mutable struct SimulationParameters
     a_I::Float64 = 0.0
     ρ_A::Float64 = 1.225

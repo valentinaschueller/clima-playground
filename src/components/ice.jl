@@ -2,6 +2,8 @@ import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
 
+export SeaIce, thickness_rhs!, solve_surface_energy_balance, ice_init, get_field, update_field!
+
 struct SeaIce{P,Y,D,I} <: Interfacer.SeaIceModelSimulation
     params::P
     Y_init::Y

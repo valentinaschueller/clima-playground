@@ -6,6 +6,7 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
+export compute_ϱ_analytical, compute_ϱ_numerical, stability_check
 
 function compute_ϱ_analytical(p::SimulationParameters; s=nothing)
     if isnothing(s)

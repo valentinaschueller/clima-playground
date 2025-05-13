@@ -6,6 +6,8 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
+export get_vertical_space, get_coupled_sim
+
 function get_vertical_space(device, lower_boundary, upper_boundary, nelems)
     domain = CC.Domains.IntervalDomain(
         CC.Geometry.ZPoint{Float64}(lower_boundary),
