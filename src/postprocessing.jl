@@ -1,17 +1,4 @@
-export extract_matrix, is_stable, has_converged, extract_ρ, update_ρ_parallel, UnstableError
-
-"""
-Extracts an Array from an Array of FieldVectors.
-"""
-function extract_matrix(field_vecs)
-    matrix = []
-    for field_vec in field_vecs
-        field = field_vec.data
-        values = parent(field)
-        push!(matrix, values)
-    end
-    return hcat(matrix...)
-end
+export is_stable, has_converged, extract_ρ, update_ρ_parallel, UnstableError
 
 struct UnstableError <: Exception
 end
