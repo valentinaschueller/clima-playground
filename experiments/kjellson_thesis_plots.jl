@@ -1,6 +1,7 @@
 using clima_playground
 using Plots
 using LaTeXStrings
+import ClimaCoupler: Interfacer
 
 function plot_C_H_AO_dependence()
     params = SimulationParameters()
@@ -276,6 +277,34 @@ function plot_unstable_range(component; a_Is=[0.0])
         )
     end
     display(current())
+end
+
+
+function stability_check(p::SimulationParameters, n_zs, n_ts, var1, var2)
+    domain = var1 == :n_A ? "atm" : "oce"
+    unstable_matrix = zeros(length(n_ts), length(n_zs))
+
+    for (i, n_z) in enumerate(n_zs)
+        for (j, n_t) in enumerate(n_ts)
+            setproperty!(p, var1, n_z)
+            setproperty!(p, var2, n_t)
+
+            cs = get_coupled_sim(p)
+            sim = domain == "atm" ? cs.model_sims.atmos_sim : cs.model_sims.ocean_sim
+
+            try
+                Interfacer.step!(sim, p.Δt_cpl)
+                unstable_matrix[i, j] = NaN
+            catch err
+                if isa(err, UnstableError)
+                    unstable_matrix[i, j] = Inf
+                else
+                    rethrow()
+                end
+            end
+        end
+    end
+    return unstable_matrix
 end
 
 

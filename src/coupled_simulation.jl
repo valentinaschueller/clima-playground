@@ -18,6 +18,16 @@ function get_vertical_space(device, lower_boundary, upper_boundary, nelems)
     return CC.Spaces.CenterFiniteDifferenceSpace(device, mesh)
 end
 
+function initial_value_range(initial_value_fvs)
+    max_value = floatmin()
+    min_value = floatmax()
+    for fv in initial_value_fvs
+        min_value = min(min_value, minimum(fv.data))
+        max_value = max(max_value, maximum(fv.data))
+    end
+    return min_value, max_value
+end
+
 function get_coupled_sim(p::SimulationParameters)
     context = CC.ClimaComms.context()
     device = CC.ClimaComms.device(context)
@@ -51,6 +61,7 @@ function get_coupled_sim(p::SimulationParameters)
     T_atm_0 = CC.Fields.FieldVector(data=field_atm)
     T_oce_0 = CC.Fields.FieldVector(data=field_oce)
     T_ice_0 = CC.Fields.FieldVector(data=field_ice)
+    stable_range = initial_value_range([T_atm_0, T_oce_0, T_ice_0])
 
     if p.boundary_mapping == "cit"
         time_points = CC.Domains.IntervalDomain(
@@ -71,11 +82,11 @@ function get_coupled_sim(p::SimulationParameters)
     end
 
     parameter_dict = Dict(key => getfield(p, key) for key ∈ fieldnames(SimulationParameters))
-    atmos_cache = (; parameter_dict..., T_O=T_O, T_Is=T_ice_0)
-    ocean_cache = (; parameter_dict..., T_A=T_A)
+    atmos_cache = (; parameter_dict..., T_O=T_O, T_Is=T_ice_0, stable_range=stable_range)
+    ocean_cache = (; parameter_dict..., T_A=T_A, stable_range=stable_range)
     atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, atmos_cache)
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
-    ice_cache = (; parameter_dict..., T_A=T_A, T_O=T_O)
+    ice_cache = (; parameter_dict..., T_A=T_A, T_O=T_O, stable_range=stable_range)
     ice_sim = ice_init(stepping, T_ice_0, point_space_ice, ice_cache)
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))

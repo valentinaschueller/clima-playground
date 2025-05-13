@@ -67,8 +67,12 @@ end
 
 Checkpointer.get_model_prog_state(sim::HeatEquationAtmos) = sim.integrator.u
 
-Interfacer.step!(sim::HeatEquationAtmos, t) =
+function Interfacer.step!(sim::HeatEquationAtmos, t)
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
+    if !is_stable(sim.integrator.u, sim.params.stable_range)
+        throw(UnstableError())
+    end
+end
 
 Interfacer.reinit!(sim::HeatEquationAtmos) = Interfacer.reinit!(sim.integrator)
 

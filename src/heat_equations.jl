@@ -79,27 +79,25 @@ end
 
 
 function update_atmos_values!(cs, ice_T)
-    ocean_vals = extract_matrix(cs.model_sims.ocean_sim.integrator.sol.u)
-    bound_ocean_vals = ocean_vals[end, :]
+    bound_ocean_vals = vec([fieldvec[end] for fieldvec in cs.model_sims.ocean_sim.integrator.sol.u])
     if cs.model_sims.atmos_sim.params.boundary_mapping == "mean"
         ocean_T = mean(bound_ocean_vals)
         update_field!(cs.model_sims.atmos_sim, ocean_T, ice_T)
     else
         update_field!(cs.model_sims.atmos_sim, bound_ocean_vals, ice_T)
     end
-    return ocean_vals, bound_ocean_vals
+    return bound_ocean_vals
 end
 
 function update_ocean_values!(cs)
-    atmos_vals = extract_matrix(cs.model_sims.atmos_sim.integrator.sol.u)
-    bound_atmos_vals = atmos_vals[1, :]
+    bound_atmos_vals = vec([fieldvec[1] for fieldvec in cs.model_sims.atmos_sim.integrator.sol.u])
     if cs.model_sims.ocean_sim.params.boundary_mapping == "mean"
         atmos_T = mean(bound_atmos_vals)
         update_field!(cs.model_sims.ocean_sim, atmos_T)
     else
         update_field!(cs.model_sims.ocean_sim, bound_atmos_vals)
     end
-    return atmos_vals, bound_atmos_vals
+    return bound_atmos_vals
 end
 
 function set_time!(cs::Interfacer.CoupledSimulation, t)
@@ -112,18 +110,23 @@ function time_in_s(cs::Interfacer.CoupledSimulation)
     return Int((t - t0) / 1e3)
 end
 
-"""
-Runs the CoupledSimulation.
+function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::Float64, parallel::Bool)
+    ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
+    if parallel
+        FieldExchanger.step_model_sims!(cs.model_sims, t_end)
+        bound_atmos_vals = update_atmos_values!(cs, ice_T)
+        bound_ocean_vals = update_ocean_values!(cs)
+    else
+        Interfacer.step!(cs.model_sims.ice_sim, t_end)
+        Interfacer.step!(cs.model_sims.ocean_sim, t_end)
+        bound_ocean_vals = update_atmos_values!(cs, ice_T)
+        Interfacer.step!(cs.model_sims.atmos_sim, t_end)
+        bound_atmos_vals = update_ocean_values!(cs)
+    end
+    return bound_atmos_vals, bound_ocean_vals
+end
 
-**Arguments:**
 
--`cs::Interfacer.CoupledSimulation`: A coupled simulation with atmosphere, ice and ocean.
-
-**Optional Keyword Arguments:**
-
--`iterations::Int`: Number of iterations before the Schwarz iteration is terminated, default: `1`.
--`parallel::Boolean`: Whether to run the parallel or alternating Schwarz iteration, default: `false`.
-"""
 function solve_coupler!(
     cs::Interfacer.CoupledSimulation;
     iterations=1,
@@ -132,9 +135,6 @@ function solve_coupler!(
     (; Δt_cpl, tspan) = cs
 
     @info("Starting coupling loop")
-
-    # Extract the initial value range for stability check
-    lower_limit_temp, upper_limit_temp = initial_value_range(cs)
 
     ϱ_A = nothing
     ϱ_O = nothing
@@ -156,7 +156,7 @@ function solve_coupler!(
         bound_atmos_vals = nothing
         bound_ocean_vals = nothing
 
-        ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
+
 
         for iter = 1:iterations
             @info("Current iter: $(iter)")
@@ -169,26 +169,14 @@ function solve_coupler!(
             pre_bound_atmos_vals = bound_atmos_vals
             pre_bound_ocean_vals = bound_ocean_vals
 
-            if parallel
-                FieldExchanger.step_model_sims!(cs.model_sims, t + Δt_cpl)
-                atmos_vals, bound_atmos_vals = update_atmos_values!(cs, ice_T)
-                ocean_vals, bound_ocean_vals = update_ocean_values!(cs)
-            else
-                Interfacer.step!(cs.model_sims.ice_sim, t + Δt_cpl)
-                Interfacer.step!(cs.model_sims.ocean_sim, t + Δt_cpl)
-                ocean_vals, bound_ocean_vals = update_atmos_values!(cs, ice_T)
-
-                Interfacer.step!(cs.model_sims.atmos_sim, t + Δt_cpl)
-                atmos_vals, bound_atmos_vals = update_ocean_values!(cs)
-            end
-
-            atm_stable = is_stable(atmos_vals, upper_limit_temp, lower_limit_temp)
-            oce_stable = is_stable(ocean_vals, upper_limit_temp, lower_limit_temp)
-            if !(atm_stable && oce_stable)
-                @info("Unstable simulation!")
-                ϱ_A = atm_stable ? NaN : Inf
-                ϱ_O = oce_stable ? NaN : Inf
-                return ϱ_A, ϱ_O
+            try
+                bound_atmos_vals, bound_ocean_vals = advance_simulation!(cs, t + Δt_cpl, parallel)
+            catch err
+                if isa(err, UnstableError)
+                    @warn("Unstable simulation!")
+                    return NaN, NaN
+                end
+                rethrow()
             end
 
             push!(atmos_vals_list, bound_atmos_vals)

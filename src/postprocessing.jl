@@ -1,4 +1,4 @@
-export extract_matrix, initial_value_range, is_stable, has_converged, extract_ρ, update_ρ_parallel
+export extract_matrix, is_stable, has_converged, extract_ρ, update_ρ_parallel, UnstableError
 
 """
 Extracts an Array from an Array of FieldVectors.
@@ -13,31 +13,14 @@ function extract_matrix(field_vecs)
     return hcat(matrix...)
 end
 
-function initial_value_range(cs)
-    max_value = floatmin()
-    min_value = floatmax()
-    for model_sim in cs.model_sims
-        initial_values = parent(model_sim.Y_init)
-        min_value = min(min_value, minimum(initial_values))
-        max_value = max(max_value, maximum(initial_values))
-    end
-    return min_value, max_value
+struct UnstableError <: Exception
 end
 
-"""
-Checks if the computed temperatures are reasonable or if the model has gone unstable.
-
-**Arguments:**
-
--`values: Array`: Array of temperature values.
--`upper_limit: Float64`: Maximum reasonable temperature.
--`lower_limit: Float64`: Minimum reasonable temperature.
-"""
-function is_stable(values, upper_limit, lower_limit)
+function is_stable(values, value_range)
     if (
         any(isnan, values) ||
-        maximum(values) > upper_limit ||
-        minimum(values) < lower_limit
+        maximum(values) > maximum(value_range) ||
+        minimum(values) < minimum(value_range)
     )
         return false
     end
