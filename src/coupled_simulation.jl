@@ -55,29 +55,18 @@ function get_coupled_sim(p::SimulationParameters)
     T_ice_0 = CC.Fields.FieldVector(data=field_ice)
 
     if p.boundary_mapping == "cit"
-        time_points_oce_domain = CC.Domains.IntervalDomain(
+        time_points = CC.Domains.IntervalDomain(
             CC.Geometry.ZPoint{Float64}(stepping.timerange[1] - (stepping.Δt_min / 2)),
             CC.Geometry.ZPoint{Float64}(stepping.timerange[2] - (stepping.Δt_min / 2));
             boundary_names=(:start, :end),
         )
-        time_points_atm_domain = CC.Domains.IntervalDomain(
-            CC.Geometry.ZPoint{Float64}(stepping.timerange[1] - (stepping.Δt_min / 2)),
-            CC.Geometry.ZPoint{Float64}(stepping.timerange[2] - (stepping.Δt_min / 2));
-            boundary_names=(:start, :end),
-        )
-
-        mesh_time_oce = CC.Meshes.IntervalMesh(
-            time_points_oce_domain,
+        mesh_time = CC.Meshes.IntervalMesh(
+            time_points,
             nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1),
         )
-        mesh_time_atm = CC.Meshes.IntervalMesh(
-            time_points_atm_domain,
-            nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1),
-        )
-        space_time_oce = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_oce)
-        space_time_atm = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time_atm)
-        T_sfc = p.T_O_ini .* CC.Fields.ones(space_time_oce)
-        T_air = p.T_A_ini .* CC.Fields.ones(space_time_atm)
+        space_time = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time)
+        T_sfc = p.T_O_ini .* CC.Fields.ones(space_time)
+        T_air = p.T_A_ini .* CC.Fields.ones(space_time)
     else
         T_sfc = p.T_O_ini .* CC.Fields.ones(boundary_space)
         T_air = p.T_A_ini .* CC.Fields.ones(boundary_space)
