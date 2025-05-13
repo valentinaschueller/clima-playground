@@ -31,20 +31,18 @@ When a file is saved, its always called the same thing. It has to be renamed for
 function rename_files(cs::Interfacer.CoupledSimulation, iter, reverse=false)
     time = time_in_s(cs)
     for sim in cs.model_sims
-        if !(Interfacer.name(sim) == "SeaIce")
-            original_file = joinpath(
-                cs.dirs.checkpoints,
-                "checkpoint_" * Interfacer.name(sim) * "_$time.hdf5",
-            )
-            new_file = joinpath(
-                cs.dirs.checkpoints,
-                "checkpoint_" * Interfacer.name(sim) * "_$iter" * "_$time.hdf5",
-            )
-            if !reverse
-                mv(original_file, new_file, force=true)
-            else
-                mv(new_file, original_file, force=true)
-            end
+        original_file = joinpath(
+            cs.dirs.checkpoints,
+            "checkpoint_" * Interfacer.name(sim) * "_$time.hdf5",
+        )
+        new_file = joinpath(
+            cs.dirs.checkpoints,
+            "checkpoint_" * Interfacer.name(sim) * "_$iter" * "_$time.hdf5",
+        )
+        if !reverse
+            mv(original_file, new_file, force=true)
+        else
+            mv(new_file, original_file, force=true)
         end
     end
     pid = ClimaComms.mypid(cs.comms_ctx)

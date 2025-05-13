@@ -49,6 +49,8 @@ function ice_init(stepping, ics, space, cache)
     return sim
 end
 
+Checkpointer.get_model_prog_state(sim::SeaIce) = sim.integrator.u
+
 Interfacer.step!(sim::SeaIce, t) =
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
 
