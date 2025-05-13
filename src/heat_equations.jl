@@ -78,7 +78,7 @@ end
 
 function update_atmos_values!(cs, ice_T)
     ocean_states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
-    ocean_vals = extract_matrix(ocean_states, "oce")
+    ocean_vals = extract_matrix(ocean_states)
     bound_ocean_vals = ocean_vals[end, :]
     ocean_T = mean(bound_ocean_vals)
     if cs.model_sims.atmos_sim.params.boundary_mapping == "mean"
@@ -91,7 +91,7 @@ end
 
 function update_ocean_values!(cs)
     atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
-    atmos_vals = extract_matrix(atmos_states, "atm")
+    atmos_vals = extract_matrix(atmos_states)
     bound_atmos_vals = atmos_vals[1, :]
     if cs.model_sims.ocean_sim.params.boundary_mapping == "mean"
         atmos_T = mean(bound_atmos_vals)

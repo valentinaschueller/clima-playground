@@ -1,13 +1,7 @@
 """
 Extracts an Array from an Array of FieldVectors.
-
-**Arguments:**
-
--`field_vecs: Array`: An array of fieldvectors containing temperature values.
--`domain: String`: Either `"atm"` or `"oce"`.
-
 """
-function extract_matrix(field_vecs, domain)
+function extract_matrix(field_vecs)
     matrix = []
     for field_vec in field_vecs
         field = field_vec.data

@@ -99,7 +99,7 @@ function stability_check(p::SimulationParameters, n_zs, n_ts, var1, var2)
                 Interfacer.step!(cs.model_sims.ocean_sim, p.Δt_cpl)
                 states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
             end
-            vals = extract_matrix(states, domain)
+            vals = extract_matrix(states)
             if !is_stable(vals, upper_limit_temp, lower_limit_temp)
                 unstable_matrix[i, j] = Inf
             else
