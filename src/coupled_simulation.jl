@@ -6,14 +6,7 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
-"""
-Creates a CoupledSimulation.
 
-**Arguments:**
-
--`physical_values::Dict`: Can be defined using `define_realistic_vals()`. 
-
-"""
 function get_coupled_sim(p::SimulationParameters)
     context = CC.ClimaComms.context()
     device = CC.ClimaComms.device(context)
@@ -52,40 +45,14 @@ function get_coupled_sim(p::SimulationParameters)
         nsteps_oce=p.n_t_O,
         nsteps_ice=1,
     )
-    if p.sin_field_A
-        coord_field_atm = map(x -> x.z, CC.Fields.coordinate_field(center_space_atm))
-        field_atm =
-            p.T_A_ini .* (
-                1 .-
-                sin.(
-                    (coord_field_atm .- parent(coord_field_atm)[1]) ./
-                    (parent(coord_field_atm)[end] .- parent(coord_field_atm)[1]) .*
-                    (π / 50)
-                )
-            )
-    else
-        field_atm = CC.Fields.ones(Float64, center_space_atm) .* p.T_A_ini
-    end
 
-    if p.sin_field_O
-        coord_field_oce = map(x -> x.z, CC.Fields.coordinate_field(center_space_oce))
-        field_oce =
-            1 .+
-            sin.(
-                (coord_field_oce .- parent(coord_field_oce)[1]) ./
-                (parent(coord_field_oce)[end] .- parent(coord_field_oce)[1]) .* (π / 50)
-            )
-        field_oce = p.T_O_ini .* (field_oce .- (parent(field_oce)[end] - 1))
-
-    else
-        field_oce = CC.Fields.ones(Float64, center_space_oce) .* p.T_O_ini
-    end
+    field_atm = CC.Fields.ones(Float64, center_space_atm) .* p.T_A_ini
+    field_oce = CC.Fields.ones(Float64, center_space_oce) .* p.T_O_ini
+    field_ice = CC.Fields.ones(Float64, point_space_ice) .* p.T_I_ini
 
     T_atm_0 = CC.Fields.FieldVector(data=field_atm)
     T_oce_0 = CC.Fields.FieldVector(data=field_oce)
-    T_ice_0 = CC.Fields.FieldVector(
-        data=CC.Fields.ones(Float64, point_space_ice) .* p.T_I_ini,
-    )
+    T_ice_0 = CC.Fields.FieldVector(data=field_ice)
 
     if p.boundary_mapping == "cit"
         time_points_oce_domain = CC.Domains.IntervalDomain(
