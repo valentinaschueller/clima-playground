@@ -2,12 +2,22 @@ Base.@kwdef mutable struct SimulationParameters
     a_I::Float64 = 0.0
     ρ_A::Float64 = 1.225
     ρ_O = 1e3
+    ρ_I = 917.0
     c_A = 1005.0
     c_O = 4182.0
     ν_O = 1e-6
     ν_A = 1.5e-5
     k_A = 0.02364
     k_O = 0.58
+    k_I = 2.03
+    alb_I = 0.8
+    A = 309.8
+    B = 3.69
+    ϵ = 0.98
+    LW_in = 150.0
+    SW_in = 200.0
+    T_Ib = 273.15 - 1.8
+    L = 3e5
     C_H_IO = 5e-3
     C_H_AI = 1.4e-3
     C_H_AO = 1e-3
@@ -21,6 +31,7 @@ Base.@kwdef mutable struct SimulationParameters
     T_A_ini = 267.0
     T_O_ini = 271.0
     T_I_ini = 270.0
+    h_I_ini = 1.0
     t_max = 3600.0
     Δt_cpl = 100.0
     Δt_min = 1.0
@@ -34,6 +45,7 @@ Base.@kwdef mutable struct SimulationParameters
     C_AO::Float64 = ρ_A * c_A * C_H_AO * Δu_AO
     C_AI::Float64 = ρ_A * c_A * C_H_AI * Δu_AI
     C_IO::Float64 = ρ_O * c_O * C_H_IO * Δu_IO
+    ice_model_type = :constant
 end
 
 function restore_physical_values!(p::SimulationParameters)

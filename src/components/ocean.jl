@@ -16,20 +16,20 @@ function heat_oce_rhs!(dT, T, cache, t)
         F_sfc = (
             cache.a_I *
             cache.C_IO *
-            (parent(cache.T_ice)[1] - T[end]) +
+            (cache.T_Ib - T[end]) +
             (1 - cache.a_I) *
             cache.C_AO *
-            (parent(cache.T_air)[1] - T[end])
+            (parent(cache.T_A)[1] - T[end])
         )
     else
-        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_air)) .- t))
+        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_A)) .- t))
         F_sfc = (
             cache.a_I *
             cache.C_IO *
-            (parent(cache.T_ice)[1] - T[end]) +
+            (cache.T_Ib - T[end]) +
             (1 - cache.a_I) *
             cache.C_AO *
-            (parent(cache.T_air)[index] - T[end])
+            (parent(cache.T_A)[index] - T[end])
         )
     end
 
@@ -74,13 +74,11 @@ Interfacer.reinit!(sim::HeatEquationOcean) = Interfacer.reinit!(sim.integrator)
 
 get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc}) = sim.integrator.u[end]
 
-function update_field!(sim::HeatEquationOcean, field_1, field_2)
+function update_field!(sim::HeatEquationOcean, field_1)
     if sim.params.boundary_mapping == "mean"
-        parent(sim.integrator.p.T_air)[1] = field_1
-        parent(sim.integrator.p.T_ice)[1] = field_2
+        parent(sim.integrator.p.T_A)[1] = field_1
     else
-        parent(sim.integrator.p.T_air) .= field_1
-        parent(sim.integrator.p.T_ice)[1] = field_2
+        parent(sim.integrator.p.T_A) .= field_1
     end
 end
 

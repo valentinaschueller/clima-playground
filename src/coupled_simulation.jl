@@ -61,19 +61,19 @@ function get_coupled_sim(p::SimulationParameters)
             nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1),
         )
         space_time = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time)
-        T_sfc = p.T_O_ini .* CC.Fields.ones(space_time)
-        T_air = p.T_A_ini .* CC.Fields.ones(space_time)
+        T_O = p.T_O_ini .* CC.Fields.ones(space_time)
+        T_A = p.T_A_ini .* CC.Fields.ones(space_time)
     else
-        T_sfc = p.T_O_ini .* CC.Fields.ones(boundary_space)
-        T_air = p.T_A_ini .* CC.Fields.ones(boundary_space)
+        T_O = p.T_O_ini .* CC.Fields.ones(boundary_space)
+        T_A = p.T_A_ini .* CC.Fields.ones(boundary_space)
     end
 
     parameter_dict = Dict(key => getfield(p, key) for key ∈ fieldnames(SimulationParameters))
-    atmos_cache = (; parameter_dict..., T_sfc=T_sfc, T_ice=T_ice_0)
-    ocean_cache = (; parameter_dict..., T_air=T_air, T_ice=T_ice_0)
+    atmos_cache = (; parameter_dict..., T_O=T_O, T_Is=T_ice_0)
+    ocean_cache = (; parameter_dict..., T_A=T_A)
     atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, atmos_cache)
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
-    ice_cache = (; parameter_dict...)
+    ice_cache = (; parameter_dict..., T_A=T_A, T_O=T_O)
     ice_sim = ice_init(stepping, T_ice_0, point_space_ice, ice_cache)
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))

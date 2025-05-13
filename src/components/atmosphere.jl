@@ -16,20 +16,20 @@ function heat_atm_rhs!(dT, T, cache, t)
         F_sfc = (
             cache.a_I *
             cache.C_AI *
-            (T[1] - parent(cache.T_ice)[1]) +
+            (T[1] - parent(cache.T_Is)[1]) +
             (1 - cache.a_I) *
             cache.C_AO *
-            (T[1] - parent(cache.T_sfc)[1])
+            (T[1] - parent(cache.T_O)[1])
         )
     else
-        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_sfc)) .- t))
+        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_O)) .- t))
         F_sfc = (
             cache.a_I *
             cache.C_AI *
-            (T[1] - parent(cache.T_ice)[1]) +
+            (T[1] - parent(cache.T_Is)[1]) +
             (1 - cache.a_I) *
             cache.C_AO *
-            (T[1] - parent(cache.T_sfc)[index])
+            (T[1] - parent(cache.T_O)[index])
         )
     end
     # set boundary conditions
@@ -74,11 +74,11 @@ get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc}) = sim.integrator.u[1]
 
 function update_field!(sim::HeatEquationAtmos, field_1, field_2)
     if sim.params.boundary_mapping == "mean"
-        parent(sim.integrator.p.T_sfc)[1] = field_1
-        parent(sim.integrator.p.T_ice)[1] = field_2
+        parent(sim.integrator.p.T_O)[1] = field_1
+        parent(sim.integrator.p.T_Is)[1] = field_2
     else
-        parent(sim.integrator.p.T_sfc) .= field_1
-        parent(sim.integrator.p.T_ice)[1] = field_2
+        parent(sim.integrator.p.T_O) .= field_1
+        parent(sim.integrator.p.T_Is)[1] = field_2
     end
 end
 

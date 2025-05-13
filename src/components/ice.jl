@@ -11,39 +11,32 @@ end
 
 Interfacer.name(::SeaIce) = "SeaIce"
 
-function heat_ice_rhs!(dT, T, cache, t)
-    # note: here we can add an update for the sea ice
-    dT.data = 0
+function thickness_rhs!(dh, h, cache, t)
+    if cache.ice_model_type != :thickness_feedback
+        dh.data = 0.0
+        return
+    end
+    T_Is = solve_surface_energy_balance(cache)
+    @info T_Is
+    conduction = cache.k_I / h.data * (T_Is - cache.T_Ib)
+    bottom_melt = cache.C_IO * (cache.T_Ib - cache.T_O)
+    dh.data = (bottom_melt - conduction) / (cache.ρ_I * cache.L)
 end
 
 function solve_surface_energy_balance(c)
-    k_I = 2.03
-    α_I = 0.8
-    h_I = 1.0
-    A = 309.8
-    B = 3.69
-    ϵ = 0.98
-    LW_in = 150.0
-    SW_in = 200.0
-    T_Ib = -1.8
-    shortwave = (1 - α_I) * SW_in
-    longwave = ϵ * (LW_in - A)
-    sensible_sfc = c.C_AI * (c.T_A - 273.15)
-    conduction = (k_I / h_I) * T_Ib
-    T_sfc = (conduction + shortwave + longwave + sensible_sfc) / (k_I / h_I + ϵ * B + c.C_AI)
-    return min(T_sfc + 273.15, 273.15)
-end
-
-function ice_temperature_feedback!(dt, T, cache, t)
-    T_new = solve_surface_energy_balance(cache)
-    dT.data = (T_new - T.data) / dt
+    shortwave = (1 - c.alb_I) * c.SW_in
+    longwave = c.ϵ * (c.LW_in - c.A)
+    sensible_sfc = c.C_AI .* (c.T_A .- 273.15)
+    conduction = (c.k_I / c.h_I_ini) * (c.T_Ib - 273.15)
+    T_Is = (conduction + shortwave + longwave .+ sensible_sfc) ./ (c.k_I / c.h_I_ini + c.ϵ * c.B + c.C_AI)
+    return min.(T_Is .+ 273.15, 273.15)
 end
 
 function ice_init(stepping, ics, space, cache)
     Δt = Float64(stepping.Δt_min) / stepping.nsteps_ice
     saveat = stepping.timerange[1]:stepping.Δt_min:stepping.timerange[end]
 
-    ode_function = CTS.ClimaODEFunction((T_exp!)=heat_ice_rhs!)
+    ode_function = CTS.ClimaODEFunction((T_exp!)=thickness_rhs!)
     problem = SciMLBase.ODEProblem(ode_function, ics, stepping.timerange, cache)
     integrator = SciMLBase.init(
         problem,
@@ -61,8 +54,14 @@ Interfacer.step!(sim::SeaIce, t) =
 
 Interfacer.reinit!(sim::SeaIce) = Interfacer.reinit!(sim.integrator)
 
-get_field(sim::SeaIce, ::Val{:T_ice}) = sim.integrator.u[1]
+function get_field(sim::SeaIce, ::Val{:T_ice})
+    if sim.integrator.p.ice_model_type == :constant
+        return sim.integrator.p.T_I_ini
+    end
+    return solve_surface_energy_balance(sim.integrator.p)
+end
 
-function update_field!(sim::SeaIce, field)
-    parent(sim.integrator.p.T_A)[1] = field
+function update_field!(sim::SeaIce, T_A, T_O)
+    parent(sim.integrator.p.T_A)[1] = T_A
+    parent(sim.integrator.p.T_O)[1] = T_O
 end

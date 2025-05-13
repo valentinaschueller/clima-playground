@@ -91,15 +91,15 @@ function update_atmos_values!(cs, ice_T)
     return ocean_vals, bound_ocean_vals
 end
 
-function update_ocean_values!(cs, ice_T)
+function update_ocean_values!(cs)
     atmos_states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
     atmos_vals = extract_matrix(atmos_states, "atm")
     bound_atmos_vals = atmos_vals[1, :]
     if cs.model_sims.ocean_sim.params.boundary_mapping == "mean"
         atmos_T = mean(bound_atmos_vals)
-        update_field!(cs.model_sims.ocean_sim, atmos_T, ice_T)
+        update_field!(cs.model_sims.ocean_sim, atmos_T)
     else
-        update_field!(cs.model_sims.ocean_sim, bound_atmos_vals, ice_T)
+        update_field!(cs.model_sims.ocean_sim, bound_atmos_vals)
     end
     return atmos_vals, bound_atmos_vals
 end
@@ -174,14 +174,14 @@ function solve_coupler!(
             if parallel
                 FieldExchanger.step_model_sims!(cs.model_sims, t + Δt_cpl)
                 atmos_vals, bound_atmos_vals = update_atmos_values!(cs, ice_T)
-                ocean_vals, bound_ocean_vals = update_ocean_values!(cs, ice_T)
+                ocean_vals, bound_ocean_vals = update_ocean_values!(cs)
             else
                 Interfacer.step!(cs.model_sims.ice_sim, t + Δt_cpl)
                 Interfacer.step!(cs.model_sims.ocean_sim, t + Δt_cpl)
                 ocean_vals, bound_ocean_vals = update_atmos_values!(cs, ice_T)
 
                 Interfacer.step!(cs.model_sims.atmos_sim, t + Δt_cpl)
-                atmos_vals, bound_atmos_vals = update_ocean_values!(cs, ice_T)
+                atmos_vals, bound_atmos_vals = update_ocean_values!(cs)
             end
 
             atm_stable = is_stable(atmos_vals, upper_limit_temp, lower_limit_temp)
