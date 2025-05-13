@@ -211,7 +211,7 @@ function plot_Δz_Δt(
 end
 
 function plot_unstable_range(component; a_Is=[0.0])
-    p = SimulationParameters(Δt_min=100)
+    p = SimulationParameters(Δt_min=100, T_Ib=270.0)
 
     Δz = 10 .^ LinRange(log10(0.001), log10(1), 50)
     Δt = 10 .^ LinRange(log10(1), log10(100), 50)
@@ -302,7 +302,7 @@ function plot_ϱ_over_var(var_name; iterations=10, kwargs...)
     )
     var = variable_dict[var_name][1]
     par_name = variable_dict[var_name][2]
-    physical_values = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=0.0)
+    physical_values = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=0.0, T_Ib=270.0)
     ϱs_atm, ϱs_oce, param_analytic, ϱs_analytic =
         get_ϱs_one_variable(
             physical_values,
