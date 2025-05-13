@@ -79,13 +79,13 @@ end
 
 Interfacer.reinit!(sim::HeatEquationOcean) = Interfacer.reinit!(sim.integrator)
 
-get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc}) = sim.integrator.u[end]
-
-function update_field!(sim::HeatEquationOcean, field_1)
-    if sim.params.boundary_mapping == "mean"
-        parent(sim.integrator.p.T_A)[1] = field_1
-    else
-        parent(sim.integrator.p.T_A) .= field_1
-    end
+function get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc})
+    return vec([fieldvec[end] for fieldvec in sim.integrator.sol.u])
 end
 
+function update_field!(sim::HeatEquationOcean, T_A)
+    if sim.params.boundary_mapping == "mean"
+        T_A = vec([mean(T_A)])
+    end
+    parent(sim.integrator.p.T_A) .= T_A
+end

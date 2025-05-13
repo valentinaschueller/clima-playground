@@ -76,20 +76,14 @@ end
 
 Interfacer.reinit!(sim::HeatEquationAtmos) = Interfacer.reinit!(sim.integrator)
 
-get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc}) = sim.integrator.u[1]
-
-function update_field!(sim::HeatEquationAtmos, field_1, field_2)
-    if sim.params.boundary_mapping == "mean"
-        parent(sim.integrator.p.T_O)[1] = field_1
-        parent(sim.integrator.p.T_Is)[1] = field_2
-    else
-        parent(sim.integrator.p.T_O) .= field_1
-        parent(sim.integrator.p.T_Is)[1] = field_2
-    end
+function get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc})
+    return vec([fieldvec[1] for fieldvec in sim.integrator.sol.u])
 end
 
-
-
-
-
-
+function update_field!(sim::HeatEquationAtmos, T_O, T_Is)
+    if sim.params.boundary_mapping == "mean"
+        T_O = vec([mean(T_O)])
+    end
+    parent(sim.integrator.p.T_O) .= T_O
+    parent(sim.integrator.p.T_Is)[1] = T_Is
+end

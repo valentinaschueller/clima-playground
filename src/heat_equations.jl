@@ -78,25 +78,16 @@ function restart_sims!(cs::Interfacer.CoupledSimulation)
 end
 
 
-function update_atmos_values!(cs, ice_T)
-    bound_ocean_vals = vec([fieldvec[end] for fieldvec in cs.model_sims.ocean_sim.integrator.sol.u])
-    if cs.model_sims.atmos_sim.params.boundary_mapping == "mean"
-        ocean_T = mean(bound_ocean_vals)
-        update_field!(cs.model_sims.atmos_sim, ocean_T, ice_T)
-    else
-        update_field!(cs.model_sims.atmos_sim, bound_ocean_vals, ice_T)
-    end
+function update_atmos_values!(cs)
+    bound_ocean_vals = get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
+    ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
+    update_field!(cs.model_sims.atmos_sim, bound_ocean_vals, ice_T)
     return bound_ocean_vals
 end
 
 function update_ocean_values!(cs)
-    bound_atmos_vals = vec([fieldvec[1] for fieldvec in cs.model_sims.atmos_sim.integrator.sol.u])
-    if cs.model_sims.ocean_sim.params.boundary_mapping == "mean"
-        atmos_T = mean(bound_atmos_vals)
-        update_field!(cs.model_sims.ocean_sim, atmos_T)
-    else
-        update_field!(cs.model_sims.ocean_sim, bound_atmos_vals)
-    end
+    bound_atmos_vals = get_field(cs.model_sims.atmos_sim, Val(:T_atm_sfc))
+    update_field!(cs.model_sims.ocean_sim, bound_atmos_vals)
     return bound_atmos_vals
 end
 
@@ -111,15 +102,14 @@ function time_in_s(cs::Interfacer.CoupledSimulation)
 end
 
 function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::Float64, parallel::Bool)
-    ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
     if parallel
         FieldExchanger.step_model_sims!(cs.model_sims, t_end)
-        bound_atmos_vals = update_atmos_values!(cs, ice_T)
+        bound_atmos_vals = update_atmos_values!(cs)
         bound_ocean_vals = update_ocean_values!(cs)
     else
         Interfacer.step!(cs.model_sims.ice_sim, t_end)
         Interfacer.step!(cs.model_sims.ocean_sim, t_end)
-        bound_ocean_vals = update_atmos_values!(cs, ice_T)
+        bound_ocean_vals = update_atmos_values!(cs)
         Interfacer.step!(cs.model_sims.atmos_sim, t_end)
         bound_atmos_vals = update_ocean_values!(cs)
     end
