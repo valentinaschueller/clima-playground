@@ -64,6 +64,10 @@ function get_field(sim::SeaIce, ::Val{:T_ice})
     return vec(solve_surface_energy_balance(sim.integrator.p))
 end
 
+function get_field(sim::SeaIce, ::Val{:h_I})
+    return vec([fieldvec[end] for fieldvec in sim.integrator.sol.u])
+end
+
 function update_field!(sim::SeaIce, T_A, T_O)
     parent(sim.integrator.p.T_A) .= T_A
     parent(sim.integrator.p.T_O) .= T_O
