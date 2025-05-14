@@ -19,7 +19,7 @@ function thickness_rhs!(dh, h, cache, t)
         return
     end
     T_Is = solve_surface_energy_balance(cache)
-    conduction = cache.k_I ./ h.data .* (T_Is .- cache.T_Ib)
+    conduction = cache.k_I ./ cache.h_I_ini .* (T_Is .- cache.T_Ib)
     bottom_melt = cache.C_IO .* (cache.T_Ib .- cache.T_O)
     dh.data = (bottom_melt .- conduction) ./ (cache.ρ_I * cache.L)
 end
