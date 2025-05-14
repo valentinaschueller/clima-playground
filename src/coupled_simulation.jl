@@ -57,10 +57,12 @@ function get_coupled_sim(p::SimulationParameters)
     field_atm = CC.Fields.ones(Float64, center_space_atm) .* p.T_A_ini
     field_oce = CC.Fields.ones(Float64, center_space_oce) .* p.T_O_ini
     field_ice = CC.Fields.ones(Float64, point_space_ice) .* p.T_I_ini
+    field_h_I = CC.Fields.ones(Float64, point_space_ice) .* p.h_I_ini
 
     T_atm_0 = CC.Fields.FieldVector(data=field_atm)
     T_oce_0 = CC.Fields.FieldVector(data=field_oce)
     T_ice_0 = CC.Fields.FieldVector(data=field_ice)
+    h_ice_0 = CC.Fields.FieldVector(data=field_h_I)
     stable_range = initial_value_range([T_atm_0, T_oce_0, T_ice_0])
 
     if p.boundary_mapping == "cit"
@@ -89,7 +91,7 @@ function get_coupled_sim(p::SimulationParameters)
     atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, atmos_cache)
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
     ice_cache = (; parameter_dict..., T_A=T_A, T_O=T_O, stable_range=stable_range)
-    ice_sim = ice_init(stepping, T_ice_0, point_space_ice, ice_cache)
+    ice_sim = ice_init(stepping, h_ice_0, point_space_ice, ice_cache)
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
     output_dir = "output"
