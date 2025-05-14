@@ -28,7 +28,7 @@ function heat_atm_rhs!(dT, T, cache, t)
         F_sfc = (
             cache.a_I *
             cache.C_AI *
-            (T[1] - parent(cache.T_Is)[1]) +
+            (T[1] - parent(cache.T_Is)[index]) +
             (1 - cache.a_I) *
             cache.C_AO *
             (T[1] - parent(cache.T_O)[index])
@@ -83,7 +83,8 @@ end
 function update_field!(sim::HeatEquationAtmos, T_O, T_Is)
     if sim.params.boundary_mapping == "mean"
         T_O = vec([mean(T_O)])
+        T_Is = vec([mean(T_Is)])
     end
     parent(sim.integrator.p.T_O) .= T_O
-    parent(sim.integrator.p.T_Is)[1] = T_Is
+    parent(sim.integrator.p.T_Is) .= T_Is
 end

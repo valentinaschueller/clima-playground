@@ -74,15 +74,17 @@ function get_coupled_sim(p::SimulationParameters)
             nelems=Int(stepping.timerange[2] / stepping.Δt_min + 1),
         )
         space_time = CC.Spaces.CenterFiniteDifferenceSpace(device, mesh_time)
-        T_O = p.T_O_ini .* CC.Fields.ones(space_time)
-        T_A = p.T_A_ini .* CC.Fields.ones(space_time)
+        T_O = T_oce_0[end] .* CC.Fields.ones(space_time)
+        T_A = T_atm_0[1] .* CC.Fields.ones(space_time)
+        T_Is = T_ice_0[1] .* CC.Fields.ones(space_time)
     else
-        T_O = p.T_O_ini .* CC.Fields.ones(boundary_space)
-        T_A = p.T_A_ini .* CC.Fields.ones(boundary_space)
+        T_O = T_oce_0[end] .* CC.Fields.ones(boundary_space)
+        T_A = T_atm_0[1] .* CC.Fields.ones(boundary_space)
+        T_Is = T_ice_0[1] .* CC.Fields.ones(point_space_ice)
     end
 
     parameter_dict = Dict(key => getfield(p, key) for key ∈ fieldnames(SimulationParameters))
-    atmos_cache = (; parameter_dict..., T_O=T_O, T_Is=T_ice_0, stable_range=stable_range)
+    atmos_cache = (; parameter_dict..., T_O=T_O, T_Is=T_Is, stable_range=stable_range)
     ocean_cache = (; parameter_dict..., T_A=T_A, stable_range=stable_range)
     atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, atmos_cache)
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)

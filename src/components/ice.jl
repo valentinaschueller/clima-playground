@@ -19,10 +19,9 @@ function thickness_rhs!(dh, h, cache, t)
         return
     end
     T_Is = solve_surface_energy_balance(cache)
-    @info T_Is
-    conduction = cache.k_I / h.data * (T_Is - cache.T_Ib)
-    bottom_melt = cache.C_IO * (cache.T_Ib - cache.T_O)
-    dh.data = (bottom_melt - conduction) / (cache.ρ_I * cache.L)
+    conduction = cache.k_I ./ h.data .* (T_Is .- cache.T_Ib)
+    bottom_melt = cache.C_IO .* (cache.T_Ib .- cache.T_O)
+    dh.data = (bottom_melt .- conduction) ./ (cache.ρ_I * cache.L)
 end
 
 function solve_surface_energy_balance(c)
@@ -62,10 +61,10 @@ function get_field(sim::SeaIce, ::Val{:T_ice})
     if sim.integrator.p.ice_model_type == :constant
         return sim.integrator.p.T_I_ini
     end
-    return solve_surface_energy_balance(sim.integrator.p)
+    return vec(solve_surface_energy_balance(sim.integrator.p))
 end
 
 function update_field!(sim::SeaIce, T_A, T_O)
-    parent(sim.integrator.p.T_A)[1] = T_A
-    parent(sim.integrator.p.T_O)[1] = T_O
+    parent(sim.integrator.p.T_A) .= T_A
+    parent(sim.integrator.p.T_O) .= T_O
 end
