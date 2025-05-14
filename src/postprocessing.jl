@@ -39,9 +39,7 @@ function has_converged(
     bound_errors_oce_iter = abs.(bound_ocean_vals .- pre_bound_ocean_vals)
     tols_atm = 100 * eps.(max.(abs.(bound_atmos_vals), abs.(pre_bound_atmos_vals)))
     tols_oce = 100 * eps.(max.(abs.(bound_ocean_vals), abs.(pre_bound_ocean_vals)))
-    if all(bound_errors_atm_iter .< tols_atm)
-        return true
-    elseif all(bound_errors_oce_iter .< tols_oce)
+    if all(bound_errors_atm_iter .< tols_atm) && all(bound_errors_oce_iter .< tols_oce)
         return true
     else
         return false
