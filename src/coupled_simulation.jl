@@ -51,7 +51,7 @@ function get_coupled_sim(p::SimulationParameters)
         odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
         nsteps_atm=p.n_t_A,
         nsteps_oce=p.n_t_O,
-        nsteps_ice=1,
+        nsteps_ice=p.n_t_I,
     )
 
     field_atm = CC.Fields.ones(Float64, center_space_atm) .* p.T_A_ini

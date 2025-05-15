@@ -39,6 +39,7 @@ Base.@kwdef mutable struct SimulationParameters
     Δt_min = 1.0
     n_t_A = 50
     n_t_O = 1
+    n_t_I = 1
     n_A = 200
     n_O = 50
     boundary_mapping = "mean"
