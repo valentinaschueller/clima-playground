@@ -18,18 +18,31 @@ function thickness_rhs!(dh, h, cache, t)
         dh.data = 0.0
         return
     end
-    T_Is = solve_surface_energy_balance(cache)
-    conduction = cache.k_I ./ cache.h_I_ini .* (T_Is .- cache.T_Ib)
-    bottom_melt = cache.C_IO .* (cache.T_Ib .- cache.T_O)
-    dh.data = (bottom_melt .- conduction) ./ (cache.ρ_I * cache.L)
+    if cache.boundary_mapping == "cit"
+        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_A)) .- t))
+        T_O = parent(cache.T_O)[index]
+    else
+        T_O = vec(cache.T_O)
+        index = nothing
+    end
+    T_Is = solve_surface_energy_balance(cache; h_I=vec(h.data), index=index)
+    conduction = cache.k_I ./ h .* (T_Is .- cache.T_Ib)
+    bottom_melt = cache.C_IO .* (cache.T_Ib .- T_O)
+    @. dh = (bottom_melt - conduction) / (cache.ρ_I * cache.L)
 end
 
-function solve_surface_energy_balance(c)
+function solve_surface_energy_balance(c; h_I=nothing, index=nothing)
+    if isnothing(index)
+        T_A = vec(c.T_A)
+    else
+        T_A = parent(c.T_A)[index]
+    end
+    T_Is = zeros(size(h_I))
     shortwave = (1 - c.alb_I) * c.SW_in
     longwave = c.ϵ * (c.LW_in - c.A)
-    sensible_sfc = c.C_AI .* (c.T_A .- 273.15)
-    conduction = (c.k_I / c.h_I_ini) * (c.T_Ib - 273.15)
-    T_Is = (conduction + shortwave + longwave .+ sensible_sfc) ./ (c.k_I / c.h_I_ini + c.ϵ * c.B + c.C_AI)
+    sensible_sfc = c.C_AI .* (T_A .- 273.15)
+    conduction = (c.k_I ./ h_I) .* (c.T_Ib .- 273.15)
+    @. T_Is = (conduction + shortwave + longwave + sensible_sfc) / (c.k_I / h_I + c.ϵ * c.B + c.C_AI)
     return min.(T_Is .+ 273.15, 273.15)
 end
 
@@ -58,10 +71,11 @@ Interfacer.step!(sim::SeaIce, t) =
 Interfacer.reinit!(sim::SeaIce) = Interfacer.reinit!(sim.integrator)
 
 function get_field(sim::SeaIce, ::Val{:T_ice})
+    h_I = get_field(sim, Val(:h_I))
     if sim.integrator.p.ice_model_type == :constant
-        return sim.integrator.p.T_I_ini
+        return sim.integrator.p.T_I_ini .* ones(size(h_I))
     end
-    return vec(solve_surface_energy_balance(sim.integrator.p))
+    return vec(solve_surface_energy_balance(sim.integrator.p; h_I=h_I))
 end
 
 function get_field(sim::SeaIce, ::Val{:h_I})
