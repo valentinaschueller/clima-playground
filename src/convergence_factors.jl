@@ -6,7 +6,7 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
-export compute_ϱ_analytical, compute_ϱ_numerical
+export compute_ϱ_analytical, compute_ϱ_numerical, compute_ϱ_ice
 
 function compute_ϱ_analytical(p::SimulationParameters; s=nothing)
     if isnothing(s)
@@ -32,6 +32,16 @@ function compute_ϱ_analytical(p::SimulationParameters; s=nothing)
     return ϱ
 end
 
+function compute_ϱ_ice(p::SimulationParameters; s=nothing)
+    if isnothing(s)
+        s = im * π / p.t_max
+    end
+    factor = p.C_AI / ((p.k_I / p.h_I_ini) + p.ϵ * p.B + p.C_AI)
+    ξ_A = (p.h_A - p.z_A0) / sqrt(p.α_A)
+    ν_AI = p.k_A / (p.C_AI * sqrt(p.α_A))
+    ϱ = factor * abs(1 / (1 - ν_AI * sqrt(s) * tanh(ξ_A * sqrt(s))))
+    return ϱ
+end
 
 function compute_ϱ_numerical(atmos_vals_list, ocean_vals_list)
     ϱ_A = []
