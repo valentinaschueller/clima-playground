@@ -30,3 +30,4 @@ ClimaCore
 *.jld2
 
 output/
+plots/
