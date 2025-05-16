@@ -32,6 +32,9 @@ function thickness_rhs!(dh, h, cache, t)
 end
 
 function solve_surface_energy_balance(c; h_I=nothing, index=nothing)
+    if isnothing(h_I)
+        h_I = vec([c.h_I_ini])
+    end
     if isnothing(index)
         T_A = vec(c.T_A)
     else
@@ -65,8 +68,10 @@ end
 
 Checkpointer.get_model_prog_state(sim::SeaIce) = sim.integrator.u
 
-Interfacer.step!(sim::SeaIce, t) =
+function Interfacer.step!(sim::SeaIce, t)
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
+    check_stability(get_field(sim, Val(:T_ice)), sim.params.stable_range)
+end
 
 Interfacer.reinit!(sim::SeaIce) = Interfacer.reinit!(sim.integrator)
 

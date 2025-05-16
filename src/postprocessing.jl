@@ -1,17 +1,20 @@
-export is_stable, has_converged, extract_ρ, update_ρ_parallel, UnstableError
+export check_stability, has_converged, extract_ρ, update_ρ_parallel, UnstableError
 
 struct UnstableError <: Exception
 end
 
-function is_stable(values, value_range)
-    if (
-        any(isnan, values) ||
-        maximum(values) > maximum(value_range) ||
-        minimum(values) < minimum(value_range)
-    )
-        return false
+function check_stability(values, value_range=nothing)
+    if any(isnan, values)
+        throw(UnstableError())
     end
-    return true
+    if !isnothing(value_range)
+        if (
+            maximum(values) > maximum(value_range) ||
+            minimum(values) < minimum(value_range)
+        )
+            throw(UnstableError())
+        end
+    end
 end
 
 """
