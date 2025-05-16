@@ -41,26 +41,38 @@ function plot_ice_thickness_convergence(; iterations=10, kwargs...)
     )
 
     h_Is = Base.logrange(1e-4, 1e3, length=100)
-    ρ_theory = zeros(length(h_Is))
+    ϱ_theory = zeros(length(h_Is))
     for (k, h_I) in enumerate(h_Is)
         setproperty!(p, :h_I_ini, h_I)
-        ρ_theory[k] = compute_ϱ_ice(p)
+        ϱ_theory[k] = compute_ϱ_ice(p)
     end
 
     plot!(
         h_Is,
-        ρ_theory;
+        ϱ_theory;
         label=L"$ϱ_\mathrm{ana}$",
         color=:black,
         linewidth=2,
         kwargs...
     )
+    display(current())
     savefig("plots/ice_thickness_convergence.pdf")
+end
+
+function ϱ_mixed(p::SimulationParameters)
+    if p.ice_model_type == :constant
+        ϱ_AI = 0.0
+    else
+        ϱ_AI = compute_ϱ_ice(p)
+    end
+    ϱ_AO = compute_ϱ_analytical(p)
+    ϱ_mixed = p.a_I * ϱ_AI + (1 - p.a_I) * ϱ_AO
+    return ϱ_mixed
 end
 
 function plot_a_I_dependence(; iterations=10, kwargs...)
     p = SimulationParameters(t_max=1000, Δt_cpl=1000, a_I=1.0, ice_model_type=:temp_feedback, C_H_IO=7.5e-3)
-    a_Is = range(0, 1, 30)
+    a_Is = range(0, 1, 20)
     ϱs_atm = zeros(length(a_Is))
     for (k, a_I) in enumerate(a_Is)
         setproperty!(p, :a_I, a_I)
@@ -85,12 +97,28 @@ function plot_a_I_dependence(; iterations=10, kwargs...)
         legend=:right,
         kwargs...
     )
+
+    a_Is = range(0, 1, 100)
+    ϱ_theory = zeros(length(a_Is))
+    for (k, a_I) in enumerate(a_Is)
+        setproperty!(p, :a_I, a_I)
+        ϱ_theory[k] = ϱ_mixed(p)
+    end
+    plot!(
+        a_Is,
+        ϱ_theory;
+        label=L"$ϱ_\mathrm{ana}$",
+        color=:black,
+        linewidth=2,
+        kwargs...
+    )
+    display(current())
     savefig("plots/ice_a_i_dependence.pdf")
 end
 
 
-function plot_ice_Δt_cpl_convergence(; iterations=10, kwargs...)
-    p = SimulationParameters(a_I=1.0, ice_model_type=:temp_feedback)
+function plot_ice_Δt_cpl_convergence(; iterations=10, ice_model_type=:temp_feedback, kwargs...)
+    p = SimulationParameters(a_I=1.0, ice_model_type=ice_model_type)
     Δt_cpls = Base.logrange(1e1, 1e5, length=5)
     ϱs_atm = zeros(length(Δt_cpls))
     for (k, Δt_cpl) in enumerate(Δt_cpls)
@@ -132,5 +160,6 @@ function plot_ice_Δt_cpl_convergence(; iterations=10, kwargs...)
         linewidth=2,
         kwargs...
     )
+    display(current())
     savefig("plots/ice_Δt_cpl_convergence.pdf")
 end
