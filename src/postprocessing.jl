@@ -1,51 +1,20 @@
-"""
-Extracts an Array from an Array of FieldVectors.
+export check_stability, has_converged, extract_ρ, update_ρ_parallel, UnstableError
 
-**Arguments:**
-
--`field_vecs: Array`: An array of fieldvectors containing temperature values.
--`domain: String`: Either `"atm"` or `"oce"`.
-
-"""
-function extract_matrix(field_vecs, domain)
-    matrix = []
-    for field_vec in field_vecs
-        field = field_vec.data
-        values = parent(field)
-        push!(matrix, values)
-    end
-    return hcat(matrix...)
+struct UnstableError <: Exception
 end
 
-function initial_value_range(cs)
-    max_value = floatmin()
-    min_value = floatmax()
-    for model_sim in cs.model_sims
-        initial_values = parent(model_sim.Y_init)
-        min_value = min(min_value, minimum(initial_values))
-        max_value = max(max_value, maximum(initial_values))
+function check_stability(values, value_range=nothing)
+    if any(isnan, values)
+        throw(UnstableError())
     end
-    return min_value, max_value
-end
-
-"""
-Checks if the computed temperatures are reasonable or if the model has gone unstable.
-
-**Arguments:**
-
--`values: Array`: Array of temperature values.
--`upper_limit: Float64`: Maximum reasonable temperature.
--`lower_limit: Float64`: Minimum reasonable temperature.
-"""
-function is_stable(values, upper_limit, lower_limit)
-    if (
-        any(isnan, values) ||
-        maximum(values) > upper_limit ||
-        minimum(values) < lower_limit
-    )
-        return false
+    if !isnothing(value_range)
+        if (
+            maximum(values) > maximum(value_range) ||
+            minimum(values) < minimum(value_range)
+        )
+            throw(UnstableError())
+        end
     end
-    return true
 end
 
 """
@@ -73,9 +42,7 @@ function has_converged(
     bound_errors_oce_iter = abs.(bound_ocean_vals .- pre_bound_ocean_vals)
     tols_atm = 100 * eps.(max.(abs.(bound_atmos_vals), abs.(pre_bound_atmos_vals)))
     tols_oce = 100 * eps.(max.(abs.(bound_ocean_vals), abs.(pre_bound_ocean_vals)))
-    if all(bound_errors_atm_iter .< tols_atm)
-        return true
-    elseif all(bound_errors_oce_iter .< tols_oce)
+    if all(bound_errors_atm_iter .< tols_atm) && all(bound_errors_oce_iter .< tols_oce)
         return true
     else
         return false

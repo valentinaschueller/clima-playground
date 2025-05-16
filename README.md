@@ -27,3 +27,5 @@ coupled_heat_equations(iterations=10, parallel=true)
 
 The directory `experiments` contains scripts for plotting analytical and numerical results with this code.
 - `kjellson_thesis_plots.jl` creates plots resembling figures from Hanna Kjellson's MSc thesis. 
+- `plot_solution.jl` creates plots that show the solution of a simulation over time or space
+- `plot_ice.jl` contains plots for when the dynamic sea ice component is active

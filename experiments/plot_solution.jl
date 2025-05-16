@@ -31,3 +31,16 @@ function plot_solution(; kwargs...)
     plot!(xlabel="Temperature [K]", ylabel="Height [m]", title=L"T(t_\mathrm{end})")
     display(current())
 end
+
+function plot_solution_over_time(; kwargs...)
+    cs, _, _ = coupled_heat_equations(; kwargs...)
+    time = cs.model_sims.atmos_sim.integrator.sol.t
+    T_A = get_field(cs.model_sims.atmos_sim, Val(:T_atm_sfc))
+    T_O = get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
+    T_I = get_field(cs.model_sims.ice_sim, Val(:T_ice))
+    h_I = get_field(cs.model_sims.ice_sim, Val(:h_I))
+    p1 = plot(time, [T_A T_O T_I], xlabel="Time [s]", ylabel="Temperature [K]", label=[L"T_A" L"T_O" L"T_I"], color=[:skyblue :seagreen :black])
+    p2 = plot(time, h_I, color=:black, label=L"h_I", ylabel="Ice Thickness [m]", xlabel="Time [s]")
+    l = @layout [a b]
+    plot(p1, p2, layout=l, legendfontsize=12, linewidth=2)
+end

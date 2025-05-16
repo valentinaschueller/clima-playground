@@ -1,6 +1,7 @@
 using clima_playground
 using Plots
 using LaTeXStrings
+import ClimaCoupler: Interfacer
 
 function plot_C_H_AO_dependence()
     params = SimulationParameters()
@@ -211,7 +212,7 @@ function plot_Δz_Δt(
 end
 
 function plot_unstable_range(component; a_Is=[0.0])
-    p = SimulationParameters(Δt_min=100)
+    p = SimulationParameters(Δt_min=100, T_Ib=270.0)
 
     Δz = 10 .^ LinRange(log10(0.001), log10(1), 50)
     Δt = 10 .^ LinRange(log10(1), log10(100), 50)
@@ -279,6 +280,34 @@ function plot_unstable_range(component; a_Is=[0.0])
 end
 
 
+function stability_check(p::SimulationParameters, n_zs, n_ts, var1, var2)
+    domain = var1 == :n_A ? "atm" : "oce"
+    unstable_matrix = zeros(length(n_ts), length(n_zs))
+
+    for (i, n_z) in enumerate(n_zs)
+        for (j, n_t) in enumerate(n_ts)
+            setproperty!(p, var1, n_z)
+            setproperty!(p, var2, n_t)
+
+            cs = get_coupled_sim(p)
+            sim = domain == "atm" ? cs.model_sims.atmos_sim : cs.model_sims.ocean_sim
+
+            try
+                Interfacer.step!(sim, p.Δt_cpl)
+                unstable_matrix[i, j] = NaN
+            catch err
+                if isa(err, UnstableError)
+                    unstable_matrix[i, j] = Inf
+                else
+                    rethrow()
+                end
+            end
+        end
+    end
+    return unstable_matrix
+end
+
+
 function plot_ϱ_over_var(var_name; iterations=10, kwargs...)
     variable_dict = Dict(
         :Δt_cpl => [Base.logrange(10, 1e6, length=6), L"$\Delta t_{cpl}$"],
@@ -302,7 +331,7 @@ function plot_ϱ_over_var(var_name; iterations=10, kwargs...)
     )
     var = variable_dict[var_name][1]
     par_name = variable_dict[var_name][2]
-    physical_values = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=0.0)
+    physical_values = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=0.0, T_Ib=270.0)
     ϱs_atm, ϱs_oce, param_analytic, ϱs_analytic =
         get_ϱs_one_variable(
             physical_values,

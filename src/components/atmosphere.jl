@@ -2,6 +2,8 @@ import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
 
+export HeatEquationAtmos, heat_atm_rhs!, atmos_init, get_field, update_field!
+
 struct HeatEquationAtmos{P,Y,D,I} <: Interfacer.AtmosModelSimulation
     params::P
     Y_init::Y
@@ -16,20 +18,20 @@ function heat_atm_rhs!(dT, T, cache, t)
         F_sfc = (
             cache.a_I *
             cache.C_AI *
-            (T[1] - parent(cache.T_ice)[1]) +
+            (T[1] - parent(cache.T_Is)[1]) +
             (1 - cache.a_I) *
             cache.C_AO *
-            (T[1] - parent(cache.T_sfc)[1])
+            (T[1] - parent(cache.T_O)[1])
         )
     else
-        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_sfc)) .- t))
+        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_O)) .- t))
         F_sfc = (
             cache.a_I *
             cache.C_AI *
-            (T[1] - parent(cache.T_ice)[1]) +
+            (T[1] - parent(cache.T_Is)[index]) +
             (1 - cache.a_I) *
             cache.C_AO *
-            (T[1] - parent(cache.T_sfc)[index])
+            (T[1] - parent(cache.T_O)[index])
         )
     end
     # set boundary conditions
@@ -65,25 +67,22 @@ end
 
 Checkpointer.get_model_prog_state(sim::HeatEquationAtmos) = sim.integrator.u
 
-Interfacer.step!(sim::HeatEquationAtmos, t) =
+function Interfacer.step!(sim::HeatEquationAtmos, t)
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
+    check_stability(sim.integrator.u, sim.params.stable_range)
+end
 
 Interfacer.reinit!(sim::HeatEquationAtmos) = Interfacer.reinit!(sim.integrator)
 
-get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc}) = sim.integrator.u[1]
-
-function update_field!(sim::HeatEquationAtmos, field_1, field_2)
-    if sim.params.boundary_mapping == "mean"
-        parent(sim.integrator.p.T_sfc)[1] = field_1
-        parent(sim.integrator.p.T_ice)[1] = field_2
-    else
-        parent(sim.integrator.p.T_sfc) .= field_1
-        parent(sim.integrator.p.T_ice)[1] = field_2
-    end
+function get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc})
+    return vec([fieldvec[1] for fieldvec in sim.integrator.sol.u])
 end
 
-
-
-
-
-
+function update_field!(sim::HeatEquationAtmos, T_O, T_Is)
+    if sim.params.boundary_mapping == "mean"
+        T_O = vec([mean(T_O)])
+        T_Is = vec([mean(T_Is)])
+    end
+    parent(sim.integrator.p.T_O) .= T_O
+    parent(sim.integrator.p.T_Is) .= T_Is
+end

@@ -3,6 +3,8 @@ import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
 
+export HeatEquationOcean, heat_oce_rhs!, ocean_init, get_field, update_field!
+
 struct HeatEquationOcean{P,Y,D,I} <: Interfacer.OceanModelSimulation
     params::P
     Y_init::Y
@@ -16,20 +18,20 @@ function heat_oce_rhs!(dT, T, cache, t)
         F_sfc = (
             cache.a_I *
             cache.C_IO *
-            (parent(cache.T_ice)[1] - T[end]) +
+            (cache.T_Ib - T[end]) +
             (1 - cache.a_I) *
             cache.C_AO *
-            (parent(cache.T_air)[1] - T[end])
+            (parent(cache.T_A)[1] - T[end])
         )
     else
-        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_air)) .- t))
+        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_A)) .- t))
         F_sfc = (
             cache.a_I *
             cache.C_IO *
-            (parent(cache.T_ice)[1] - T[end]) +
+            (cache.T_Ib - T[end]) +
             (1 - cache.a_I) *
             cache.C_AO *
-            (parent(cache.T_air)[index] - T[end])
+            (parent(cache.T_A)[index] - T[end])
         )
     end
 
@@ -67,20 +69,21 @@ end
 
 Checkpointer.get_model_prog_state(sim::HeatEquationOcean) = sim.integrator.u
 
-Interfacer.step!(sim::HeatEquationOcean, t) =
+function Interfacer.step!(sim::HeatEquationOcean, t)
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
+    check_stability(sim.integrator.u, sim.params.stable_range)
+end
+
 
 Interfacer.reinit!(sim::HeatEquationOcean) = Interfacer.reinit!(sim.integrator)
 
-get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc}) = sim.integrator.u[end]
-
-function update_field!(sim::HeatEquationOcean, field_1, field_2)
-    if sim.params.boundary_mapping == "mean"
-        parent(sim.integrator.p.T_air)[1] = field_1
-        parent(sim.integrator.p.T_ice)[1] = field_2
-    else
-        parent(sim.integrator.p.T_air) .= field_1
-        parent(sim.integrator.p.T_ice)[1] = field_2
-    end
+function get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc})
+    return vec([fieldvec[end] for fieldvec in sim.integrator.sol.u])
 end
 
+function update_field!(sim::HeatEquationOcean, T_A)
+    if sim.params.boundary_mapping == "mean"
+        T_A = vec([mean(T_A)])
+    end
+    parent(sim.integrator.p.T_A) .= T_A
+end

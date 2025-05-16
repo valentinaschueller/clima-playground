@@ -6,6 +6,7 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
+export compute_ϱ_analytical, compute_ϱ_numerical, compute_ϱ_ice
 
 function compute_ϱ_analytical(p::SimulationParameters; s=nothing)
     if isnothing(s)
@@ -31,6 +32,16 @@ function compute_ϱ_analytical(p::SimulationParameters; s=nothing)
     return ϱ
 end
 
+function compute_ϱ_ice(p::SimulationParameters; s=nothing)
+    if isnothing(s)
+        s = im * π / p.t_max
+    end
+    factor = p.C_AI / ((p.k_I / p.h_I_ini) + p.ϵ * p.B + p.C_AI)
+    ξ_A = (p.h_A - p.z_A0) / sqrt(p.α_A)
+    ν_AI = p.k_A / (p.C_AI * sqrt(p.α_A))
+    ϱ = factor * abs(1 / (1 - ν_AI * sqrt(s) * tanh(ξ_A * sqrt(s))))
+    return ϱ
+end
 
 function compute_ϱ_numerical(atmos_vals_list, ocean_vals_list)
     ϱ_A = []
@@ -65,47 +76,3 @@ function compute_ϱ_numerical(atmos_vals_list, ocean_vals_list)
     return ϱ_A, ϱ_O
 end
 
-
-
-"""
-Computes for which `Δzᴬ` and `Δtᴬ` or `Δzᴼ` and `Δtᴼ` the model becomes unstable.
-
-**Arguments:**
-
--`physical_values: Dict`: Can be defined using `define_realistic_vals()`.
--`n_zs::Array`: Values for the number of spatial gridpoints.
--`n_ts::Array`: Values for the number of timepoints.
--`var1_name::String`: Either `"Δzᴬ"` or `"Δzᴼ"`.
--`var1_name::String`: Either `"Δtᴬ"` or `"Δtᴼ"`.
-
-"""
-function stability_check(p::SimulationParameters, n_zs, n_ts, var1, var2)
-    domain = var1 == :n_A ? "atm" : "oce"
-    unstable_matrix = zeros(length(n_ts), length(n_zs))
-
-    for (i, n_z) in enumerate(n_zs)
-        for (j, n_t) in enumerate(n_ts)
-            setproperty!(p, var1, n_z)
-            setproperty!(p, var2, n_t)
-
-            cs = get_coupled_sim(p)
-
-            lower_limit_temp, upper_limit_temp = initial_value_range(cs)
-
-            if domain == "atm"
-                Interfacer.step!(cs.model_sims.atmos_sim, p.Δt_cpl)
-                states = copy(cs.model_sims.atmos_sim.integrator.sol.u)
-            else
-                Interfacer.step!(cs.model_sims.ocean_sim, p.Δt_cpl)
-                states = copy(cs.model_sims.ocean_sim.integrator.sol.u)
-            end
-            vals = extract_matrix(states, domain)
-            if !is_stable(vals, upper_limit_temp, lower_limit_temp)
-                unstable_matrix[i, j] = Inf
-            else
-                unstable_matrix[i, j] = NaN
-            end
-        end
-    end
-    return unstable_matrix
-end
