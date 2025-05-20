@@ -31,12 +31,12 @@ end
 function get_cit_boundary_space(device, stepping)
     time_points = CC.Domains.IntervalDomain(
         CC.Geometry.ZPoint(stepping.timerange[1]),
-        CC.Geometry.ZPoint(stepping.timerange[2]);
+        CC.Geometry.ZPoint(stepping.timerange[end]);
         boundary_names=(:start, :end),
     )
     time_mesh = CC.Meshes.IntervalMesh(
         time_points,
-        nelems=Int(stepping.timerange[2] / stepping.Δt_min),
+        nelems=Int(stepping.timerange[end] / stepping.Δt_min),
     )
     return CC.Spaces.FaceFiniteDifferenceSpace(device, time_mesh)
 end
@@ -49,10 +49,10 @@ function get_coupled_sim(p::SimulationParameters)
     center_space_oce = get_vertical_space(device, -p.h_O, -p.z_O0, p.n_O)
     point_space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(0.0))
 
+    t0 = 0.0
     stepping = (;
         Δt_min=Float64(p.Δt_min),
-        timerange=(Float64(0.0), Float64(p.t_max)),
-        Δt_coupler=Float64(p.Δt_cpl),
+        timerange=(t0, t0 + p.Δt_cpl),
         odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
         nsteps_atm=p.n_t_A,
         nsteps_oce=p.n_t_O,
@@ -131,8 +131,8 @@ function get_coupled_sim(p::SimulationParameters)
         boundary_space,
         coupler_fields,
         nothing, # conservation checks
-        stepping.timerange,
-        stepping.Δt_coupler,
+        (t0, p.t_max),
+        p.Δt_cpl,
         model_sims,
         (;), # callbacks
         dir_paths,

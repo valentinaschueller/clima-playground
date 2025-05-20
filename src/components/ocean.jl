@@ -14,26 +14,18 @@ end
 Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 
 function heat_oce_rhs!(dT, T, cache, t)
-    if cache.boundary_mapping == "mean"
-        F_sfc = (
-            cache.a_I *
-            cache.C_IO *
-            (cache.T_Ib - T[end]) +
-            (1 - cache.a_I) *
-            cache.C_AO *
-            (parent(cache.T_A)[1] - T[end])
-        )
-    else
+    index = 1
+    if cache.boundary_mapping == "cit"
         index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_A)) .- t))
-        F_sfc = (
-            cache.a_I *
-            cache.C_IO *
-            (cache.T_Ib - T[end]) +
-            (1 - cache.a_I) *
-            cache.C_AO *
-            (parent(cache.T_A)[index] - T[end])
-        )
     end
+    F_sfc = (
+        cache.a_I *
+        cache.C_IO *
+        (cache.T_Ib - T[end]) +
+        (1 - cache.a_I) *
+        cache.C_AO *
+        (parent(cache.T_A)[index] - T[end])
+    )
 
     ## set boundary conditions
     C3 = CC.Geometry.WVector
