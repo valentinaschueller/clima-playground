@@ -14,26 +14,19 @@ end
 Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
 function heat_atm_rhs!(dT, T, cache, t)
-    if cache.boundary_mapping == "mean"
-        F_sfc = (
-            cache.a_I *
-            cache.C_AI *
-            (T[1] - parent(cache.T_Is)[1]) +
-            (1 - cache.a_I) *
-            cache.C_AO *
-            (T[1] - parent(cache.T_O)[1])
-        )
-    else
+    index = 1
+    if cache.boundary_mapping == "cit"
         index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_O)) .- t))
-        F_sfc = (
-            cache.a_I *
-            cache.C_AI *
-            (T[1] - parent(cache.T_Is)[index]) +
-            (1 - cache.a_I) *
-            cache.C_AO *
-            (T[1] - parent(cache.T_O)[index])
-        )
     end
+    F_sfc = (
+        cache.a_I *
+        cache.C_AI *
+        (T[1] - parent(cache.T_Is)[index]) +
+        (1 - cache.a_I) *
+        cache.C_AO *
+        (T[1] - parent(cache.T_O)[index])
+    )
+
     # set boundary conditions
     C3 = CC.Geometry.WVector
     # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)

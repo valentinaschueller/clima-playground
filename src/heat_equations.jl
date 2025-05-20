@@ -61,7 +61,7 @@ function rename_files(cs::Interfacer.CoupledSimulation, iter, reverse=false)
     end
 end
 
-"""Resets integrator time."""
+"""Sets u0 = u(t), t0 = t, and empties u."""
 function reinit!(cs::Interfacer.CoupledSimulation, t)
     for sim in cs.model_sims
         Interfacer.reinit!(sim.integrator, sim.integrator.u, t0=t)
@@ -129,12 +129,12 @@ function solve_coupler!(
     ϱ_A = nothing
     ϱ_O = nothing
 
-    for t = tspan[begin]:Δt_cpl:(tspan[end]-Δt_cpl)
-        set_time!(cs, t)
-        @info("Current time: $t")
+    t0 = tspan[begin]
 
-        # Sets u0 = u(t), t0 = t, and empties u
-        reinit!(cs, t)
+    for t = t0:Δt_cpl:(tspan[end]-Δt_cpl)
+        @info("Current time: $t")
+        set_time!(cs, t0)
+        reinit!(cs, t0)
 
         # Checkpoint to save initial values at this coupling step
         Checkpointer.checkpoint_sims(cs)
@@ -152,7 +152,7 @@ function solve_coupler!(
             @info("Current iter: $(iter)")
             if iter > 1
                 restart_sims!(cs)
-                reinit!(cs, t)
+                reinit!(cs, 0.0)
             end
 
             # Temperature values for the previous iteration.
@@ -160,7 +160,7 @@ function solve_coupler!(
             pre_bound_ocean_vals = bound_ocean_vals
 
             try
-                bound_atmos_vals, bound_ocean_vals = advance_simulation!(cs, t + Δt_cpl, parallel)
+                bound_atmos_vals, bound_ocean_vals = advance_simulation!(cs, t0 + Δt_cpl, parallel)
             catch err
                 if isa(err, UnstableError)
                     @warn("Unstable simulation!")
