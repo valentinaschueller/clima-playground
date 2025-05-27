@@ -64,8 +64,6 @@ function get_coupled_sim(p::SimulationParameters)
     T_atm_0 = CC.Fields.FieldVector(data=field_atm)
     T_oce_0 = CC.Fields.FieldVector(data=field_oce)
 
-    p_dict = Dict(key => getfield(p, key) for key ∈ fieldnames(SimulationParameters))
-
     if p.ice_model_type != :constant
         @info("Determine initial ice surface temperature from SEB.")
         cache = (; p_dict..., T_A=T_atm_0[1] .* CC.Fields.ones(point_space))
@@ -76,9 +74,9 @@ function get_coupled_sim(p::SimulationParameters)
     T_ice_0 = CC.Fields.FieldVector(data=field_ice)
     h_ice_0 = CC.Fields.FieldVector(data=field_h_I)
 
-    stable_range = get_stable_range([T_atm_0, T_oce_0, (data=[p.T_I_ini, p.T_Ib],)])
+    p.stable_range = get_stable_range([T_atm_0, T_oce_0, (data=[p.T_I_ini, p.T_Ib],)])
     if p.ice_model_type == :thickness_feedback
-        stable_range = nothing
+        p.stable_range = nothing
     end
 
     if p.boundary_mapping == "cit"
@@ -86,16 +84,13 @@ function get_coupled_sim(p::SimulationParameters)
     else
         boundary_space = point_space
     end
-    T_O = T_oce_0[end] .* CC.Fields.ones(boundary_space)
-    T_A = T_atm_0[1] .* CC.Fields.ones(boundary_space)
-    T_Is = T_ice_0[1] .* CC.Fields.ones(boundary_space)
+    p.T_O = T_oce_0[end] .* CC.Fields.ones(boundary_space)
+    p.T_A = T_atm_0[1] .* CC.Fields.ones(boundary_space)
+    p.T_Is = T_ice_0[1] .* CC.Fields.ones(boundary_space)
 
-    atmos_cache = (; p_dict..., T_O=T_O, T_Is=T_Is, stable_range=stable_range)
-    ocean_cache = (; p_dict..., T_A=T_A, stable_range=stable_range)
-    atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, atmos_cache)
-    ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, ocean_cache)
-    ice_cache = (; p_dict..., T_A=T_A, T_O=T_O, stable_range=stable_range)
-    ice_sim = ice_init(stepping, h_ice_0, point_space, ice_cache)
+    atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, p)
+    ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, p)
+    ice_sim = ice_init(stepping, h_ice_0, point_space, p)
 
     comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
     output_dir = "output"

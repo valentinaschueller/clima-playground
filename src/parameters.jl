@@ -48,6 +48,10 @@ Base.@kwdef mutable struct SimulationParameters
     C_AO::Float64 = ρ_A * c_A * C_H_AO * Δu_AO
     C_AI::Float64 = ρ_A * c_A * C_H_AI * Δu_AI
     C_IO::Float64 = ρ_O * c_O * C_H_IO * Δu_IO
+    T_A = nothing
+    T_O = nothing
+    T_Is = nothing
+    stable_range = nothing
     ice_model_type = :constant
 end
 
