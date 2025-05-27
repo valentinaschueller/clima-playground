@@ -137,7 +137,7 @@ function get_coupled_sim(p::SimulationParameters)
         dir_paths,
         FluxCalculator.PartitionedStateFluxes(),
         nothing, # thermo_params
-        nothing, # amip_diags_handler
+        nothing, # diagnostic_handlers
     )
     return cs
 end
