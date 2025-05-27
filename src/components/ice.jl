@@ -87,6 +87,11 @@ function get_field(sim::SeaIce, ::Val{:h_I})
     return vec([fieldvec[end] for fieldvec in sim.integrator.sol.u])
 end
 
+function Interfacer.add_coupler_fields!(coupler_field_names, ::SeaIce)
+    coupler_fields = [:T_ice, :h_I]
+    push!(coupler_field_names, coupler_fields...)
+end
+
 function update_field!(sim::SeaIce, T_A, T_O)
     parent(sim.integrator.p.T_A) .= T_A
     parent(sim.integrator.p.T_O) .= T_O

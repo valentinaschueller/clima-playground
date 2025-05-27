@@ -71,6 +71,11 @@ function get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc})
     return vec([fieldvec[1] for fieldvec in sim.integrator.sol.u])
 end
 
+function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationAtmos)
+    coupler_fields = [:T_atm_sfc,]
+    push!(coupler_field_names, coupler_fields...)
+end
+
 function update_field!(sim::HeatEquationAtmos, T_O, T_Is)
     if sim.params.boundary_mapping == "mean"
         T_O = vec([mean(T_O)])

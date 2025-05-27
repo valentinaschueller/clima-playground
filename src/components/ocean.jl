@@ -79,3 +79,8 @@ function update_field!(sim::HeatEquationOcean, T_A)
     end
     parent(sim.integrator.p.T_A) .= T_A
 end
+
+function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationOcean)
+    ocean_coupler_fields = [:T_oce_sfc,]
+    push!(coupler_field_names, ocean_coupler_fields...)
+end

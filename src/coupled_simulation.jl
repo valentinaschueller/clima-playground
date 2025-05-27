@@ -116,14 +116,13 @@ function get_coupled_sim(p::SimulationParameters)
         new_month=[false],
     )
 
-
-    coupler_field_names = (:T_atm_sfc, :T_oce_sfc, :T_ice, :h_I)
-    coupler_fields = NamedTuple{coupler_field_names}(
-        ntuple(i -> CC.Fields.zeros(boundary_space), length(coupler_field_names)),
-    )
-
     model_sims = (atmos_sim=atmos_sim, ocean_sim=ocean_sim, ice_sim=ice_sim)
 
+    coupler_field_names = []
+    for sim in model_sims
+        Interfacer.add_coupler_fields!(coupler_field_names, sim)
+    end
+    coupler_fields = Interfacer.init_coupler_fields(Float64, coupler_field_names, boundary_space)
 
     cs = Interfacer.CoupledSimulation{Float64}(
         comms_ctx,
