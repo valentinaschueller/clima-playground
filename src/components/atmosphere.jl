@@ -1,6 +1,7 @@
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
+import ClimaDiagnostics as CD
 
 export HeatEquationAtmos, heat_atm_rhs!, atmos_init, get_field, update_field!
 
@@ -40,18 +41,53 @@ function heat_atm_rhs!(dT, T, cache, t)
     @. dT.data = ᶜdivᵥ(cache.k_A * ᶠgradᵥ(T.data)) / (cache.ρ_A * cache.c_A)
 end
 
+function compute_air_temperature!(out, Y, p, t)
+    if isnothing(out)
+        return copy(Y.data)
+    else
+        out .= Y.data
+    end
+end
+
+
+function get_diagnostic(space, nsteps)
+    air_temperature = CD.DiagnosticVariable(;
+        short_name="air_temperature",
+        long_name="Air Temperature",
+        standard_name="air_temperature",
+        units="K",
+        (compute!)=(out, Y, p, t) ->
+            compute_air_temperature!(out, Y, p, t),
+    )
+
+    output_schedule = CD.Schedules.DivisorSchedule(nsteps)
+    netcdf_writer = CD.Writers.NetCDFWriter(space, ".")
+    scheduled_temperature = CD.ScheduledDiagnostic(
+        variable=air_temperature,
+        output_writer=netcdf_writer,
+        compute_schedule_func=output_schedule,
+    )
+
+    return scheduled_temperature
+end
+
 function atmos_init(stepping, ics, space, cache)
     Δt = Float64(stepping.Δt_min) / stepping.nsteps_atm
     saveat = stepping.timerange[1]:stepping.Δt_min:stepping.timerange[end]
 
     ode_function = CTS.ClimaODEFunction((T_exp!)=heat_atm_rhs!)
     problem = SciMLBase.ODEProblem(ode_function, ics, stepping.timerange, cache)
+
+    diagnostic_handler = CD.DiagnosticsHandler([get_diagnostic(space, stepping.nsteps_atm)], ics, cache, stepping.timerange[1]; dt=Δt)
+    diag_cb = CD.DiagnosticsCallback(diagnostic_handler)
+
     integrator = SciMLBase.init(
         problem,
         stepping.odesolver,
         dt=Δt,
         saveat=saveat,
         adaptive=false,
+        callback=SciMLBase.CallbackSet(diag_cb),
     )
 
     sim = HeatEquationAtmos(cache, ics, space, integrator)
