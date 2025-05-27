@@ -28,6 +28,7 @@ ClimaCoupler
 ClimaCore
 *.hdf5
 *.jld2
+*.nc
 
 output/
 plots/
