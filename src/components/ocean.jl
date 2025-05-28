@@ -40,22 +40,32 @@ function heat_oce_rhs!(dT, T, cache, t)
     @. dT.data = ᶜdivᵥ(cache.k_O * ᶠgradᵥ(T.data)) / (cache.ρ_O * cache.c_O)
 end
 
-function ocean_init(stepping, ics, space, cache)
-    Δt = Float64(stepping.Δt_min) / stepping.nsteps_oce
-    saveat = stepping.timerange[1]:stepping.Δt_min:stepping.timerange[end]
-
+function ocean_init(odesolver, ics, space, p::SimulationParameters, output_dir)
     ode_function = CTS.ClimaODEFunction((T_exp!)=heat_oce_rhs!)
+    problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_0 + p.Δt_cpl), p)
 
-    problem = SciMLBase.ODEProblem(ode_function, ics, stepping.timerange, cache)
+    Δt = p.Δt_min / p.n_t_O
+    sea_water_temperature = CD.DiagnosticVariable(;
+        short_name="T_O",
+        long_name="Sea Water Temperature",
+        standard_name="sea_water_temperature",
+        units="K",
+        (compute!)=(out, Y, p, t) -> get_prognostic_data!(out, Y, p, t),
+    )
+    diagnostic_handler = CD.DiagnosticsHandler([get_diagnostic(sea_water_temperature, space, p.Δt_min, output_dir)], ics, p, p.t_0, dt=Δt)
+    diag_cb = CD.DiagnosticsCallback(diagnostic_handler)
+
+    saveat = p.t_0:p.Δt_min:p.Δt_cpl
     integrator = SciMLBase.init(
         problem,
-        stepping.odesolver,
+        odesolver,
         dt=Δt,
         saveat=saveat,
         adaptive=false,
+        callback=SciMLBase.CallbackSet(diag_cb),
     )
 
-    sim = HeatEquationOcean(cache, ics, space, integrator)
+    sim = HeatEquationOcean(p, ics, space, integrator)
     return sim
 end
 

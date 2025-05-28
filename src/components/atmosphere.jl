@@ -48,7 +48,7 @@ function atmos_init(odesolver, ics, space, p::SimulationParameters, output_dir)
 
     Δt = p.Δt_min / p.n_t_A
     air_temperature = CD.DiagnosticVariable(;
-        short_name="air_temperature",
+        short_name="T_A",
         long_name="Air Temperature",
         standard_name="air_temperature",
         units="K",

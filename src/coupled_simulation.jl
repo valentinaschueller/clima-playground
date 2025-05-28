@@ -28,15 +28,15 @@ function get_stable_range(initial_value_fvs)
     return min_value - eps(min_value), max_value + eps(max_value)
 end
 
-function get_cit_boundary_space(device, stepping)
+function get_cit_boundary_space(device, p::SimulationParameters)
     time_points = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint(stepping.timerange[1]),
-        CC.Geometry.ZPoint(stepping.timerange[end]);
+        CC.Geometry.ZPoint(p.t_0),
+        CC.Geometry.ZPoint(p.Δt_cpl);
         boundary_names=(:start, :end),
     )
     time_mesh = CC.Meshes.IntervalMesh(
         time_points,
-        nelems=Int(stepping.timerange[end] / stepping.Δt_min),
+        nelems=Int(p.timerange[end] / p.Δt_min),
     )
     return CC.Spaces.FaceFiniteDifferenceSpace(device, time_mesh)
 end
@@ -45,6 +45,7 @@ function get_coupled_sim(p::SimulationParameters)
     context = CC.ClimaComms.context()
     device = CC.ClimaComms.device(context)
     output_dir = "output"
+    rm(output_dir, recursive=true)
     mkpath(output_dir)
     dir_paths = (
         output=output_dir,
@@ -56,17 +57,6 @@ function get_coupled_sim(p::SimulationParameters)
     center_space_atm = get_vertical_space(device, p.z_A0, p.h_A, p.n_A)
     center_space_oce = get_vertical_space(device, -p.h_O, -p.z_O0, p.n_O)
     point_space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(0.0))
-
-    t0 = 0.0
-    odesolver = CTS.ExplicitAlgorithm(CTS.RK4())
-    stepping = (;
-        Δt_min=Float64(p.Δt_min),
-        timerange=(t0, t0 + p.Δt_cpl),
-        odesolver=odesolver,
-        nsteps_atm=p.n_t_A,
-        nsteps_oce=p.n_t_O,
-        nsteps_ice=p.n_t_I,
-    )
 
     field_atm = CC.Fields.ones(center_space_atm) .* p.T_A_ini
     field_oce = CC.Fields.ones(center_space_oce) .* p.T_O_ini
@@ -89,7 +79,7 @@ function get_coupled_sim(p::SimulationParameters)
     end
 
     if p.boundary_mapping == "cit"
-        boundary_space = get_cit_boundary_space(device, stepping)
+        boundary_space = get_cit_boundary_space(device, p)
     else
         boundary_space = point_space
     end
@@ -97,9 +87,10 @@ function get_coupled_sim(p::SimulationParameters)
     p.T_A = T_atm_0[1] .* CC.Fields.ones(boundary_space)
     p.T_Is = T_ice_0[1] .* CC.Fields.ones(boundary_space)
 
+    odesolver = CTS.ExplicitAlgorithm(CTS.RK4())
     atmos_sim = atmos_init(odesolver, T_atm_0, center_space_atm, p, output_dir)
-    ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, p)
-    ice_sim = ice_init(stepping, h_ice_0, point_space, p)
+    ocean_sim = ocean_init(odesolver, T_oce_0, center_space_oce, p, output_dir)
+    ice_sim = ice_init(odesolver, h_ice_0, point_space, p, output_dir)
 
     start_date = "19790301"
     date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
@@ -124,7 +115,7 @@ function get_coupled_sim(p::SimulationParameters)
         boundary_space,
         coupler_fields,
         nothing, # conservation checks
-        (t0, p.t_max),
+        (p.t_0, p.t_max),
         p.Δt_cpl,
         model_sims,
         (;), # callbacks
