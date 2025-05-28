@@ -1,6 +1,7 @@
 using clima_playground
 using Plots
 using LaTeXStrings
+using NetCDF
 import ClimaCore as CC
 
 function load_timestep(cs; index=nothing)
@@ -34,12 +35,13 @@ end
 
 function plot_solution_over_time(; kwargs...)
     cs, _, _ = coupled_heat_equations(; kwargs...)
-    time = cs.model_sims.atmos_sim.integrator.sol.t
-    T_A = get_field(cs.model_sims.atmos_sim, Val(:T_atm_sfc))
-    T_O = get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
-    T_I = get_field(cs.model_sims.ice_sim, Val(:T_ice))
-    h_I = get_field(cs.model_sims.ice_sim, Val(:h_I))
-    p1 = plot(time, [T_A T_O T_I], xlabel="Time [s]", ylabel="Temperature [K]", label=[L"T_A" L"T_O" L"T_I"], color=[:skyblue :seagreen :black])
+    p = cs.model_sims[1].params
+    time = ncread("output/h_I_1s_inst.nc", "time")
+    T_O = ncread("output/T_O_1s_inst.nc", "T_O", start=[1, p.n_O], count=[-1, 1])
+    T_A = ncread("output/T_A_1s_inst.nc", "T_A", start=[1, 1], count=[-1, 1])
+    T_Is = ncread("output/T_Is_1s_inst.nc", "T_Is")
+    h_I = ncread("output/h_I_1s_inst.nc", "h_I")
+    p1 = plot(time, [T_A T_O T_Is], xlabel="Time [s]", ylabel="Temperature [K]", label=[L"T_A" L"T_O" L"T_{I,s}"], color=[:skyblue :seagreen :black])
     p2 = plot(time, h_I, color=:black, label=L"h_I", ylabel="Ice Thickness [m]", xlabel="Time [s]")
     l = @layout [a b]
     plot(p1, p2, layout=l, legendfontsize=12, linewidth=2)

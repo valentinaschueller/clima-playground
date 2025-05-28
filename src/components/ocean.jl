@@ -13,15 +13,8 @@ struct HeatEquationOcean{P,Y,D,I} <: Interfacer.OceanModelSimulation
 end
 Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 
-function heat_oce_rhs!(dT, T, cache, t)
-    F_sfc = (
-        cache.a_I *
-        cache.C_IO *
-        (cache.T_Ib - T[end]) +
-        (1 - cache.a_I) *
-        cache.C_AO *
-        (parent(cache.T_A)[1] - T[end])
-    )
+function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
+    F_sfc = p.a_I * p.C_IO * (p.T_Ib - T[end]) + (1 - p.a_I) * p.C_AO * (p.T_A - T[end])
 
     ## set boundary conditions
     C3 = CC.Geometry.WVector
@@ -33,7 +26,7 @@ function heat_oce_rhs!(dT, T, cache, t)
     ᶠgradᵥ = CC.Operators.GradientC2F()
     ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
-    @. dT.data = ᶜdivᵥ(cache.k_O * ᶠgradᵥ(T.data)) / (cache.ρ_O * cache.c_O)
+    @. dT.data = ᶜdivᵥ(p.k_O * ᶠgradᵥ(T.data)) / (p.ρ_O * p.c_O)
 end
 
 function ocean_init(odesolver, ics, space, p::SimulationParameters, output_dir)
@@ -80,7 +73,7 @@ function get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc})
 end
 
 function update_field!(sim::HeatEquationOcean, T_A)
-    parent(sim.integrator.p.T_A) .= vec([mean(T_A)])
+    sim.integrator.p.T_A = mean(T_A)
 end
 
 function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationOcean)

@@ -14,15 +14,8 @@ end
 
 Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
-function heat_atm_rhs!(dT, T, cache, t)
-    F_sfc = (
-        cache.a_I *
-        cache.C_AI *
-        (T[1] - parent(cache.T_Is)[1]) +
-        (1 - cache.a_I) *
-        cache.C_AO *
-        (T[1] - parent(cache.T_O)[1])
-    )
+function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
+    F_sfc = p.a_I * p.C_AI * (T[1] - p.T_Is) + (1 - p.a_I) * p.C_AO * (T[1] - p.T_O)
 
     # set boundary conditions
     C3 = CC.Geometry.WVector
@@ -34,7 +27,7 @@ function heat_atm_rhs!(dT, T, cache, t)
     ᶠgradᵥ = CC.Operators.GradientC2F()
     ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
-    @. dT.data = ᶜdivᵥ(cache.k_A * ᶠgradᵥ(T.data)) / (cache.ρ_A * cache.c_A)
+    @. dT.data = ᶜdivᵥ(p.k_A * ᶠgradᵥ(T.data)) / (p.ρ_A * p.c_A)
 end
 
 
@@ -86,6 +79,6 @@ function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationAtmos
 end
 
 function update_field!(sim::HeatEquationAtmos, T_O, T_Is)
-    parent(sim.integrator.p.T_O) .= vec([mean(T_O)])
-    parent(sim.integrator.p.T_Is) .= vec([mean(T_Is)])
+    sim.integrator.p.T_O = mean(T_O)
+    sim.integrator.p.T_Is = mean(T_Is)
 end
