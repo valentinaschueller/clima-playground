@@ -80,8 +80,8 @@ function solve_coupler!(
 
     for t = t0:Δt_cpl:(tspan[end]-Δt_cpl)
         @info("Current time: $t")
-        set_time!(cs, t0)
-        reinit!(cs, t0)
+        set_time!(cs, t)
+        reinit!(cs, t)
 
         iter = 1
         atmos_vals_list = []
@@ -95,7 +95,7 @@ function solve_coupler!(
             @info("Current iter: $(iter)")
             if iter > 1
                 Checkpointer.restart!(cs, cs.dirs.checkpoints, time_in_s(cs))
-                reinit!(cs, 0.0)
+                reinit!(cs, t)
             end
 
             # Temperature values for the previous iteration.
@@ -103,7 +103,7 @@ function solve_coupler!(
             pre_bound_ocean_vals = bound_ocean_vals
 
             try
-                bound_atmos_vals, bound_ocean_vals = advance_simulation!(cs, t0 + Δt_cpl, parallel)
+                bound_atmos_vals, bound_ocean_vals = advance_simulation!(cs, t + Δt_cpl, parallel)
             catch err
                 if isa(err, UnstableError)
                     @warn("Unstable simulation!")

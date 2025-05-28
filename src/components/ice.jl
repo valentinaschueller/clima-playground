@@ -41,7 +41,7 @@ end
 
 function ice_init(odesolver, ics, space, p::SimulationParameters, output_dir)
     ode_function = CTS.ClimaODEFunction((T_exp!)=thickness_rhs!)
-    problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_0 + p.Δt_cpl), p)
+    problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_max), p)
     Δt = p.Δt_min / p.n_t_I
     air_temperature = CD.DiagnosticVariable(;
         short_name="h_I",
@@ -53,7 +53,7 @@ function ice_init(odesolver, ics, space, p::SimulationParameters, output_dir)
     diagnostic_handler = CD.DiagnosticsHandler([get_diagnostic(air_temperature, space, p.Δt_min, output_dir)], ics, p, p.t_0, dt=Δt)
     diag_cb = CD.DiagnosticsCallback(diagnostic_handler)
 
-    saveat = p.t_0:p.Δt_min:p.Δt_cpl
+    saveat = p.t_0:p.Δt_min:p.t_max
 
     integrator = SciMLBase.init(
         problem,
