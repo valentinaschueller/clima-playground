@@ -44,16 +44,25 @@ end
 function get_coupled_sim(p::SimulationParameters)
     context = CC.ClimaComms.context()
     device = CC.ClimaComms.device(context)
+    output_dir = "output"
+    mkpath(output_dir)
+    dir_paths = (
+        output=output_dir,
+        artifacts=output_dir,
+        regrid=output_dir,
+        checkpoints=output_dir,
+    )
 
     center_space_atm = get_vertical_space(device, p.z_A0, p.h_A, p.n_A)
     center_space_oce = get_vertical_space(device, -p.h_O, -p.z_O0, p.n_O)
     point_space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(0.0))
 
     t0 = 0.0
+    odesolver = CTS.ExplicitAlgorithm(CTS.RK4())
     stepping = (;
         Δt_min=Float64(p.Δt_min),
         timerange=(t0, t0 + p.Δt_cpl),
-        odesolver=CTS.ExplicitAlgorithm(CTS.RK4()),
+        odesolver=odesolver,
         nsteps_atm=p.n_t_A,
         nsteps_oce=p.n_t_O,
         nsteps_ice=p.n_t_I,
@@ -88,19 +97,9 @@ function get_coupled_sim(p::SimulationParameters)
     p.T_A = T_atm_0[1] .* CC.Fields.ones(boundary_space)
     p.T_Is = T_ice_0[1] .* CC.Fields.ones(boundary_space)
 
-    atmos_sim = atmos_init(stepping, T_atm_0, center_space_atm, p)
+    atmos_sim = atmos_init(odesolver, T_atm_0, center_space_atm, p, output_dir)
     ocean_sim = ocean_init(stepping, T_oce_0, center_space_oce, p)
     ice_sim = ice_init(stepping, h_ice_0, point_space, p)
-
-    comms_ctx = Utilities.get_comms_context(Dict("device" => "auto"))
-    output_dir = "output"
-    mkpath(output_dir)
-    dir_paths = (
-        output=output_dir,
-        artifacts=output_dir,
-        regrid=output_dir,
-        checkpoints=output_dir,
-    )
 
     start_date = "19790301"
     date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
@@ -120,7 +119,7 @@ function get_coupled_sim(p::SimulationParameters)
     coupler_fields = Interfacer.init_coupler_fields(Float64, coupler_field_names, boundary_space)
 
     cs = Interfacer.CoupledSimulation{Float64}(
-        comms_ctx,
+        context,
         dates,
         boundary_space,
         coupler_fields,

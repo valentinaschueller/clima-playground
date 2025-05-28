@@ -41,56 +41,33 @@ function heat_atm_rhs!(dT, T, cache, t)
     @. dT.data = ᶜdivᵥ(cache.k_A * ᶠgradᵥ(T.data)) / (cache.ρ_A * cache.c_A)
 end
 
-function compute_air_temperature!(out, Y, p, t)
-    if isnothing(out)
-        return copy(Y.data)
-    else
-        out .= Y.data
-    end
-end
 
+function atmos_init(odesolver, ics, space, p::SimulationParameters, output_dir)
+    ode_function = CTS.ClimaODEFunction((T_exp!)=heat_atm_rhs!)
+    problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_0 + p.Δt_cpl), p)
 
-function get_diagnostic(space, nsteps)
+    Δt = p.Δt_min / p.n_t_A
     air_temperature = CD.DiagnosticVariable(;
         short_name="air_temperature",
         long_name="Air Temperature",
         standard_name="air_temperature",
         units="K",
-        (compute!)=(out, Y, p, t) ->
-            compute_air_temperature!(out, Y, p, t),
+        (compute!)=(out, Y, p, t) -> get_prognostic_data!(out, Y, p, t),
     )
-
-    output_schedule = CD.Schedules.DivisorSchedule(nsteps)
-    netcdf_writer = CD.Writers.NetCDFWriter(space, ".")
-    scheduled_temperature = CD.ScheduledDiagnostic(
-        variable=air_temperature,
-        output_writer=netcdf_writer,
-        compute_schedule_func=output_schedule,
-    )
-
-    return scheduled_temperature
-end
-
-function atmos_init(stepping, ics, space, cache)
-    Δt = Float64(stepping.Δt_min) / stepping.nsteps_atm
-    saveat = stepping.timerange[1]:stepping.Δt_min:stepping.timerange[end]
-
-    ode_function = CTS.ClimaODEFunction((T_exp!)=heat_atm_rhs!)
-    problem = SciMLBase.ODEProblem(ode_function, ics, stepping.timerange, cache)
-
-    diagnostic_handler = CD.DiagnosticsHandler([get_diagnostic(space, stepping.nsteps_atm)], ics, cache, stepping.timerange[1]; dt=Δt)
+    diagnostic_handler = CD.DiagnosticsHandler([get_diagnostic(air_temperature, space, p.Δt_min, output_dir)], ics, p, p.t_0, dt=Δt)
     diag_cb = CD.DiagnosticsCallback(diagnostic_handler)
 
+    saveat = p.t_0:p.Δt_min:p.Δt_cpl
     integrator = SciMLBase.init(
         problem,
-        stepping.odesolver,
+        odesolver,
         dt=Δt,
         saveat=saveat,
         adaptive=false,
         callback=SciMLBase.CallbackSet(diag_cb),
     )
 
-    sim = HeatEquationAtmos(cache, ics, space, integrator)
+    sim = HeatEquationAtmos(p, ics, space, integrator)
     return sim
 end
 
