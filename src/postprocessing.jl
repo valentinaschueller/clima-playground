@@ -1,4 +1,4 @@
-export check_stability, has_converged, extract_ρ, update_ρ_parallel, UnstableError
+export check_stability, has_converged, mean_ϱ, update_ρ_parallel, UnstableError
 
 struct UnstableError <: Exception
 end
@@ -49,23 +49,12 @@ function has_converged(
     end
 end
 
-""" 
-Extracts the first convergence factors.
-
-**Arguments:**
-
--`ρ_A::Array`: Atmosphere convergence factor.
--`ρ_O::Array`: Ocean convergence factor.
-
-"""
-function extract_ρ(ρ_A, ρ_O)
-    if ρ_A isa AbstractArray
-        ρ_A = !isempty(ρ_A) ? ρ_A[1] : NaN
+function mean_ϱ(ϱ_array)
+    non_nan_values = filter(!isnan, ϱ_array)
+    if isempty(non_nan_values)
+        return NaN
     end
-    if ρ_O isa AbstractArray
-        ρ_O = !isempty(ρ_O) ? ρ_O[1] : NaN
-    end
-    return ρ_A, ρ_O
+    return mean(non_nan_values)
 end
 
 function update_ρ_parallel(ρ_A, ρ_O)

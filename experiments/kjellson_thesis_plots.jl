@@ -391,8 +391,7 @@ function get_ϱs_one_variable(
         if var_name == :Δt_cpl
             p.t_max = var
         end
-        _, ϱ_atm, ϱ_oce = run_simulation(p, iterations=iterations)
-        ϱs_atm[k], ϱs_oce[k] = extract_ρ(ϱ_atm, ϱ_oce)
+        _, ϱs_atm[k], ϱs_oce[k] = run_simulation(p, iterations=iterations)
     end
 
     if log_scale
