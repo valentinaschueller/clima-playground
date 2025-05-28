@@ -28,19 +28,6 @@ function get_stable_range(initial_value_fvs)
     return min_value - eps(min_value), max_value + eps(max_value)
 end
 
-function get_cit_boundary_space(device, p::SimulationParameters)
-    time_points = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint(p.t_0),
-        CC.Geometry.ZPoint(p.Δt_cpl);
-        boundary_names=(:start, :end),
-    )
-    time_mesh = CC.Meshes.IntervalMesh(
-        time_points,
-        nelems=Int(p.Δt_cpl / p.Δt_min),
-    )
-    return CC.Spaces.FaceFiniteDifferenceSpace(device, time_mesh)
-end
-
 function get_coupled_sim(p::SimulationParameters)
     context = CC.ClimaComms.context()
     device = CC.ClimaComms.device(context)
@@ -78,11 +65,7 @@ function get_coupled_sim(p::SimulationParameters)
         p.stable_range = nothing
     end
 
-    if p.boundary_mapping == "cit"
-        boundary_space = get_cit_boundary_space(device, p)
-    else
-        boundary_space = point_space
-    end
+    boundary_space = point_space
     p.T_O = T_oce_0[end] .* CC.Fields.ones(boundary_space)
     p.T_A = T_atm_0[1] .* CC.Fields.ones(boundary_space)
     p.T_Is = T_ice_0[1] .* CC.Fields.ones(boundary_space)

@@ -43,7 +43,6 @@ Base.@kwdef mutable struct SimulationParameters
     n_t_I = 1
     n_A = 200
     n_O = 50
-    boundary_mapping = "mean"
     α_O::Float64 = k_O / (ρ_O * c_O)
     α_A::Float64 = k_A / (ρ_A * c_A)
     C_AO::Float64 = ρ_A * c_A * C_H_AO * Δu_AO

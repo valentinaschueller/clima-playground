@@ -15,17 +15,13 @@ end
 Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
 function heat_atm_rhs!(dT, T, cache, t)
-    index = 1
-    if cache.boundary_mapping == "cit"
-        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_O)) .- t))
-    end
     F_sfc = (
         cache.a_I *
         cache.C_AI *
-        (T[1] - parent(cache.T_Is)[index]) +
+        (T[1] - parent(cache.T_Is)[1]) +
         (1 - cache.a_I) *
         cache.C_AO *
-        (T[1] - parent(cache.T_O)[index])
+        (T[1] - parent(cache.T_O)[1])
     )
 
     # set boundary conditions
@@ -90,10 +86,6 @@ function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationAtmos
 end
 
 function update_field!(sim::HeatEquationAtmos, T_O, T_Is)
-    if sim.params.boundary_mapping == "mean"
-        T_O = vec([mean(T_O)])
-        T_Is = vec([mean(T_Is)])
-    end
-    parent(sim.integrator.p.T_O) .= T_O
-    parent(sim.integrator.p.T_Is) .= T_Is
+    parent(sim.integrator.p.T_O) .= vec([mean(T_O)])
+    parent(sim.integrator.p.T_Is) .= vec([mean(T_Is)])
 end

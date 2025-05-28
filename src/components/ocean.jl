@@ -14,17 +14,13 @@ end
 Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 
 function heat_oce_rhs!(dT, T, cache, t)
-    index = 1
-    if cache.boundary_mapping == "cit"
-        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_A)) .- t))
-    end
     F_sfc = (
         cache.a_I *
         cache.C_IO *
         (cache.T_Ib - T[end]) +
         (1 - cache.a_I) *
         cache.C_AO *
-        (parent(cache.T_A)[index] - T[end])
+        (parent(cache.T_A)[1] - T[end])
     )
 
     ## set boundary conditions
@@ -84,10 +80,7 @@ function get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc})
 end
 
 function update_field!(sim::HeatEquationOcean, T_A)
-    if sim.params.boundary_mapping == "mean"
-        T_A = vec([mean(T_A)])
-    end
-    parent(sim.integrator.p.T_A) .= T_A
+    parent(sim.integrator.p.T_A) .= vec([mean(T_A)])
 end
 
 function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationOcean)

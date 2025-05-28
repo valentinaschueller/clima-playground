@@ -18,28 +18,18 @@ function thickness_rhs!(dh, h, cache, t)
         dh.data = 0.0
         return
     end
-    if cache.boundary_mapping == "cit"
-        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_A)) .- t))
-        T_O = parent(cache.T_O)[index]
-    else
-        T_O = vec(cache.T_O)
-        index = nothing
-    end
-    T_Is = solve_surface_energy_balance(cache; h_I=vec(h.data), index=index)
+    T_O = vec(cache.T_O)
+    T_Is = solve_surface_energy_balance(cache; h_I=vec(h.data))
     conduction = cache.k_I ./ h .* (T_Is .- cache.T_Ib)
     bottom_melt = cache.C_IO .* (cache.T_Ib .- T_O)
     @. dh = (bottom_melt - conduction) / (cache.ρ_I * cache.L)
 end
 
-function solve_surface_energy_balance(c; h_I=nothing, index=nothing)
+function solve_surface_energy_balance(c; h_I=nothing)
     if isnothing(h_I)
         h_I = vec([c.h_I_ini])
     end
-    if isnothing(index)
-        T_A = vec(c.T_A)
-    else
-        T_A = parent(c.T_A)[index]
-    end
+    T_A = vec(c.T_A)
     T_Is = zeros(size(h_I))
     shortwave = (1 - c.alb_I) * c.SW_in
     longwave = c.ϵ * (c.LW_in - c.A)
@@ -104,6 +94,6 @@ function Interfacer.add_coupler_fields!(coupler_field_names, ::SeaIce)
 end
 
 function update_field!(sim::SeaIce, T_A, T_O)
-    parent(sim.integrator.p.T_A) .= T_A
-    parent(sim.integrator.p.T_O) .= T_O
+    parent(sim.integrator.p.T_A) .= vec([mean(T_A)])
+    parent(sim.integrator.p.T_O) .= vec([mean(T_O)])
 end
