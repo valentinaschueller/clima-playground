@@ -36,7 +36,7 @@ function get_cit_boundary_space(device, p::SimulationParameters)
     )
     time_mesh = CC.Meshes.IntervalMesh(
         time_points,
-        nelems=Int(p.timerange[end] / p.Δt_min),
+        nelems=Int(p.Δt_cpl / p.Δt_min),
     )
     return CC.Spaces.FaceFiniteDifferenceSpace(device, time_mesh)
 end
@@ -65,8 +65,8 @@ function get_coupled_sim(p::SimulationParameters)
 
     if p.ice_model_type != :constant
         @info("Determine initial ice surface temperature from SEB.")
-        cache = (; p_dict..., T_A=T_atm_0[1] .* CC.Fields.ones(point_space))
-        p.T_I_ini = solve_surface_energy_balance(cache)[1]
+        p.T_A = T_atm_0[1] .* CC.Fields.ones(point_space)
+        p.T_I_ini = solve_surface_energy_balance(p)[1]
     end
     field_ice = CC.Fields.ones(point_space) .* p.T_I_ini
     field_h_I = CC.Fields.ones(point_space) .* p.h_I_ini

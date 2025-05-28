@@ -37,7 +37,7 @@ Base.@kwdef mutable struct SimulationParameters
     t_0::Float64 = 0.0
     t_max::Float64 = 3600.0
     Δt_cpl::Float64 = 100.0
-    Δt_min = 1.0
+    Δt_min::Float64 = 1.0
     n_t_A = 50
     n_t_O = 1
     n_t_I = 1
