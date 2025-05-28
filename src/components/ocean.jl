@@ -13,19 +13,8 @@ struct HeatEquationOcean{P,Y,D,I} <: Interfacer.OceanModelSimulation
 end
 Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 
-function heat_oce_rhs!(dT, T, cache, t)
-    index = 1
-    if cache.boundary_mapping == "cit"
-        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_A)) .- t))
-    end
-    F_sfc = (
-        cache.a_I *
-        cache.C_IO *
-        (cache.T_Ib - T[end]) +
-        (1 - cache.a_I) *
-        cache.C_AO *
-        (parent(cache.T_A)[index] - T[end])
-    )
+function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
+    F_sfc = p.a_I * p.C_IO * (p.T_Ib - T[end]) + (1 - p.a_I) * p.C_AO * (p.T_A - T[end])
 
     ## set boundary conditions
     C3 = CC.Geometry.WVector
@@ -37,25 +26,35 @@ function heat_oce_rhs!(dT, T, cache, t)
     ᶠgradᵥ = CC.Operators.GradientC2F()
     ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
-    @. dT.data = ᶜdivᵥ(cache.k_O * ᶠgradᵥ(T.data)) / (cache.ρ_O * cache.c_O)
+    @. dT.data = ᶜdivᵥ(p.k_O * ᶠgradᵥ(T.data)) / (p.ρ_O * p.c_O)
 end
 
-function ocean_init(stepping, ics, space, cache)
-    Δt = Float64(stepping.Δt_min) / stepping.nsteps_oce
-    saveat = stepping.timerange[1]:stepping.Δt_min:stepping.timerange[end]
-
+function ocean_init(odesolver, ics, space, p::SimulationParameters, output_dir)
     ode_function = CTS.ClimaODEFunction((T_exp!)=heat_oce_rhs!)
+    problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_0 + p.t_max), p)
 
-    problem = SciMLBase.ODEProblem(ode_function, ics, stepping.timerange, cache)
+    Δt = p.Δt_min / p.n_t_O
+    sea_water_temperature = CD.DiagnosticVariable(;
+        short_name="T_O",
+        long_name="Sea Water Temperature",
+        standard_name="sea_water_temperature",
+        units="K",
+        (compute!)=(out, Y, p, t) -> get_prognostic_data!(out, Y, p, t),
+    )
+    diagnostic_handler = CD.DiagnosticsHandler([get_diagnostic(sea_water_temperature, space, p.Δt_min, output_dir)], ics, p, p.t_0, dt=Δt)
+    diag_cb = CD.DiagnosticsCallback(diagnostic_handler)
+
+    saveat = p.t_0:p.Δt_min:p.t_max
     integrator = SciMLBase.init(
         problem,
-        stepping.odesolver,
+        odesolver,
         dt=Δt,
         saveat=saveat,
         adaptive=false,
+        callback=SciMLBase.CallbackSet(diag_cb),
     )
 
-    sim = HeatEquationOcean(cache, ics, space, integrator)
+    sim = HeatEquationOcean(p, ics, space, integrator)
     return sim
 end
 
@@ -74,8 +73,10 @@ function get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc})
 end
 
 function update_field!(sim::HeatEquationOcean, T_A)
-    if sim.params.boundary_mapping == "mean"
-        T_A = vec([mean(T_A)])
-    end
-    parent(sim.integrator.p.T_A) .= T_A
+    sim.integrator.p.T_A = mean(T_A)
+end
+
+function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationOcean)
+    ocean_coupler_fields = [:T_oce_sfc,]
+    push!(coupler_field_names, ocean_coupler_fields...)
 end

@@ -1,6 +1,7 @@
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
+import ClimaDiagnostics as CD
 
 export HeatEquationAtmos, heat_atm_rhs!, atmos_init, get_field, update_field!
 
@@ -13,19 +14,8 @@ end
 
 Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
-function heat_atm_rhs!(dT, T, cache, t)
-    index = 1
-    if cache.boundary_mapping == "cit"
-        index = argmin(abs.(parent(CC.Fields.coordinate_field(cache.T_O)) .- t))
-    end
-    F_sfc = (
-        cache.a_I *
-        cache.C_AI *
-        (T[1] - parent(cache.T_Is)[index]) +
-        (1 - cache.a_I) *
-        cache.C_AO *
-        (T[1] - parent(cache.T_O)[index])
-    )
+function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
+    F_sfc = p.a_I * p.C_AI * (T[1] - p.T_Is) + (1 - p.a_I) * p.C_AO * (T[1] - p.T_O)
 
     # set boundary conditions
     C3 = CC.Geometry.WVector
@@ -37,24 +27,36 @@ function heat_atm_rhs!(dT, T, cache, t)
     ᶠgradᵥ = CC.Operators.GradientC2F()
     ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
 
-    @. dT.data = ᶜdivᵥ(cache.k_A * ᶠgradᵥ(T.data)) / (cache.ρ_A * cache.c_A)
+    @. dT.data = ᶜdivᵥ(p.k_A * ᶠgradᵥ(T.data)) / (p.ρ_A * p.c_A)
 end
 
-function atmos_init(stepping, ics, space, cache)
-    Δt = Float64(stepping.Δt_min) / stepping.nsteps_atm
-    saveat = stepping.timerange[1]:stepping.Δt_min:stepping.timerange[end]
 
+function atmos_init(odesolver, ics, space, p::SimulationParameters, output_dir)
     ode_function = CTS.ClimaODEFunction((T_exp!)=heat_atm_rhs!)
-    problem = SciMLBase.ODEProblem(ode_function, ics, stepping.timerange, cache)
+    problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_max), p)
+
+    Δt = p.Δt_min / p.n_t_A
+    air_temperature = CD.DiagnosticVariable(;
+        short_name="T_A",
+        long_name="Air Temperature",
+        standard_name="air_temperature",
+        units="K",
+        (compute!)=(out, Y, p, t) -> get_prognostic_data!(out, Y, p, t),
+    )
+    diagnostic_handler = CD.DiagnosticsHandler([get_diagnostic(air_temperature, space, p.Δt_min, output_dir)], ics, p, p.t_0, dt=Δt)
+    diag_cb = CD.DiagnosticsCallback(diagnostic_handler)
+
+    saveat = p.t_0:p.Δt_min:p.t_max
     integrator = SciMLBase.init(
         problem,
-        stepping.odesolver,
+        odesolver,
         dt=Δt,
         saveat=saveat,
         adaptive=false,
+        callback=SciMLBase.CallbackSet(diag_cb),
     )
 
-    sim = HeatEquationAtmos(cache, ics, space, integrator)
+    sim = HeatEquationAtmos(p, ics, space, integrator)
     return sim
 end
 
@@ -71,11 +73,12 @@ function get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc})
     return vec([fieldvec[1] for fieldvec in sim.integrator.sol.u])
 end
 
+function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationAtmos)
+    coupler_fields = [:T_atm_sfc,]
+    push!(coupler_field_names, coupler_fields...)
+end
+
 function update_field!(sim::HeatEquationAtmos, T_O, T_Is)
-    if sim.params.boundary_mapping == "mean"
-        T_O = vec([mean(T_O)])
-        T_Is = vec([mean(T_Is)])
-    end
-    parent(sim.integrator.p.T_O) .= T_O
-    parent(sim.integrator.p.T_Is) .= T_Is
+    sim.integrator.p.T_O = mean(T_O)
+    sim.integrator.p.T_Is = mean(T_Is)
 end

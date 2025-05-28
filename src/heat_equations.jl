@@ -1,7 +1,8 @@
+include("parameters.jl")
+include("diagnostics.jl")
 include("components/atmosphere.jl")
 include("components/ocean.jl")
 include("components/ice.jl")
-include("parameters.jl")
 include("coupled_simulation.jl")
 include("convergence_factors.jl")
 include("monin_obukhov.jl")
@@ -16,50 +17,6 @@ import ClimaCoupler:
 
 export coupled_heat_equations, solve_coupler!, run_simulation
 
-"""
-When a file is saved, its always called the same thing. It has to be renamed for each iteration to not overwrite the old one.
-
-**Arguments:**
-
--`cs::Interfacer.CoupledSimulation`: The coupled simulation.
--`iter::Int`: The current iteration.
--`time::Float64`: The current simulation time.
-
-**Optional Keyword Arguments:**
-
--`reverse::Boolean`: The file name sometimes needs to be reverted back to the original name, default: `false`.
-
-"""
-function rename_files(cs::Interfacer.CoupledSimulation, iter, reverse=false)
-    time = time_in_s(cs)
-    for sim in cs.model_sims
-        original_file = joinpath(
-            cs.dirs.checkpoints,
-            "checkpoint_" * Interfacer.name(sim) * "_$time.hdf5",
-        )
-        new_file = joinpath(
-            cs.dirs.checkpoints,
-            "checkpoint_" * Interfacer.name(sim) * "_$iter" * "_$time.hdf5",
-        )
-        if !reverse
-            mv(original_file, new_file, force=true)
-        else
-            mv(new_file, original_file, force=true)
-        end
-    end
-    pid = ClimaComms.mypid(cs.comms_ctx)
-    original_file =
-        joinpath(cs.dirs.checkpoints, "checkpoint_coupler_fields_$(pid)_$time.jld2")
-    new_file = joinpath(
-        cs.dirs.checkpoints,
-        "checkpoint_coupler_fields_$(pid)" * "_$iter" * "_$time.jld2",
-    )
-    if !reverse
-        mv(original_file, new_file, force=true)
-    else
-        mv(new_file, original_file, force=true)
-    end
-end
 
 """Sets u0 = u(t), t0 = t, and empties u."""
 function reinit!(cs::Interfacer.CoupledSimulation, t)
@@ -67,16 +24,6 @@ function reinit!(cs::Interfacer.CoupledSimulation, t)
         Interfacer.reinit!(sim.integrator, sim.integrator.u, t0=t)
     end
 end
-
-"""Restarts simulations."""
-function restart_sims!(cs::Interfacer.CoupledSimulation)
-    @info "Reading checkpoint!"
-    time = time_in_s(cs)
-    rename_files(cs, 0, true)
-    Checkpointer.restart!(cs, cs.dirs.checkpoints, time)
-    rename_files(cs, 0)
-end
-
 
 function update_atmos_values!(cs)
     bound_ocean_vals = get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
@@ -133,12 +80,8 @@ function solve_coupler!(
 
     for t = t0:Δt_cpl:(tspan[end]-Δt_cpl)
         @info("Current time: $t")
-        set_time!(cs, t0)
-        reinit!(cs, t0)
-
-        # Checkpoint to save initial values at this coupling step
-        Checkpointer.checkpoint_sims(cs)
-        rename_files(cs, 0)
+        set_time!(cs, t)
+        reinit!(cs, t)
 
         iter = 1
         atmos_vals_list = []
@@ -146,13 +89,13 @@ function solve_coupler!(
         bound_atmos_vals = nothing
         bound_ocean_vals = nothing
 
-
+        Checkpointer.checkpoint_sims(cs)
 
         for iter = 1:iterations
             @info("Current iter: $(iter)")
             if iter > 1
-                restart_sims!(cs)
-                reinit!(cs, 0.0)
+                Checkpointer.restart!(cs, cs.dirs.checkpoints, time_in_s(cs))
+                reinit!(cs, t)
             end
 
             # Temperature values for the previous iteration.
@@ -160,7 +103,7 @@ function solve_coupler!(
             pre_bound_ocean_vals = bound_ocean_vals
 
             try
-                bound_atmos_vals, bound_ocean_vals = advance_simulation!(cs, t0 + Δt_cpl, parallel)
+                bound_atmos_vals, bound_ocean_vals = advance_simulation!(cs, t + Δt_cpl, parallel)
             catch err
                 if isa(err, UnstableError)
                     @warn("Unstable simulation!")
@@ -172,20 +115,18 @@ function solve_coupler!(
             push!(atmos_vals_list, bound_atmos_vals)
             push!(ocean_vals_list, bound_ocean_vals)
 
-            Checkpointer.checkpoint_sims(cs)
-            rename_files(cs, iter)
-
             if has_converged(
                 bound_atmos_vals,
                 pre_bound_atmos_vals,
                 bound_ocean_vals,
                 pre_bound_ocean_vals
             )
-                break
+                @info "Termination criterion satisfied!"
             end
         end
         if iterations > 1
-            ϱ_A, ϱ_O = compute_ϱ_numerical(atmos_vals_list, ocean_vals_list)
+            ϱ_A = compute_ϱ_numerical(atmos_vals_list)
+            ϱ_O = compute_ϱ_numerical(ocean_vals_list)
         end
     end
     set_time!(cs, tspan[end])

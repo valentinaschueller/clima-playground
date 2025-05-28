@@ -17,7 +17,7 @@ This solves the coupled heat equation on the time interval $t\in[0:3600] s$ with
 
 Simulation parameters (physical and numerical) can be changed by passing keyword arguments, e.g.,
 ```julia
-coupled_heat_equations(iterations=10, Δt_min=10, t_max=1000, Δt_cpl=1000, boundary_mapping="mean")
+coupled_heat_equations(iterations=10, Δt_min=10, t_max=1000, Δt_cpl=1000)
 ```
 
 If you want to use the parallel Schwarz iteration, run:

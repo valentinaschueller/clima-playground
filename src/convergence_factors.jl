@@ -43,36 +43,24 @@ function compute_ϱ_ice(p::SimulationParameters; s=nothing)
     return ϱ
 end
 
-function compute_ϱ_numerical(atmos_vals_list, ocean_vals_list)
-    ϱ_A = []
-    ϱ_O = []
-    pre_bound_error_A = abs.(atmos_vals_list[1] .- atmos_vals_list[end])
-    pre_bound_error_O = abs.(ocean_vals_list[1] .- ocean_vals_list[end])
-    for i = 2:length(atmos_vals_list)-1
-        bound_error_A = abs.(atmos_vals_list[i] .- atmos_vals_list[end])
-        bound_error_O = abs.(ocean_vals_list[i] .- ocean_vals_list[end])
+function compute_ϱ_numerical(coupling_variable)
+    ϱ = []
+    e_old = abs.(coupling_variable[1] .- coupling_variable[end])
+    for i = 2:length(coupling_variable)-1
+        e_new = abs.(coupling_variable[i] .- coupling_variable[end])
 
-        tols_atm = 100 * eps.(max.(abs.(atmos_vals_list[i]), abs.(atmos_vals_list[end])))
-        tols_oce = 100 * eps.(max.(abs.(ocean_vals_list[i]), abs.(ocean_vals_list[end])))
+        tols = 100 * eps.(max.(abs.(coupling_variable[i]), abs.(coupling_variable[end])))
 
-        indices_A = findall(
-            (pre_bound_error_A[1:end-1] .>= tols_atm[1:end-1]) .&
-            (bound_error_A[1:end-1] .>= tols_atm[1:end-1]),
-        )
-        indices_O = findall(
-            (pre_bound_error_O[1:end-1] .>= tols_oce[1:end-1]) .&
-            (pre_bound_error_O[1:end-1] .>= tols_oce[1:end-1]),
+        indices = findall(
+            (e_old[1:end-1] .>= tols[1:end-1]) .&
+            (e_new[1:end-1] .>= tols[1:end-1]),
         )
 
-        ρ_A_value = norm(bound_error_A[indices_A]) / norm(pre_bound_error_A[indices_A])
-        ρ_O_value = norm(bound_error_O[indices_O]) / norm(pre_bound_error_O[indices_O])
+        ϱ_i = norm(e_new[indices]) / norm(e_old[indices])
+        push!(ϱ, ϱ_i)
 
-        push!(ϱ_A, ρ_A_value)
-        push!(ϱ_O, ρ_O_value)
-
-        pre_bound_error_A = bound_error_A
-        pre_bound_error_O = bound_error_O
+        e_old = e_new
     end
-    return ϱ_A, ϱ_O
+    return mean_ϱ(ϱ)
 end
 

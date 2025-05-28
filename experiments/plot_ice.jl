@@ -18,8 +18,7 @@ function plot_ice_thickness_convergence(; iterations=10, kwargs...)
     ϱs_atm = zeros(length(h_Is))
     for (k, h_I) in enumerate(h_Is)
         setproperty!(p, :h_I_ini, h_I)
-        _, ϱ_atm, ϱ_oce = run_simulation(p, iterations=iterations)
-        ϱs_atm[k], _ = extract_ρ(ϱ_atm, ϱ_oce)
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
     end
     unstable_atm_indices = isinf.(ϱs_atm)
     ϱs_atm[unstable_atm_indices] .= NaN
@@ -76,8 +75,7 @@ function plot_a_I_dependence(; iterations=10, kwargs...)
     ϱs_atm = zeros(length(a_Is))
     for (k, a_I) in enumerate(a_Is)
         setproperty!(p, :a_I, a_I)
-        _, ϱ_atm, ϱ_oce = run_simulation(p, iterations=iterations)
-        ϱs_atm[k], _ = extract_ρ(ϱ_atm, ϱ_oce)
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
     end
 
     unstable_atm_indices = isinf.(ϱs_atm)
@@ -124,8 +122,7 @@ function plot_ice_Δt_cpl_convergence(; iterations=10, ice_model_type=:temp_feed
     for (k, Δt_cpl) in enumerate(Δt_cpls)
         setproperty!(p, :Δt_cpl, Δt_cpl)
         setproperty!(p, :t_max, Δt_cpl)
-        _, ϱ_atm, ϱ_oce = run_simulation(p, iterations=iterations)
-        ϱs_atm[k], _ = extract_ρ(ϱ_atm, ϱ_oce)
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
     end
     unstable_atm_indices = isinf.(ϱs_atm)
     ϱs_atm[unstable_atm_indices] .= NaN

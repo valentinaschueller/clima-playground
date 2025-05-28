@@ -34,20 +34,24 @@ Base.@kwdef mutable struct SimulationParameters
     T_O_ini = 271.0
     T_I_ini = 270.0
     h_I_ini = 1.0
+    t_0::Float64 = 0.0
     t_max::Float64 = 3600.0
     Δt_cpl::Float64 = 100.0
-    Δt_min = 1.0
+    Δt_min::Float64 = 1.0
     n_t_A = 50
     n_t_O = 1
     n_t_I = 1
     n_A = 200
     n_O = 50
-    boundary_mapping = "mean"
     α_O::Float64 = k_O / (ρ_O * c_O)
     α_A::Float64 = k_A / (ρ_A * c_A)
     C_AO::Float64 = ρ_A * c_A * C_H_AO * Δu_AO
     C_AI::Float64 = ρ_A * c_A * C_H_AI * Δu_AI
     C_IO::Float64 = ρ_O * c_O * C_H_IO * Δu_IO
+    T_A = nothing
+    T_O = nothing
+    T_Is = nothing
+    stable_range = nothing
     ice_model_type = :constant
 end
 
