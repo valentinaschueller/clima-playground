@@ -32,7 +32,7 @@ function get_coupled_sim(p::SimulationParameters)
     context = CC.ClimaComms.context()
     device = CC.ClimaComms.device(context)
     output_dir = "output"
-    rm(output_dir, recursive=true)
+    rm(output_dir, recursive=true, force=true)
     mkpath(output_dir)
     dir_paths = (
         output=output_dir,
