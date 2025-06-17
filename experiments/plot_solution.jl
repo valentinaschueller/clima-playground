@@ -24,8 +24,12 @@ end
 function plot_solution(; kwargs...)
     cs, _, _ = coupled_heat_equations(; kwargs...)
     coords, sols = load_timestep(cs)
+    p = cs.model_sims[1].params
     plot()
     colors = [:skyblue, :seagreen, :black]
+    if p.a_I == 0.0
+        coords, sols, colors = coords[1:2], sols[1:2], colors[1:2]
+    end
     for (coord, sol, color) in zip(coords, sols, colors)
         plot!(sol, coord, color=color, linestyle=:solid, marker=:circle, legend=false, markerstrokecolor=color)
     end
