@@ -77,8 +77,8 @@ function plot_Δt_cpl_dependence()
 
     ϱs_analytic = zeros(length(finely_spaced_var))
     for (k, var) in enumerate(finely_spaced_var)
-        setproperty!(p, :Δt_cpl, var)
-        setproperty!(p, :t_max, var)
+        p.Δt_cpl = var
+        p.t_max = var
         ω_min = im * π / p.Δt_cpl
         ω_max = im * π / (p.Δt_min / p.n_t_A)
         ϱs_analytic[k] = max(compute_ϱ_mixed(p, s=ω_min), compute_ϱ_mixed(p, s=ω_max))
@@ -117,9 +117,9 @@ function plot_resolution_dependence(; kwargs...)
     ϱs_atm = zeros(length(n_z))
 
     for (k, var) in enumerate(n_z)
-        setproperty!(p, :n_A, var)
-        setproperty!(p, :n_O, var)
-        setproperty!(p, :Δt_min, (p.t_max * n_z[1]) / var)
+        p.n_A = var
+        p.n_O = var
+        p.Δt_min = (p.t_max * n_z[1]) / var
         restore_physical_values!(p)
         _, ϱs_atm[k], _ = run_simulation(p, iterations=5)
     end
@@ -128,8 +128,8 @@ function plot_resolution_dependence(; kwargs...)
     finely_spaced_var = n_z
     ϱs_analytic = zeros(length(finely_spaced_var))
     for (k, var) in enumerate(finely_spaced_var)
-        setproperty!(p, :n_A, 4 * var)
-        setproperty!(p, :n_O, var)
+        p.n_A = 4 * var
+        p.n_O = var
         restore_physical_values!(p)
         ϱs_analytic[k] = compute_ϱ_mixed(p)
     end
@@ -164,40 +164,28 @@ end
 
 
 function plot_C_AO_dependence()
-    C_AOs = Base.logrange(1e-2, 1e4, length=15)
-    p = SimulationParameters(Δt_min=0.5, t_max=1000, Δt_cpl=1000)
+    C_AOs = Base.logrange(1e-2, 1e2, length=15)
+    p = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, n_t_A=4)
     ϱs_atm = zeros(length(C_AOs))
     ϱs_oce = zeros(length(C_AOs))
-    setproperty!(p, :n_O, 10)
-    setproperty!(p, :n_A, 10)
 
     for (k, var) in enumerate(C_AOs)
-        setproperty!(p, :C_AO, var)
+        p.C_AO = var
         _, ϱs_atm[k], ϱs_oce[k] = run_simulation(p, iterations=6)
     end
 
     finely_spaced_var = Base.logrange(C_AOs[1], C_AOs[end], length=100)
     ϱs_analytic = zeros(length(finely_spaced_var))
     for (k, var) in enumerate(finely_spaced_var)
-        setproperty!(p, :C_AO, var)
-        ϱs_analytic[k] = compute_ϱ_AO(p, s=im * π / (p.Δt_min / p.n_t_A))
+        p.C_AO = var
+        ω_min = im * π / p.Δt_cpl
+        ω_max = im * π / (p.Δt_min / p.n_t_A)
+        ϱs_analytic[k] = max(compute_ϱ_mixed(p, s=ω_min), compute_ϱ_mixed(p, s=ω_max))
     end
     plot(
         finely_spaced_var[ϱs_analytic.>0],
         ϱs_analytic[ϱs_analytic.>0],
         label=L"$ϱ_\mathrm{ana}$",
-        linewidth=2,
-        color=:black,
-    )
-    ϱs_analytic = zeros(length(finely_spaced_var))
-    for (k, var) in enumerate(finely_spaced_var)
-        setproperty!(p, :C_AO, var)
-        ϱs_analytic[k] = compute_ϱ_AO(p, s=im * π / (p.Δt_cpl))
-    end
-    plot!(
-        finely_spaced_var[ϱs_analytic.>0],
-        ϱs_analytic[ϱs_analytic.>0],
-        label=L"$ϱ_\mathrm{ana,2}$",
         linewidth=2,
         color=:black,
     )
