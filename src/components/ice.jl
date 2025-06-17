@@ -110,6 +110,6 @@ function Interfacer.add_coupler_fields!(coupler_field_names, ::SeaIce)
 end
 
 function update_field!(sim::SeaIce, T_A, T_O)
-    sim.integrator.p.T_A .= vec([mean(T_A)])
-    sim.integrator.p.T_O .= vec([mean(T_O)])
+    sim.integrator.p.T_A = mean(T_A)
+    sim.integrator.p.T_O = mean(T_O)
 end

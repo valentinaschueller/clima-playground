@@ -43,7 +43,7 @@ function plot_ice_thickness_convergence(; iterations=10, kwargs...)
     ϱ_theory = zeros(length(h_Is))
     for (k, h_I) in enumerate(h_Is)
         setproperty!(p, :h_I_ini, h_I)
-        ϱ_theory[k] = compute_ϱ_ice(p)
+        ϱ_theory[k] = compute_ϱ_mixed(p)
     end
 
     plot!(
@@ -56,17 +56,6 @@ function plot_ice_thickness_convergence(; iterations=10, kwargs...)
     )
     display(current())
     savefig("plots/ice_thickness_convergence.pdf")
-end
-
-function ϱ_mixed(p::SimulationParameters)
-    if p.ice_model_type == :constant
-        ϱ_AI = 0.0
-    else
-        ϱ_AI = compute_ϱ_ice(p)
-    end
-    ϱ_AO = compute_ϱ_analytical(p)
-    ϱ_mixed = p.a_I * ϱ_AI + (1 - p.a_I) * ϱ_AO
-    return ϱ_mixed
 end
 
 function plot_a_I_dependence(; iterations=10, kwargs...)
@@ -100,7 +89,7 @@ function plot_a_I_dependence(; iterations=10, kwargs...)
     ϱ_theory = zeros(length(a_Is))
     for (k, a_I) in enumerate(a_Is)
         setproperty!(p, :a_I, a_I)
-        ϱ_theory[k] = ϱ_mixed(p)
+        ϱ_theory[k] = compute_ϱ_mixed(p)
     end
     plot!(
         a_Is,
@@ -146,7 +135,7 @@ function plot_ice_Δt_cpl_convergence(; iterations=10, ice_model_type=:temp_feed
     ρ_theory = zeros(length(Δt_cpls))
     for (k, Δt_cpl) in enumerate(Δt_cpls)
         setproperty!(p, :t_max, Δt_cpl)
-        ρ_theory[k] = compute_ϱ_ice(p)
+        ρ_theory[k] = compute_ϱ_mixed(p)
     end
 
     plot!(

@@ -14,7 +14,7 @@ end
 Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 
 function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
-    F_sfc = p.a_I * p.C_IO * (p.T_Ib - T[end]) + (1 - p.a_I) * p.C_AO * (p.T_A - T[end])
+    F_sfc = p.a_I * p.C_IO * (p.T_Ib - T[end]) + (1 - p.a_I) * p.F_AO
 
     ## set boundary conditions
     C3 = CC.Geometry.WVector
@@ -72,8 +72,8 @@ function get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc})
     return vec([fieldvec[end] for fieldvec in sim.integrator.sol.u])
 end
 
-function update_field!(sim::HeatEquationOcean, T_A)
-    sim.integrator.p.T_A = mean(T_A)
+function update_field!(sim::HeatEquationOcean, F_AO)
+    sim.integrator.p.F_AO = mean(F_AO)
 end
 
 function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationOcean)

@@ -33,9 +33,16 @@ function update_atmos_values!(cs)
 end
 
 function update_ocean_values!(cs)
-    bound_atmos_vals = get_field(cs.model_sims.atmos_sim, Val(:T_atm_sfc))
+    bound_atmos_vals = get_field(cs.model_sims.atmos_sim, Val(:F_AO))
     update_field!(cs.model_sims.ocean_sim, bound_atmos_vals)
     return bound_atmos_vals
+end
+
+function update_ice_values!(cs)
+    bound_atmos_vals = get_field(cs.model_sims.atmos_sim, Val(:T_atm_sfc))
+    bound_ocean_vals = get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
+    update_field!(cs.model_sims.ice_sim, bound_atmos_vals, bound_ocean_vals)
+    return bound_atmos_vals, bound_ocean_vals
 end
 
 function set_time!(cs::Interfacer.CoupledSimulation, t)
@@ -51,14 +58,16 @@ end
 function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::Float64, parallel::Bool)
     if parallel
         FieldExchanger.step_model_sims!(cs.model_sims, t_end)
-        bound_atmos_vals = update_atmos_values!(cs)
-        bound_ocean_vals = update_ocean_values!(cs)
+        update_atmos_values!(cs)
+        update_ocean_values!(cs)
+        bound_atmos_vals, bound_ocean_vals = update_ice_values!(cs)
     else
         Interfacer.step!(cs.model_sims.ice_sim, t_end)
         Interfacer.step!(cs.model_sims.ocean_sim, t_end)
-        bound_ocean_vals = update_atmos_values!(cs)
+        update_atmos_values!(cs)
         Interfacer.step!(cs.model_sims.atmos_sim, t_end)
-        bound_atmos_vals = update_ocean_values!(cs)
+        update_ocean_values!(cs)
+        bound_atmos_vals, bound_ocean_vals = update_ice_values!(cs)
     end
     return bound_atmos_vals, bound_ocean_vals
 end

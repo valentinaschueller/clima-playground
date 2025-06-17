@@ -15,7 +15,7 @@ end
 Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
 function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
-    F_sfc = p.a_I * p.C_AI * (T[1] - p.T_Is) + (1 - p.a_I) * p.C_AO * (T[1] - p.T_O)
+    F_sfc = p.a_I * p.C_AI * (T[1] - p.T_Is) + (1 - p.a_I) * flux_AO(T, p)
 
     # set boundary conditions
     C3 = CC.Geometry.WVector
@@ -67,14 +67,22 @@ function Interfacer.step!(sim::HeatEquationAtmos, t)
     check_stability(sim.integrator.u, sim.params.stable_range)
 end
 
+function flux_AO(T, p::SimulationParameters)
+    return p.C_AO * (T[1] - p.T_O)
+end
+
 Interfacer.reinit!(sim::HeatEquationAtmos) = Interfacer.reinit!(sim.integrator)
 
 function get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc})
     return vec([fieldvec[1] for fieldvec in sim.integrator.sol.u])
 end
 
+function get_field(sim::HeatEquationAtmos, ::Val{:F_AO})
+    return vec([flux_AO(fieldvec, sim.integrator.p) for fieldvec in sim.integrator.sol.u])
+end
+
 function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationAtmos)
-    coupler_fields = [:T_atm_sfc,]
+    coupler_fields = [:F_AO, :T_atm_sfc]
     push!(coupler_field_names, coupler_fields...)
 end
 
