@@ -12,23 +12,45 @@ function plot_ice_seb_results()
     display(current())
 end
 
-function plot_ice_thickness_convergence(; iterations=10, kwargs...)
-    p = SimulationParameters(t_max=1000, Δt_cpl=1000, a_I=1.0, ice_model_type=:temp_feedback)
-    h_Is = Base.logrange(1e-4, 1e3, length=7)
+function plot_ice_thickness_convergence(; iterations=5, kwargs...)
+    p = SimulationParameters(Δt_min=200, t_max=3600, Δt_cpl=3600, a_I=1.0, ice_model_type=:thickness_feedback)
+    h_Is = Base.logrange(1e-4, 1e3, length=10)
     ϱs_atm = zeros(length(h_Is))
     for (k, h_I) in enumerate(h_Is)
         setproperty!(p, :h_I_ini, h_I)
         _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
     end
-    unstable_atm_indices = isinf.(ϱs_atm)
-    ϱs_atm[unstable_atm_indices] .= NaN
 
     plot(
         h_Is,
         ϱs_atm;
-        label=L"$ϱ_\mathrm{num}$",
+        label=L"$ϱ_\mathrm{num}, h=h(t)$",
+        markershape=:o,
+        color=:black,
+        linewidth=2,
+        legendfontsize=12,
+        xlabel=L"h_I",
+        xscale=:log10,
+        yscale=:log10,
+        ylabel="ϱ",
+        legend=:right,
+        kwargs...
+    )
+
+    p.ice_model_type = :temp_feedback
+    ϱs_atm = zeros(length(h_Is))
+    for (k, h_I) in enumerate(h_Is)
+        setproperty!(p, :h_I_ini, h_I)
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
+    end
+
+    plot!(
+        h_Is,
+        ϱs_atm;
+        label=L"$ϱ_\mathrm{num}, h=h_0$",
         markershape=:x,
         color=:black,
+        linestyle=:dash,
         linewidth=2,
         legendfontsize=12,
         xlabel=L"h_I",
@@ -58,32 +80,8 @@ function plot_ice_thickness_convergence(; iterations=10, kwargs...)
     savefig("plots/ice_thickness_convergence.pdf")
 end
 
-function plot_a_I_dependence(; iterations=10, kwargs...)
-    p = SimulationParameters(t_max=1000, Δt_cpl=1000, a_I=1.0, ice_model_type=:temp_feedback, C_H_IO=7.5e-3)
-    a_Is = range(0, 1, 20)
-    ϱs_atm = zeros(length(a_Is))
-    for (k, a_I) in enumerate(a_Is)
-        setproperty!(p, :a_I, a_I)
-        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
-    end
-
-    unstable_atm_indices = isinf.(ϱs_atm)
-    ϱs_atm[unstable_atm_indices] .= NaN
-
-    plot(
-        a_Is,
-        ϱs_atm;
-        label=L"$ϱ_\mathrm{num}$",
-        markershape=:x,
-        color=:black,
-        linewidth=2,
-        legendfontsize=12,
-        xlabel=L"a_I",
-        yscale=:log10,
-        ylabel="ϱ",
-        legend=:right,
-        kwargs...
-    )
+function plot_a_I_dependence(; iterations=5, kwargs...)
+    p = SimulationParameters(Δt_min=600, t_max=3600, Δt_cpl=3600, a_I=1.0, ice_model_type=:temp_feedback)
 
     a_Is = range(0, 1, 100)
     ϱ_theory = zeros(length(a_Is))
@@ -91,21 +89,43 @@ function plot_a_I_dependence(; iterations=10, kwargs...)
         setproperty!(p, :a_I, a_I)
         ϱ_theory[k] = compute_ϱ_mixed(p)
     end
-    plot!(
+    plot(
         a_Is,
         ϱ_theory;
-        label=L"$ϱ_\mathrm{ana}$",
+        label=L"$a_I ϱ_{AI} + (1-a_I) ϱ_{BI}$",
         color=:black,
         linewidth=2,
         kwargs...
     )
+
+    a_Is = range(0, 1, 20)
+    ϱs_atm = zeros(length(a_Is))
+    for (k, a_I) in enumerate(a_Is)
+        setproperty!(p, :a_I, a_I)
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
+    end
+    plot!(
+        a_Is,
+        ϱs_atm;
+        label=L"$ϱ_\mathrm{num}$",
+        markershape=:x,
+        color=:black,
+        linestyle=:dash,
+        linewidth=2,
+        legendfontsize=12,
+        xlabel=L"a_I",
+        ylabel=L"ϱ",
+        legend=:bottomright,
+        kwargs...
+    )
+
     display(current())
     savefig("plots/ice_a_i_dependence.pdf")
 end
 
 
 function plot_ice_Δt_cpl_convergence(; iterations=10, ice_model_type=:temp_feedback, kwargs...)
-    p = SimulationParameters(a_I=1.0, ice_model_type=ice_model_type)
+    p = SimulationParameters(a_I=1.0, ice_model_type=ice_model_type, Δt_min=10)
     Δt_cpls = Base.logrange(1e1, 1e5, length=5)
     ϱs_atm = zeros(length(Δt_cpls))
     for (k, Δt_cpl) in enumerate(Δt_cpls)

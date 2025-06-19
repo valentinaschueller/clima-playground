@@ -60,11 +60,9 @@ function plot_ϱ_AO()
 end
 
 
-function plot_Δt_cpl_dependence()
-    Δt_cpl = [3600, 21600, 86400, 345600, 1382400, 5529600, 22118400]#, 221184000, 5 * 221184000]
-    p = SimulationParameters(Δt_min=900, n_t_A=2)
-    p.n_A = 50
-    p.n_O = 12
+function plot_Δt_cpl_dependence(; plot_title="Δt_cpl_dependence", kwargs...)
+    Δt_cpl = [1200, 3600, 21600, 86400, 345600, 1382400, 5529600, 22118400]#, 221184000]# 5 * 221184000]
+    p = SimulationParameters(Δt_min=300, n_t_A=3; kwargs...)
     ϱs_atm = zeros(length(Δt_cpl))
 
     for (k, var) in enumerate(Δt_cpl)
@@ -99,21 +97,22 @@ function plot_Δt_cpl_dependence()
         linewidth=2,
     )
     plot!(;
-        legendfontsize=12,
+        fontsize=18,
         xlabel=L"$\Delta t_{cpl}$",
-        ylabel="ϱ",
+        ylabel=L"ϱ",
         xscale=:log10,
-        yscale=:log10,
         legend=:bottomright,
+        size=(400, 600),
     )
     display(current())
+    savefig("plots/$plot_title.pdf")
 end
 
 
-function plot_resolution_dependence(; kwargs...)
-    n_z = Int.(Base.logrange(1, 1e5, length=6))
+function plot_resolution_dependence(; plot_title="resolution_dependence", kwargs...)
+    n_z = Int.(Base.logrange(1, 1e4, length=5))
     n_z[1] = 5
-    p = SimulationParameters(t_max=1000, Δt_cpl=1000, n_t_A=2; kwargs...)
+    p = SimulationParameters(t_max=3600, Δt_cpl=3600; kwargs...)
     ϱs_atm = zeros(length(n_z))
 
     for (k, var) in enumerate(n_z)
@@ -139,7 +138,7 @@ function plot_resolution_dependence(; kwargs...)
     plot(
         finely_spaced_var[ϱs_analytic.>0],
         ϱs_analytic[ϱs_analytic.>0],
-        label=L"$ϱ_\mathrm{ana}$",
+        label=L"ϱ_\mathrm{ana}",
         linewidth=2,
         color=:black,
     )
@@ -153,19 +152,21 @@ function plot_resolution_dependence(; kwargs...)
         color=:black,
     )
     plot!(;
-        xlabel=L"\Delta z",
-        ylabel="ϱ",
-        legendfontsize=12,
+        xlabel=L"Δz_O",
+        ylabel=L"ϱ",
+        fontsize=18,
+        size=(200, 300),
         linestyles=:solid,
         xscale=:log10,
     )
     display(current())
+    savefig("plots/$plot_title.pdf")
 end
 
 
-function plot_C_AO_dependence()
+function plot_C_AO_dependence(plot_title="C_AO_dependence"; kwargs...)
     C_AOs = Base.logrange(1e-2, 1e2, length=15)
-    p = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, n_t_A=4)
+    p = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, n_t_A=4; kwargs...)
     ϱs_atm = zeros(length(C_AOs))
     ϱs_oce = zeros(length(C_AOs))
 
@@ -206,4 +207,5 @@ function plot_C_AO_dependence()
         legend=:bottomright,
     )
     display(current())
+    savefig("plots/$plot_title.pdf")
 end
