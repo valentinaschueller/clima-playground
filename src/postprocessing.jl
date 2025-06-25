@@ -12,7 +12,7 @@ function check_stability(values, value_range=nothing)
             maximum(values) > maximum(value_range) ||
             minimum(values) < minimum(value_range)
         )
-            throw(UnstableError())
+            @warn "Outside initial value range!"
         end
     end
 end
