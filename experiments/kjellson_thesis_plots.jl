@@ -42,7 +42,7 @@ function plot_ϱ_AO()
     params = SimulationParameters()
 
     for (j, ω) in enumerate(ωs)
-        ϱs[j] = compute_ϱ_AO(params; s=im * ω)
+        ϱs[j] = compute_ϱ_ana(params; s=im * ω)
     end
     ω_max = ωs[argmax(ϱs)]
     @info "Supremum at ω=$ω_max"
@@ -79,7 +79,7 @@ function plot_Δt_cpl_dependence(; plot_title="Δt_cpl_dependence", kwargs...)
         p.t_max = var
         ω_min = im * π / p.Δt_cpl
         ω_max = im * π / (p.Δt_min / p.n_t_A)
-        ϱs_analytic[k] = max(compute_ϱ_mixed(p, s=ω_min), compute_ϱ_mixed(p, s=ω_max))
+        ϱs_analytic[k] = max(compute_ϱ_ana(p, s=ω_min), compute_ϱ_ana(p, s=ω_max))
     end
     plot(
         finely_spaced_var[ϱs_analytic.>0],
@@ -130,7 +130,7 @@ function plot_resolution_dependence(; plot_title="resolution_dependence", kwargs
         p.n_A = 4 * var
         p.n_O = var
         restore_physical_values!(p)
-        ϱs_analytic[k] = compute_ϱ_mixed(p)
+        ϱs_analytic[k] = compute_ϱ_ana(p)
     end
     finely_spaced_var = reverse((p.h_O - p.z_O0) ./ finely_spaced_var)
     ϱs_analytic = reverse(ϱs_analytic, dims=1)
@@ -181,7 +181,7 @@ function plot_C_AO_dependence(plot_title="C_AO_dependence"; kwargs...)
         p.C_AO = var
         ω_min = im * π / p.Δt_cpl
         ω_max = im * π / (p.Δt_min / p.n_t_A)
-        ϱs_analytic[k] = max(compute_ϱ_mixed(p, s=ω_min), compute_ϱ_mixed(p, s=ω_max))
+        ϱs_analytic[k] = max(compute_ϱ_ana(p, s=ω_min), compute_ϱ_ana(p, s=ω_max))
     end
     plot(
         finely_spaced_var[ϱs_analytic.>0],

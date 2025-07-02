@@ -65,7 +65,7 @@ function plot_ice_thickness_convergence(; iterations=5, kwargs...)
     ϱ_theory = zeros(length(h_Is))
     for (k, h_I) in enumerate(h_Is)
         setproperty!(p, :h_I_ini, h_I)
-        ϱ_theory[k] = compute_ϱ_mixed(p)
+        ϱ_theory[k] = compute_ϱ_ana(p)
     end
 
     plot!(
@@ -87,12 +87,12 @@ function plot_a_I_dependence(; iterations=5, kwargs...)
     ϱ_theory = zeros(length(a_Is))
     for (k, a_I) in enumerate(a_Is)
         setproperty!(p, :a_I, a_I)
-        ϱ_theory[k] = compute_ϱ_mixed(p)
+        ϱ_theory[k] = compute_ϱ_ana(p; s=im * 1e-5)
     end
     plot(
         a_Is,
         ϱ_theory;
-        label=L"$a_I ϱ_{AI} + (1-a_I) ϱ_{BI}$",
+        label=L"ϱ_\mathrm{ana}",
         color=:black,
         linewidth=2,
         kwargs...
@@ -155,7 +155,7 @@ function plot_ice_Δt_cpl_convergence(; iterations=10, ice_model_type=:temp_feed
     ρ_theory = zeros(length(Δt_cpls))
     for (k, Δt_cpl) in enumerate(Δt_cpls)
         setproperty!(p, :t_max, Δt_cpl)
-        ρ_theory[k] = compute_ϱ_mixed(p)
+        ρ_theory[k] = compute_ϱ_ana(p)
     end
 
     plot!(
