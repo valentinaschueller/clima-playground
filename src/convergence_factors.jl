@@ -32,15 +32,7 @@ function compute_ϱ_numerical(coupling_variable)
     e_old = abs.(coupling_variable[1] .- coupling_variable[end])
     for i = 2:length(coupling_variable)-1
         e_new = abs.(coupling_variable[i] .- coupling_variable[end])
-
-        tols = 100 * eps.(max.(abs.(coupling_variable[i]), abs.(coupling_variable[end])))
-
-        indices = findall(
-            (e_old[1:end-1] .>= tols[1:end-1]) .&
-            (e_new[1:end-1] .>= tols[1:end-1]),
-        )
-
-        ϱ_i = norm(e_new[indices]) / norm(e_old[indices])
+        ϱ_i = norm(e_new) / norm(e_old)
         push!(ϱ, ϱ_i)
 
         e_old = e_new
