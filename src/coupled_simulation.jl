@@ -57,8 +57,7 @@ function get_coupled_sim(p::SimulationParameters)
         @info("Determine initial ice surface temperature from SEB.")
         p.T_I_ini = solve_surface_energy_balance(p)[1]
     end
-    field_ice = CC.Fields.ones(point_space) .* p.T_I_ini
-    p.T_Is = field_ice
+    p.T_Is = p.T_I_ini
 
     field_h_I = CC.Fields.ones(point_space) .* p.h_I_ini
     h_ice_0 = CC.Fields.FieldVector(data=field_h_I)
