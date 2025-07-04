@@ -61,14 +61,27 @@ end
 
 
 function plot_Δt_cpl_dependence(; plot_title="Δt_cpl_dependence", kwargs...)
-    Δt_cpl = [1200, 3600, 21600, 86400, 345600, 1382400, 5529600, 22118400]#, 221184000]# 5 * 221184000]
-    p = SimulationParameters(Δt_min=300, n_t_A=3; kwargs...)
+    Δt_cpl = [1200, 3600, 21600, 86400]
+    p = SimulationParameters(Δt_min=10; kwargs...)
     ϱs_atm = zeros(length(Δt_cpl))
 
-    for (k, var) in enumerate(Δt_cpl)
-        p.Δt_cpl = var
-        p.t_max = var
-        _, ϱs_atm[k], _ = run_simulation(p, iterations=5)
+    plot()
+    n_z = [(50, 12), (200, 50), (800, 200), (3200, 800), (12800, 3200), (25600, 6400)]
+    for (n_A, n_O) in n_z
+        p.n_A = n_A
+        p.n_O = n_O
+        for (k, var) in enumerate(Δt_cpl)
+            p.Δt_cpl = var
+            p.t_max = var
+            _, ϱs_atm[k], _ = run_simulation(p, iterations=5)
+        end
+        plot!(
+            Δt_cpl,
+            ϱs_atm,
+            label="n_A = $n_A",
+            markershape=:x,
+            linewidth=2,
+        )
     end
 
     finely_spaced_var = Base.logrange(Δt_cpl[1], Δt_cpl[end], length=100)
@@ -81,28 +94,20 @@ function plot_Δt_cpl_dependence(; plot_title="Δt_cpl_dependence", kwargs...)
         ω_max = im * π / (p.Δt_min / p.n_t_A)
         ϱs_analytic[k] = max(compute_ϱ_ana(p, s=ω_min), compute_ϱ_ana(p, s=ω_max))
     end
-    plot(
+    plot!(
         finely_spaced_var[ϱs_analytic.>0],
         ϱs_analytic[ϱs_analytic.>0],
         label=L"$ϱ_\mathrm{ana}$",
         linewidth=2,
         color=:black,
     )
-    plot!(
-        Δt_cpl,
-        ϱs_atm,
-        label=L"$ϱ_\mathrm{num}$",
-        color=:black,
-        markershape=:x,
-        linewidth=2,
-    )
+
     plot!(;
         fontsize=18,
         xlabel=L"$\Delta t_{cpl}$",
         ylabel=L"ϱ",
         xscale=:log10,
         legend=:bottomright,
-        size=(400, 600),
     )
     display(current())
     savefig("plots/$plot_title.pdf")
