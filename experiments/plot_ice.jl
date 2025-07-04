@@ -123,6 +123,34 @@ function plot_a_I_dependence(; iterations=5, kwargs...)
     savefig("plots/ice_a_i_dependence.pdf")
 end
 
+function plot_a_I_zoom(; iterations=5, kwargs...)
+    p = SimulationParameters(Δt_min=600, t_max=1200, Δt_cpl=1200, a_I=1.0, ice_model_type=:temp_feedback)
+
+    a_Is = range(1e-4, 3e-4, 500)
+    ϱs_atm = zeros(length(a_Is))
+    for (k, a_I) in enumerate(a_Is)
+        setproperty!(p, :a_I, a_I)
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
+    end
+    plot(
+        a_Is,
+        ϱs_atm;
+        label=L"$ϱ_\mathrm{num}$",
+        markershape=:x,
+        color=:black,
+        linestyle=:dash,
+        linewidth=2,
+        legendfontsize=12,
+        xlabel=L"a_I",
+        ylabel=L"ϱ",
+        legend=:bottomright,
+        kwargs...
+    )
+
+    display(current())
+    savefig("plots/ice_a_i_zoom.pdf")
+end
+
 
 function plot_ice_Δt_cpl_convergence(; iterations=10, ice_model_type=:temp_feedback, kwargs...)
     p = SimulationParameters(a_I=1.0, ice_model_type=ice_model_type, Δt_min=10)
