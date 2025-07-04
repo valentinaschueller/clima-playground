@@ -69,7 +69,7 @@ function get_coupled_sim(p::SimulationParameters)
 
     boundary_space = point_space
 
-    odesolver = CTS.ExplicitAlgorithm(CTS.RK4())
+    odesolver = CTS.IMEXAlgorithm(CTS.ARS111(), CTS.NewtonsMethod())
     atmos_sim = atmos_init(odesolver, T_atm_0, center_space_atm, p, output_dir)
     ocean_sim = ocean_init(odesolver, T_oce_0, center_space_oce, p, output_dir)
     ice_sim = ice_init(odesolver, h_ice_0, point_space, p, output_dir)

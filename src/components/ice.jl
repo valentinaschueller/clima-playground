@@ -73,7 +73,7 @@ function ice_init(odesolver, ics, space, p::SimulationParameters, output_dir)
 
     integrator = SciMLBase.init(
         problem,
-        odesolver,
+        CTS.ExplicitAlgorithm(CTS.RK4()),
         dt=Δt,
         saveat=saveat,
         adaptive=false,

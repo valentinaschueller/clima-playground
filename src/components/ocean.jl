@@ -13,6 +13,18 @@ struct HeatEquationOcean{P,Y,D,I} <: Interfacer.OceanModelSimulation
 end
 Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 
+function Wfact_oce(W, Y, p, dtγ, t)
+    C3 = CC.Geometry.WVector
+    ᶜdivᵥ = CC.Operators.DivergenceF2C(;
+        bottom=CC.Operators.SetValue(C3(0.0)),
+        top=CC.Operators.SetValue(C3(0.0)),
+    )
+    ᶠgradᵥ = CC.Operators.GradientC2F()
+    div_matrix = CC.MatrixFields.operator_matrix(ᶜdivᵥ)
+    grad_matrix = CC.MatrixFields.operator_matrix(ᶠgradᵥ)
+    @. W.matrix[@name(data), @name(data)] = dtγ * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
+end
+
 function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
     F_sfc = p.a_I * p.C_IO * (p.T_Ib - T[end]) + (1 - p.a_I) * p.F_AO
 
@@ -30,7 +42,12 @@ function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
 end
 
 function ocean_init(odesolver, ics, space, p::SimulationParameters, output_dir)
-    ode_function = CTS.ClimaODEFunction((T_exp!)=heat_oce_rhs!)
+    jacobian_matrix = CC.MatrixFields.FieldMatrix(
+        (@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{Float64}),
+    )
+    T_imp_wrapper! =
+        SciMLBase.ODEFunction(heat_oce_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian_matrix, ics), Wfact=Wfact_oce)
+    ode_function = CTS.ClimaODEFunction((T_exp!)=nothing, (T_imp!)=T_imp_wrapper!)
     problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_0 + p.t_max), p)
 
     Δt = p.Δt_min / p.n_t_O
