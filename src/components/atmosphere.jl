@@ -45,14 +45,19 @@ function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
     @. dT.data = ᶜdivᵥ(p.k_A * ᶠgradᵥ(T.data)) / (p.ρ_A * p.c_A)
 end
 
+function get_atm_odefunction(ics, ::Val{:implicit})
+    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{Float64}))
+    T_imp! = SciMLBase.ODEFunction(heat_atm_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact_atm)
+    return CTS.ClimaODEFunction((T_exp!)=nothing, (T_imp!)=T_imp!)
+end
+
+function get_atm_odefunction(ics, ::Val{:explicit})
+    return CTS.ClimaODEFunction((T_exp!)=heat_atm_rhs!)
+end
+
 
 function atmos_init(odesolver, ics, space, p::SimulationParameters, output_dir)
-    jacobian_matrix = CC.MatrixFields.FieldMatrix(
-        (@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{Float64}),
-    )
-    T_imp_wrapper! =
-        SciMLBase.ODEFunction(heat_atm_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian_matrix, ics), Wfact=Wfact_atm)
-    ode_function = CTS.ClimaODEFunction((T_exp!)=nothing, (T_imp!)=T_imp_wrapper!)
+    ode_function = get_atm_odefunction(ics, Val(p.timestepping))
     problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_max), p)
 
     Δt = p.Δt_min / p.n_t_A
