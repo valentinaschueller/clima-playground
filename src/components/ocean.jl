@@ -2,6 +2,8 @@ import SciMLBase
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
+import ClimaDiagnostics as CD
+import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
 
 export HeatEquationOcean, heat_oce_rhs!, ocean_init, get_field, update_field!
 

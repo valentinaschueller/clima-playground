@@ -1,8 +1,9 @@
+import SciMLBase
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
 import ClimaDiagnostics as CD
-import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver
+import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
 
 export HeatEquationAtmos, heat_atm_rhs!, atmos_init, get_field, update_field!
 
