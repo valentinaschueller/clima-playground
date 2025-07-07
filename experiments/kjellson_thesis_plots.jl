@@ -61,19 +61,22 @@ end
 
 
 function plot_Δt_cpl_dependence(; plot_title="Δt_cpl_dependence", kwargs...)
-    Δt_cpl = [1200, 3600, 21600, 86400]
-    p = SimulationParameters(Δt_min=10; kwargs...)
+    Δt_cpl = [400, 1200, 3600, 10800]
+    p = SimulationParameters(Δt_min=400; kwargs...)
     ϱs_atm = zeros(length(Δt_cpl))
+    p.n_t_A = 1
+    p.n_t_O = 1
 
     plot()
-    n_z = [(50, 12), (200, 50), (800, 200), (3200, 800), (12800, 3200), (25600, 6400)]
+    n_z = [(50, 12), (200, 50), (800, 200)]
     for (n_A, n_O) in n_z
         p.n_A = n_A
         p.n_O = n_O
         for (k, var) in enumerate(Δt_cpl)
+            p.Δt_min = var
             p.Δt_cpl = var
             p.t_max = var
-            _, ϱs_atm[k], _ = run_simulation(p, iterations=5)
+            _, ϱs_atm[k], _ = run_simulation(p, iterations=10)
         end
         plot!(
             Δt_cpl,
@@ -107,6 +110,7 @@ function plot_Δt_cpl_dependence(; plot_title="Δt_cpl_dependence", kwargs...)
         xlabel=L"$\Delta t_{cpl}$",
         ylabel=L"ϱ",
         xscale=:log10,
+        yscale=:log10,
         legend=:bottomright,
     )
     display(current())

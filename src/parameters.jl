@@ -54,6 +54,7 @@ Base.@kwdef mutable struct SimulationParameters
     T_Is = nothing
     stable_range = nothing
     ice_model_type = :constant
+    timestepping = :implicit
 end
 
 function restore_physical_values!(p::SimulationParameters)
