@@ -65,7 +65,10 @@ function ice_init(odesolver, ics, space, p::SimulationParameters, output_dir)
         units="K",
         (compute!)=(out, Y, p, t) -> get_T_Is(out, Y, p, t),
     )
-    diagnostics = [get_diagnostic(ice_thickness, space, p.Δt_min, output_dir), get_diagnostic(ice_surface_temperature, space, p.Δt_min, output_dir)]
+    diagnostics = [
+        get_diagnostic(ice_thickness, space, p.Δt_min, output_dir),
+        get_diagnostic(ice_surface_temperature, space, p.Δt_min, output_dir),
+    ]
     diagnostic_handler = CD.DiagnosticsHandler(diagnostics, ics, p, p.t_0, dt=Δt)
     diag_cb = CD.DiagnosticsCallback(diagnostic_handler)
 
