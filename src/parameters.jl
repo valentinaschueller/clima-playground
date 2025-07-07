@@ -51,9 +51,13 @@ Base.@kwdef mutable struct SimulationParameters
     T_A = nothing
     T_O = nothing
     F_AO = nothing
+    F_AL = nothing
     T_Is = nothing
+    T_Ls = nothing
     stable_range = nothing
     ice_model_type = :constant
+    λ_L = 1e-5
+    config = :over_sea
 end
 
 function restore_physical_values!(p::SimulationParameters)
