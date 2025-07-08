@@ -1,6 +1,7 @@
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Interfacer
+import LinearAlgebra
 import SciMLBase
 import Plots
 import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix, DiagonalMatrixRow
@@ -19,7 +20,7 @@ function ∑sfc_flx!(dT, T, p, t)
 end
 
 function Wfact(W, Y, p, dtγ, t)
-    @. W.matrix[@name(data), @name(data)] = dtγ * p.λ
+    @. W.matrix[@name(data), @name(data)] = dtγ * p.λ * (LinearAlgebra.I,) - (LinearAlgebra.I,)
 end
 
 T_0 = 1.0
