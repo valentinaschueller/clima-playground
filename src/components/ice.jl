@@ -1,6 +1,9 @@
+import SciMLBase
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
+import ClimaDiagnostics as CD
+import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix
 
 export SeaIce, thickness_rhs!, solve_surface_energy_balance, ice_init, get_field, update_field!
 
@@ -67,9 +70,7 @@ function get_T_Is(out, Y, p, t)
 end
 
 function get_ice_odefunction(ics, ::Val{:implicit})
-    jacobian = CC.MatrixFields.FieldMatrix(
-        (@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.DiagonalMatrixRow{Float64}),
-    )
+    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.DiagonalMatrixRow{Float64}))
     T_imp! = SciMLBase.ODEFunction(thickness_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact)
     return CTS.ClimaODEFunction((T_imp!)=T_imp!)
 end
