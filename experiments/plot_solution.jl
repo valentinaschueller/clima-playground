@@ -3,6 +3,7 @@ using Plots
 using LaTeXStrings
 using NetCDF
 import ClimaCore as CC
+import ClimaDiagnostics as CD
 
 function load_timestep(cs; index=nothing)
     coords = []
@@ -40,13 +41,21 @@ end
 function plot_solution_over_time(; kwargs...)
     cs, _, _ = coupled_heat_equations(; kwargs...)
     p = cs.model_sims[1].params
-    time = ncread("output/h_I_1s_inst.nc", "time")
-    T_O = ncread("output/T_O_1s_inst.nc", "T_O", start=[1, p.n_O], count=[-1, 1])
-    T_A = ncread("output/T_A_1s_inst.nc", "T_A", start=[1, 1], count=[-1, 1])
-    T_Is = ncread("output/T_Is_1s_inst.nc", "T_Is")
-    T_Ls = ncread("output/T_Ls_1s_inst.nc", "T_Ls")
-    h_I = ncread("output/h_I_1s_inst.nc", "h_I")
-    p1 = plot(time, [T_A T_O T_Is T_Ls], xlabel="Time [s]", ylabel="Temperature [K]", label=[L"T_A" L"T_O" L"T_{I,s}" L"T_{L,s}"], color=[:skyblue :seagreen :black :brown])
+    dt = CD.seconds_to_str_short(p.Δt_min)
+    time = ncread("output/h_I_$(dt)_inst.nc", "time")
+    T_O = ncread("output/T_O_$(dt)_inst.nc", "T_O", start=[1, p.n_O], count=[-1, 1])
+    T_A = ncread("output/T_A_$(dt)_inst.nc", "T_A", start=[1, 1], count=[-1, 1])
+    T_Is = ncread("output/T_Is_$(dt)_inst.nc", "T_Is")
+    h_I = ncread("output/h_I_$(dt)_inst.nc", "h_I")
+    T_Ls = ncread("output/T_Ls_$(dt)_inst.nc", "T_Ls")
+    p1 = plot(
+        time,
+        [T_A T_O T_Is T_Ls],
+        xlabel="Time [s]",
+        ylabel="Temperature [K]",
+        label=[L"T_A" L"T_O" L"T_{I,s}" L"T_{L,s}"],
+        color=[:skyblue :seagreen :black :brown]
+    )
     p2 = plot(time, h_I, color=:black, label=L"h_I", ylabel="Ice Thickness [m]", xlabel="Time [s]")
     l = @layout [a b]
     plot(p1, p2, layout=l, legendfontsize=12, linewidth=2)

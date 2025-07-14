@@ -1,6 +1,9 @@
+import SciMLBase
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
+import ClimaDiagnostics as CD
+import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix
 
 export SeaIce, thickness_rhs!, solve_surface_energy_balance, ice_init, get_field, update_field!
 
@@ -28,13 +31,32 @@ function solve_surface_energy_balance(c; h_I=nothing)
     if isnothing(h_I)
         h_I = vec([c.h_I_ini])
     end
-    T_Is = zeros(size(h_I))
+    T_Is = similar(h_I)
     shortwave = (1 - c.alb_I) * c.SW_in
     longwave = c.ϵ * (c.LW_in - c.A)
     sensible_sfc = c.C_AI * (c.T_A - 273.15)
     conduction = (c.k_I ./ h_I) .* (c.T_Ib .- 273.15)
     @. T_Is = (conduction + shortwave + longwave + sensible_sfc) / (c.k_I / h_I + c.ϵ * c.B + c.C_AI)
     return min.(T_Is .+ 273.15, 273.15)
+end
+
+function Wfact(W, h, p, dtγ, t)
+    J = similar(h.data)
+    if p.ice_model_type != :thickness_feedback
+        @. J = 0.0
+    elseif solve_surface_energy_balance(p; h_I=h)[1] < 273.15
+        shortwave = (1 - p.alb_I) * p.SW_in
+        longwave = p.ϵ * (p.LW_in - p.A - p.B * (p.T_Ib - 273.15))
+        sensible = p.C_AI * (p.T_A - p.T_Ib)
+        c1 = -(shortwave + longwave + sensible) / (p.ρ_I * p.L)
+        c2 = (p.ϵ * p.B + p.C_AI) / p.k_I
+        @. J = -c1 * c2 / (1 + c2 * h.data)^2
+    else
+        @info "Alternative Jacobian"
+        c3 = -p.k_I / (p.ρ_I * p.L) * (273.15 - p.T_Ib)
+        @. J = -c3 / h.data^2
+    end
+    @. W.matrix[@name(data), @name(data)] = dtγ * J * (LinearAlgebra.I,) - (LinearAlgebra.I,)
 end
 
 function get_T_Is(out, Y, p, t)
@@ -47,8 +69,18 @@ function get_T_Is(out, Y, p, t)
     end
 end
 
+function get_ice_odefunction(ics, ::Val{:implicit})
+    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.DiagonalMatrixRow{Float64}))
+    T_imp! = SciMLBase.ODEFunction(thickness_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact)
+    return CTS.ClimaODEFunction((T_imp!)=T_imp!)
+end
+
+function get_ice_odefunction(ics, ::Val{:explicit})
+    return CTS.ClimaODEFunction((T_exp!)=thickness_rhs!)
+end
+
 function ice_init(odesolver, ics, space, p::SimulationParameters, output_dir)
-    ode_function = CTS.ClimaODEFunction((T_exp!)=thickness_rhs!)
+    ode_function = get_ice_odefunction(ics, Val(p.timestepping))
     problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_max), p)
     Δt = p.Δt_min / p.n_t_I
     ice_thickness = CD.DiagnosticVariable(;
@@ -65,7 +97,10 @@ function ice_init(odesolver, ics, space, p::SimulationParameters, output_dir)
         units="K",
         (compute!)=(out, Y, p, t) -> get_T_Is(out, Y, p, t),
     )
-    diagnostics = [get_diagnostic(ice_thickness, space, p.Δt_min, output_dir), get_diagnostic(ice_surface_temperature, space, p.Δt_min, output_dir)]
+    diagnostics = [
+        get_diagnostic(ice_thickness, space, p.Δt_min, output_dir),
+        get_diagnostic(ice_surface_temperature, space, p.Δt_min, output_dir),
+    ]
     diagnostic_handler = CD.DiagnosticsHandler(diagnostics, ics, p, p.t_0, dt=Δt)
     diag_cb = CD.DiagnosticsCallback(diagnostic_handler)
 

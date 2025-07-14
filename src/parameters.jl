@@ -58,6 +58,7 @@ Base.@kwdef mutable struct SimulationParameters
     ice_model_type = :constant
     λ_L = 1e-5
     config = :over_sea
+    timestepping = :implicit
 end
 
 function restore_physical_values!(p::SimulationParameters)
