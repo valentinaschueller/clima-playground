@@ -37,6 +37,25 @@ function solve_surface_energy_balance(c; h_I=nothing)
     return min.(T_Is .+ 273.15, 273.15)
 end
 
+function Wfact(W, h, p, dtγ, t)
+    J = similar(h.data)
+    if p.ice_model_type != :thickness_feedback
+        @. J = 0.0
+    elseif T_Is(h, p)[1] < 273.15
+        shortwave = (1 - p.alb_I) * p.SW_in
+        longwave = p.ϵ * (p.LW_in - p.A - p.B * (p.T_Ib - 273.15))
+        sensible = p.C_AI * (p.T_A - p.T_Ib)
+        c1 = -(shortwave + longwave + sensible) / (p.ρ_I * p.L)
+        c2 = (p.ϵ * p.B + p.C_AI) / p.k_I
+        @. J = -c1 * c2 / (1 + c2 * h.data)^2
+    else
+        @info "Alternative Jacobian"
+        c3 = -p.k_I / (p.ρ_I * p.L) * (273.15 - p.T_Ib)
+        @. J = -c3 / h.data^2
+    end
+    @. W.matrix[@name(data), @name(data)] = dtγ * J * (LinearAlgebra.I,) - (LinearAlgebra.I,)
+end
+
 function get_T_Is(out, Y, p, t)
     field = copy(Y)
     field .= solve_surface_energy_balance(p; h_I=Y)
@@ -47,8 +66,20 @@ function get_T_Is(out, Y, p, t)
     end
 end
 
+function get_ice_odefunction(ics, ::Val{:implicit})
+    jacobian = CC.MatrixFields.FieldMatrix(
+        (@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.DiagonalMatrixRow{Float64}),
+    )
+    T_imp! = SciMLBase.ODEFunction(thickness_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact)
+    return CTS.ClimaODEFunction((T_imp!)=T_imp!)
+end
+
+function get_ice_odefunction(ics, ::Val{:explicit})
+    return CTS.ClimaODEFunction((T_exp!)=thickness_rhs!)
+end
+
 function ice_init(odesolver, ics, space, p::SimulationParameters, output_dir)
-    ode_function = CTS.ClimaODEFunction((T_exp!)=thickness_rhs!)
+    ode_function = get_ice_odefunction(ics, Val(p.timestepping))
     problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_max), p)
     Δt = p.Δt_min / p.n_t_I
     ice_thickness = CD.DiagnosticVariable(;
@@ -76,7 +107,7 @@ function ice_init(odesolver, ics, space, p::SimulationParameters, output_dir)
 
     integrator = SciMLBase.init(
         problem,
-        CTS.ExplicitAlgorithm(CTS.RK4()),
+        odesolver,
         dt=Δt,
         saveat=saveat,
         adaptive=false,
