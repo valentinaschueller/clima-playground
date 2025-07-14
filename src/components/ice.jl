@@ -28,7 +28,7 @@ function solve_surface_energy_balance(c; h_I=nothing)
     if isnothing(h_I)
         h_I = vec([c.h_I_ini])
     end
-    T_Is = zeros(size(h_I))
+    T_Is = similar(h_I)
     shortwave = (1 - c.alb_I) * c.SW_in
     longwave = c.ϵ * (c.LW_in - c.A)
     sensible_sfc = c.C_AI * (c.T_A - 273.15)
@@ -41,7 +41,7 @@ function Wfact(W, h, p, dtγ, t)
     J = similar(h.data)
     if p.ice_model_type != :thickness_feedback
         @. J = 0.0
-    elseif T_Is(h, p)[1] < 273.15
+    elseif solve_surface_energy_balance(p; h_I=h)[1] < 273.15
         shortwave = (1 - p.alb_I) * p.SW_in
         longwave = p.ϵ * (p.LW_in - p.A - p.B * (p.T_Ib - 273.15))
         sensible = p.C_AI * (p.T_A - p.T_Ib)
