@@ -5,9 +5,12 @@ import ClimaCore as CC
 
 function plot_ice_seb_results()
     params = SimulationParameters(C_H_AI=1.4e-3)
-    T_As = vec(range(260, 290, length=100))
-    caches = [(T_A=T_A, C_AI=params.C_AI) for T_A in T_As]
-    T_ice = solve_surface_energy_balance.(caches)
+    T_As = vec(range(270, 290, length=100))
+    T_ice = similar(T_As)
+    for (i, T_A) in enumerate(T_As)
+        params.T_A = T_A
+        T_ice[i] = solve_surface_energy_balance(params; h_I=[1.0])[1]
+    end
     plot(T_As, T_ice, color=:black, xlabel=L"T_A", ylabel=L"T_{I,s}", legend=false)
     display(current())
 end
@@ -196,4 +199,49 @@ function plot_ice_Δt_cpl_convergence(; iterations=10, ice_model_type=:temp_feed
     )
     display(current())
     savefig("plots/ice_Δt_cpl_convergence.pdf")
+end
+
+function plot_C_AI_dependence(plot_title="C_AI_dependence"; kwargs...)
+    C_AIs = Base.logrange(1e-2, 1e2, length=15)
+    p = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=1.0, ice_model_type=:temp_feedback; kwargs...)
+    ϱs_atm = similar(C_AIs)
+
+    for (k, var) in enumerate(C_AIs)
+        p.C_AI = var
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=6)
+    end
+
+    finely_spaced_var = Base.logrange(C_AIs[1], C_AIs[end], length=100)
+    ϱs_analytic = zeros(length(finely_spaced_var))
+    for (k, var) in enumerate(finely_spaced_var)
+        p.C_AI = var
+        ω_min = im * π / p.Δt_cpl
+        ω_max = im * π / (p.Δt_min / p.n_t_A)
+        ϱs_analytic[k] = max(compute_ϱ_ana(p, s=ω_min), compute_ϱ_ana(p, s=ω_max))
+    end
+    plot(
+        finely_spaced_var,
+        ϱs_analytic,
+        label=L"$ϱ_\mathrm{ana}$",
+        linewidth=2,
+        color=:black,
+    )
+    plot!(
+        C_AIs,
+        ϱs_atm,
+        label=L"$ϱ_\mathrm{num}$",
+        color=:black,
+        markershape=:x,
+        linewidth=2,
+    )
+    plot!(;
+        legendfontsize=12,
+        xlabel=L"C_{AI}",
+        ylabel="ϱ",
+        xscale=:log10,
+        yscale=:log10,
+        legend=:bottomright,
+    )
+    display(current())
+    savefig("plots/$plot_title.pdf")
 end
