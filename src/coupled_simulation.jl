@@ -28,11 +28,19 @@ function get_stable_range(initial_value_fvs)
     return min_value - eps(min_value), max_value + eps(max_value)
 end
 
+function get_odesolver(::Val{:implicit})
+    return CTS.IMEXAlgorithm(CTS.ARS111(), CTS.NewtonsMethod())
+end
+
+function get_odesolver(::Val{:explicit})
+    return CTS.ExplicitAlgorithm(CTS.RK4())
+end
+
 function get_coupled_sim(p::SimulationParameters)
     context = CC.ClimaComms.context()
     device = CC.ClimaComms.device(context)
     output_dir = "output"
-    rm(output_dir, recursive=true)
+    rm(output_dir, recursive=true, force=true)
     mkpath(output_dir)
     dir_paths = (
         output=output_dir,
@@ -49,15 +57,17 @@ function get_coupled_sim(p::SimulationParameters)
     field_oce = CC.Fields.ones(center_space_oce) .* p.T_O_ini
     T_atm_0 = CC.Fields.FieldVector(data=field_atm)
     T_oce_0 = CC.Fields.FieldVector(data=field_oce)
+    p.T_A = T_atm_0[1]
+    p.T_O = T_oce_0[end]
+    p.F_AO = p.C_AO * (p.T_A - p.T_O)
 
     if p.ice_model_type != :constant
         @info("Determine initial ice surface temperature from SEB.")
-        p.T_A = T_atm_0[1]
         p.T_I_ini = solve_surface_energy_balance(p)[1]
     end
-    field_ice = CC.Fields.ones(point_space) .* p.T_I_ini
+    p.T_Is = p.T_I_ini
+
     field_h_I = CC.Fields.ones(point_space) .* p.h_I_ini
-    T_ice_0 = CC.Fields.FieldVector(data=field_ice)
     h_ice_0 = CC.Fields.FieldVector(data=field_h_I)
 
     p.stable_range = get_stable_range([T_atm_0, T_oce_0, (data=[p.T_I_ini, p.T_Ib],)])
@@ -66,11 +76,8 @@ function get_coupled_sim(p::SimulationParameters)
     end
 
     boundary_space = point_space
-    p.T_O = T_oce_0[end]
-    p.T_A = T_atm_0[1]
-    p.T_Is = T_ice_0[1]
 
-    odesolver = CTS.ExplicitAlgorithm(CTS.RK4())
+    odesolver = get_odesolver(Val(p.timestepping))
     atmos_sim = atmos_init(odesolver, T_atm_0, center_space_atm, p, output_dir)
     ocean_sim = ocean_init(odesolver, T_oce_0, center_space_oce, p, output_dir)
     ice_sim = ice_init(odesolver, h_ice_0, point_space, p, output_dir)

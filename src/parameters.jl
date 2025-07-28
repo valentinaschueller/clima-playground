@@ -50,9 +50,11 @@ Base.@kwdef mutable struct SimulationParameters
     C_IO::Float64 = ρ_O * c_O * C_H_IO * Δu_IO
     T_A = nothing
     T_O = nothing
+    F_AO = nothing
     T_Is = nothing
     stable_range = nothing
     ice_model_type = :constant
+    timestepping = :implicit
 end
 
 function restore_physical_values!(p::SimulationParameters)
