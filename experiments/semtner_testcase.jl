@@ -2,10 +2,12 @@ using Interpolations
 using Plots
 using LaTeXStrings
 using Statistics
+using NetCDF
 using clima_playground
 import ClimaTimeSteppers as CTS
 import ClimaCore as CC
 import ClimaCoupler: Interfacer
+import ClimaDiagnostics as CD
 
 function from_semtner_to_SI(flux)
     """
@@ -26,28 +28,33 @@ function interpolants()
     J_s = from_semtner_to_SI(J_s)
     J_q = from_semtner_to_SI(J_q)
 
-    months = 1:12
-    F_r_spline = cubic_spline_interpolation(months, F_r; bc=Periodic(OnCell()), extrapolation_bc=Periodic(OnCell()))
-    F_L_spline = cubic_spline_interpolation(months, F_L; bc=Periodic(OnCell()), extrapolation_bc=Periodic(OnCell()))
-    J_s_spline = cubic_spline_interpolation(months, J_s; bc=Periodic(OnCell()), extrapolation_bc=Periodic(OnCell()))
-    J_q_spline = cubic_spline_interpolation(months, J_q; bc=Periodic(OnCell()), extrapolation_bc=Periodic(OnCell()))
+    halfmonth = 15 * 24 * 3600
+    month = 2 * halfmonth
+    jan15 = halfmonth
+    dec15 = 11 * month + halfmonth
+    seconds = jan15:month:dec15
+    F_r_spline = cubic_spline_interpolation(seconds, F_r; bc=Periodic(OnCell()), extrapolation_bc=Periodic(OnCell()))
+    F_L_spline = cubic_spline_interpolation(seconds, F_L; bc=Periodic(OnCell()), extrapolation_bc=Periodic(OnCell()))
+    J_s_spline = cubic_spline_interpolation(seconds, J_s; bc=Periodic(OnCell()), extrapolation_bc=Periodic(OnCell()))
+    J_q_spline = cubic_spline_interpolation(seconds, J_q; bc=Periodic(OnCell()), extrapolation_bc=Periodic(OnCell()))
 
     return F_r_spline, F_L_spline, J_s_spline, J_q_spline
 end
 
 function plot_interpolants()
     F_r, F_L, J_s, J_q = interpolants()
-    seconds_in_year = range(0, 12, length=360)
-    plot(seconds_in_year, F_r(seconds_in_year); label=L"F_r")
-    plot!(seconds_in_year, F_L(seconds_in_year); label=L"F_L")
-    plot!(seconds_in_year, J_s(seconds_in_year); label=L"J_s")
-    plot!(seconds_in_year, J_q(seconds_in_year); label=L"J_q")
+    time_in_s = range(0, 24 * 3600 * 30 * 12, length=360)
+    time_in_months = time_in_s ./ (24 * 3600 * 30)
+    plot(time_in_months, F_r(time_in_s); label=L"F_r")
+    plot!(time_in_months, F_L(time_in_s); label=L"F_L")
+    plot!(time_in_months, J_s(time_in_s); label=L"J_s")
+    plot!(time_in_months, J_q(time_in_s); label=L"J_q")
 end
 
 function ice_only_test()
     conversion_factor = 4.184 * 1e7 / (3600 * 24 * 30 * 12)
     @info(conversion_factor)
-    F_O = t -> 0.0 * conversion_factor
+    F_O = t -> 1.5 * conversion_factor
     context = CC.ClimaComms.context()
     point_space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(0.0))
     F_r, F_L, J_s, J_q = interpolants()
@@ -58,15 +65,15 @@ function ice_only_test()
         J_q=J_q,
         F_O=F_O,
         Δt_min=3600 * 24,
-        h_I_ini=3.12,
+        h_I_ini=2.65,
         timestepping=:explicit,
         t_max=3600 * 24 * 30 * 12,
         ice_model_type=:thickness_feedback,
+        alb_I=0.8,
     )
     if p.ice_model_type != :constant
         @info("Determine initial ice surface temperature from SEB.")
-        T_eq = compute_T_Is(p)
-        p.T_I_ini = min(T_eq, 273)
+        p.T_I_ini = compute_T_Is(p)
     end
     odesolver = get_odesolver(Val(p.timestepping))
     field_h_I = CC.Fields.ones(point_space) .* p.h_I_ini
@@ -76,15 +83,17 @@ function ice_only_test()
     mkpath(output_dir)
     ice_sim = ice_init(odesolver, h_ice_0, point_space, p, output_dir)
     Interfacer.step!(ice_sim, p.t_max)
-    h = [parent(u)[1] for u in ice_sim.integrator.sol.u]
-    t = ice_sim.integrator.sol.t ./ (3600 * 24 * 30)
+    dt = CD.seconds_to_str_short(p.Δt_min)
+    time = ncread("$(output_dir)/h_I_$(dt)_inst.nc", "time")
+    h_I = ncread("$(output_dir)/h_I_$(dt)_inst.nc", "h_I")
+    T_Is = ncread("$(output_dir)/T_Is_$(dt)_inst.nc", "T_Is") .- 273
+    t = time ./ (3600 * 24 * 30)
     months = "JFMAMJJASONDJ"
     xticks = (0:12, months)
-    plot(t, h, xticks=xticks)
+    p1 = plot(t, h_I, xticks=xticks, label=L"h_I", ylabel="Ice Thickness [m]", color=:black)
+    p2 = plot(t, T_Is, yflip=true, xticks=xticks, label=L"T_{I,s}", ylabel="Temperature [°C]", xlabel="Month", color=:black, legend=:bottomright)
+    plot(p1, p2, layout=(2, 1), legendfontsize=12, linewidth=2)
     display(current())
-    T_Is = [min(compute_T_Is(p, h[i], t[i]), 273) for i in range(1, length(t))]
-    plot(t, T_Is .- 273, yflip=true, xticks=xticks)
-    display(current())
-    @info("Mean thickness: $(mean(h))")
+    @info("Mean thickness: $(mean(h_I))")
     return ice_sim
 end

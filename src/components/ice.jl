@@ -17,7 +17,6 @@ end
 Interfacer.name(::SeaIce) = "SeaIce"
 
 function thickness_rhs!(dh, h, p, t)
-    t = (t / (3600 * 24 * 30)) % 12
     if p.ice_model_type != :thickness_feedback
         dh.data = 0.0
         return
@@ -42,11 +41,13 @@ function compute_T_Is(p, h_I=nothing, t=0.0)
     if isnothing(h_I)
         h_I = p.h_I_ini
     end
-    conduction = (p.k_I / h_I) .* (p.T_Ib - 273)
+    conduction = (p.k_I / h_I) * (p.T_Ib - 273)
+    SWnet = (1 - p.alb_I) * p.SW_in(t)
+    LWnet = p.ϵ * (p.LW_in(t) - p.A)
     if isnothing(p.J_s)
-        T_eq = (conduction + (1 - p.alb_I) * p.SW_in(t) + p.ϵ * (p.LW_in(t) - p.A) + p.C_AI * (p.T_A - 273) + p.J_q(t)) / (p.k_I / h_I + p.ϵ * p.B + p.C_AI)
+        T_eq = (conduction + SWnet + LWnet + p.J_q(t) + p.C_AI * (p.T_A - 273)) / (p.k_I / h_I + p.ϵ * p.B + p.C_AI)
     else
-        T_eq = (conduction + (1 - p.alb_I) * p.SW_in(t) + p.ϵ * (p.LW_in(t) - p.A) + p.J_s(t) + p.J_q(t)) / (p.k_I / h_I + p.ϵ * p.B)
+        T_eq = (conduction + SWnet + LWnet + p.J_q(t) + p.J_s(t)) / (p.k_I / h_I + p.ϵ * p.B)
     end
     return min(T_eq + 273.0, 273.0)
 end
@@ -73,7 +74,7 @@ function get_T_Is(out, h, p, t)
     T_Is = compute_T_Is(p, h[1], t)
     if isnothing(out)
         field = copy(h)
-        field .= T_Is
+        parent(field) .= T_Is
         return field.data
     else
         out .= T_Is
