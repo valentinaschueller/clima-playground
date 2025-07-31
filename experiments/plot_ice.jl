@@ -9,7 +9,7 @@ function plot_ice_seb_results()
     T_ice = similar(T_As)
     for (i, T_A) in enumerate(T_As)
         params.T_A = T_A
-        T_ice[i] = solve_surface_energy_balance(params; h_I=[1.0])[1]
+        T_ice[i] = compute_T_Is(params, 1.0)
     end
     plot(T_As, T_ice, color=:black, xlabel=L"T_A", ylabel=L"T_{I,s}", legend=false)
     display(current())
