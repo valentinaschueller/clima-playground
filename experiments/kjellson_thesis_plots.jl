@@ -63,7 +63,7 @@ end
 function plot_Δt_cpl_dependence(; plot_title="Δt_cpl_dependence", kwargs...)
     Δt_cpl = [400, 1200, 3600, 10800]
     p = SimulationParameters(Δt_min=400; kwargs...)
-    ϱs_atm = similar(Δt_cpl)
+    ϱs_atm = similar(Δt_cpl, Float64)
     p.n_t_A = 1
     p.n_t_O = 1
 
