@@ -43,8 +43,8 @@ function thickness_rhs!(dh, h, p, t)
         dh.data = 0.0
         return
     end
-    T_Is = T_Is(p, h[1], t)
-    F_A = SW_net(t, p) + LW_net(t, p, T_Is) + J_s(t, p, T_Is) + p.J_q(t)
+    T_sfc = T_Is(p, h[1], t)
+    F_A = SW_net(t, p) + LW_net(t, p, T_sfc) + J_s(t, p, T_sfc) + p.J_q(t)
     dh.data = -(F_A + F_O(t, p)) / (p.q_I)
 end
 
@@ -57,7 +57,7 @@ function T_Is(p, h_I=nothing, t=0.0)
     if isnothing(p.J_s)
         denominator += p.C_AI
     end
-    T_eq = (conduction + SW_net(t, p) + LW_net(t, p, 0) + p.J_q(t) + J_s(t, p, 273)) / denominator
+    T_eq = (conduction + SW_net(t, p) + LW_net(t, p, 273) + p.J_q(t) + J_s(t, p, 273)) / denominator
     return min(T_eq + 273.0, 273.0)
 end
 
@@ -75,13 +75,13 @@ function Wfact(W, h, p, dtγ, t)
 end
 
 function get_T_Is(out, h, p, t)
-    T_Is = T_Is(p, h[1], t)
+    T_sfc = T_Is(p, h[1], t)
     if isnothing(out)
         field = copy(h)
-        parent(field) .= T_Is
+        parent(field) .= T_sfc
         return field.data
     end
-    out .= T_Is
+    out .= T_sfc
 end
 
 function get_ice_odefunction(ics, ::Val{:implicit})

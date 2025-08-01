@@ -86,12 +86,12 @@ function ice_only_test()
     dt = CD.seconds_to_str_short(p.Δt_min)
     time = ncread("$(output_dir)/h_I_$(dt)_inst.nc", "time")
     h_I = ncread("$(output_dir)/h_I_$(dt)_inst.nc", "h_I")
-    T_Is = ncread("$(output_dir)/T_Is_$(dt)_inst.nc", "T_Is") .- 273
+    T_I = ncread("$(output_dir)/T_Is_$(dt)_inst.nc", "T_Is") .- 273
     t = time ./ (3600 * 24 * 30)
     months = "JFMAMJJASONDJ"
     xticks = (0:12, months)
     p1 = plot(t, h_I, xticks=xticks, label=L"h_I", ylabel="Ice Thickness [m]", color=:black)
-    p2 = plot(t, T_Is, yflip=true, xticks=xticks, label=L"T_{I,s}", ylabel="Temperature [°C]", xlabel="Month", color=:black, legend=:bottomright)
+    p2 = plot(t, T_I, yflip=true, xticks=xticks, label=L"T_{I,s}", ylabel="Temperature [°C]", xlabel="Month", color=:black, legend=:bottomright)
     plot(p1, p2, layout=(2, 1), legendfontsize=12, linewidth=2)
     display(current())
     @info("Mean thickness: $(mean(h_I))")
