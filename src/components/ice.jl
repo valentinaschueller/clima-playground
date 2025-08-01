@@ -5,7 +5,7 @@ import ClimaCoupler: Checkpointer, Interfacer
 import ClimaDiagnostics as CD
 import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix
 
-export SeaIce, thickness_rhs!, solve_surface_energy_balance, ice_init, get_field, update_field!
+export SeaIce, thickness_rhs!, T_Is, ice_init, get_field, update_field!
 
 struct SeaIce{P,Y,D,I} <: Interfacer.SeaIceModelSimulation
     params::P
@@ -16,57 +16,72 @@ end
 
 Interfacer.name(::SeaIce) = "SeaIce"
 
-function thickness_rhs!(dh, h, p::SimulationParameters, t)
+function J_s(t, p, T_sfc)
+    if isnothing(p.J_s)
+        return p.C_AI * (p.T_A - T_sfc)
+    end
+    return p.J_s(t)
+end
+
+function F_O(t, p)
+    if isnothing(p.F_O)
+        return p.C_IO * (p.T_O - p.T_Ib)
+    end
+    return p.F_O(t)
+end
+
+function SW_net(t, p)
+    return (1 - p.alb_I) * p.SW_in(t)
+end
+
+function LW_net(t, p, T_sfc)
+    return p.ϵ * (p.LW_in(t) - (p.A + p.B * (T_sfc - 273)))
+end
+
+function thickness_rhs!(dh, h, p, t)
     if p.ice_model_type != :thickness_feedback
         dh.data = 0.0
         return
     end
-    T_Is = solve_surface_energy_balance(p; h_I=vec(h.data))
-    conduction = p.k_I ./ h .* (T_Is .- p.T_Ib)
-    bottom_melt = p.C_IO * (p.T_Ib - p.T_O)
-    @. dh = (bottom_melt - conduction) / (p.ρ_I * p.L)
+    T_sfc = T_Is(p, h[1], t)
+    F_A = SW_net(t, p) + LW_net(t, p, T_sfc) + J_s(t, p, T_sfc) + p.J_q(t)
+    dh.data = -(F_A + F_O(t, p)) / (p.q_I)
 end
 
-function solve_surface_energy_balance(c; h_I=nothing)
+function T_Is(p, h_I=nothing, t=0.0)
     if isnothing(h_I)
-        h_I = vec([c.h_I_ini])
+        h_I = p.h_I_ini
     end
-    T_Is = similar(h_I)
-    shortwave = (1 - c.alb_I) * c.SW_in
-    longwave = c.ϵ * (c.LW_in - c.A)
-    sensible_sfc = c.C_AI * (c.T_A - 273.15)
-    conduction = (c.k_I ./ h_I) .* (c.T_Ib .- 273.15)
-    @. T_Is = (conduction + shortwave + longwave + sensible_sfc) / (c.k_I / h_I + c.ϵ * c.B + c.C_AI)
-    return min.(T_Is .+ 273.15, 273.15)
+    conduction = (p.k_I / h_I) * (p.T_Ib - 273)
+    denominator = p.k_I / h_I + p.ϵ * p.B
+    if isnothing(p.J_s)
+        denominator += p.C_AI
+    end
+    T_eq = (conduction + SW_net(t, p) + LW_net(t, p, 273) + p.J_q(t) + J_s(t, p, 273)) / denominator
+    return min(T_eq + 273.0, 273.0)
 end
 
 function Wfact(W, h, p, dtγ, t)
-    J = similar(h.data)
-    if p.ice_model_type != :thickness_feedback
-        @. J = 0.0
-    elseif solve_surface_energy_balance(p; h_I=h)[1] < 273.15
-        shortwave = (1 - p.alb_I) * p.SW_in
-        longwave = p.ϵ * (p.LW_in - p.A - p.B * (p.T_Ib - 273.15))
-        sensible = p.C_AI * (p.T_A - p.T_Ib)
-        c1 = -(shortwave + longwave + sensible) / (p.ρ_I * p.L)
-        c2 = (p.ϵ * p.B + p.C_AI) / p.k_I
-        @. J = -c1 * c2 / (1 + c2 * h.data)^2
-    else
-        @info "Alternative Jacobian"
-        c3 = -p.k_I / (p.ρ_I * p.L) * (273.15 - p.T_Ib)
-        @. J = -c3 / h.data^2
+    jac = 0.0
+    if p.ice_model_type == :thickness_feedback && (T_Is(p, h[1], t) < 273)
+        c2 = (p.ϵ * p.B) / p.k_I
+        if isnothing(p.J_s)
+            c2 += p.C_AI / p.k_I
+        end
+        c1 = -(SW_net(t, p) + LW_net(t, p, p.T_Ib) + J_s(t, p, p.T_Ib) + p.J_q(t)) / (p.q_I)
+        jac = -c1 * c2 / (1 + c2 * h[1])^2
     end
-    @. W.matrix[@name(data), @name(data)] = dtγ * J * (LinearAlgebra.I,) - (LinearAlgebra.I,)
+    @. W.matrix[@name(data), @name(data)] = dtγ * jac * (LinearAlgebra.I,) - (LinearAlgebra.I,)
 end
 
-function get_T_Is(out, Y, p, t)
-    field = copy(Y)
-    field .= solve_surface_energy_balance(p; h_I=Y)
+function get_T_Is(out, h, p, t)
+    T_sfc = T_Is(p, h[1], t)
     if isnothing(out)
+        field = copy(h)
+        parent(field) .= T_sfc
         return field.data
-    else
-        out .= field.data
     end
+    out .= T_sfc
 end
 
 function get_ice_odefunction(ics, ::Val{:implicit})
@@ -79,7 +94,7 @@ function get_ice_odefunction(ics, ::Val{:explicit})
     return CTS.ClimaODEFunction((T_exp!)=thickness_rhs!)
 end
 
-function ice_init(odesolver, ics, space, p::SimulationParameters, output_dir)
+function ice_init(odesolver, ics, space, p, output_dir)
     ode_function = get_ice_odefunction(ics, Val(p.timestepping))
     problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_max), p)
     Δt = p.Δt_min / p.n_t_I
@@ -122,7 +137,6 @@ Checkpointer.get_model_prog_state(sim::SeaIce) = sim.integrator.u
 
 function Interfacer.step!(sim::SeaIce, t)
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
-    check_stability(get_field(sim, Val(:T_ice)), sim.params.stable_range)
 end
 
 Interfacer.reinit!(sim::SeaIce) = Interfacer.reinit!(sim.integrator)
@@ -132,7 +146,7 @@ function get_field(sim::SeaIce, ::Val{:T_ice})
     if sim.integrator.p.ice_model_type == :constant
         return sim.integrator.p.T_I_ini .* ones(size(h_I))
     end
-    return vec(solve_surface_energy_balance(sim.integrator.p; h_I=h_I))
+    return vec([T_Is(sim.integrator.p, h, sim.integrator.t) for h in h_I])
 end
 
 function get_field(sim::SeaIce, ::Val{:h_I})

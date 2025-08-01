@@ -6,7 +6,7 @@ import ClimaCoupler: Interfacer
 function plot_C_H_AO_dependence()
     params = SimulationParameters()
     L_AOs = vec(-200:200)
-    C_H_AO = similar(L_AOs)
+    C_H_AO = similar(L_AOs, Float64)
     for (j, L_AO) in enumerate(L_AOs)
         C_H_AO[j] = compute_C_H_AO(params; L_AO=L_AO)
     end
@@ -63,7 +63,7 @@ end
 function plot_Δt_cpl_dependence(; plot_title="Δt_cpl_dependence", kwargs...)
     Δt_cpl = [400, 1200, 3600, 10800]
     p = SimulationParameters(Δt_min=400; kwargs...)
-    ϱs_atm = similar(Δt_cpl)
+    ϱs_atm = similar(Δt_cpl, Float64)
     p.n_t_A = 1
     p.n_t_O = 1
 
