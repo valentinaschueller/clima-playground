@@ -6,7 +6,7 @@ import ClimaCoupler: Interfacer
 function plot_C_H_AO_dependence()
     params = SimulationParameters()
     L_AOs = vec(-200:200)
-    C_H_AO = similar(L_AOs)
+    C_H_AO = similar(L_AOs, Float64)
     for (j, L_AO) in enumerate(L_AOs)
         C_H_AO[j] = compute_C_H_AO(params; L_AO=L_AO)
     end
