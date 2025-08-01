@@ -73,7 +73,7 @@ function ice_only_test()
     )
     if p.ice_model_type != :constant
         @info("Determine initial ice surface temperature from SEB.")
-        p.T_I_ini = compute_T_Is(p)
+        p.T_I_ini = T_Is(p)
     end
     odesolver = get_odesolver(Val(p.timestepping))
     field_h_I = CC.Fields.ones(point_space) .* p.h_I_ini

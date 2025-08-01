@@ -4,12 +4,12 @@ using LaTeXStrings
 import ClimaCore as CC
 
 function plot_ice_seb_results()
-    params = SimulationParameters(C_H_AI=1.4e-3)
+    params = SimulationParameters(C_H_AI=1.4e-3, h_I_ini=1.0)
     T_As = vec(range(270, 290, length=100))
     T_ice = similar(T_As)
     for (i, T_A) in enumerate(T_As)
         params.T_A = T_A
-        T_ice[i] = compute_T_Is(params, 1.0)
+        T_ice[i] = T_Is(params)
     end
     plot(T_As, T_ice, color=:black, xlabel=L"T_A", ylabel=L"T_{I,s}", legend=false)
     display(current())
