@@ -4,7 +4,6 @@ Base.@kwdef mutable struct SimulationParameters
     a_I::Float64 = 0.0
     ρ_A::Float64 = 1.225
     ρ_O = 1e3
-    ρ_I = 917.0
     c_A = 1005.0
     c_O = 4182.0
     ν_O = 1e-6
@@ -16,10 +15,12 @@ Base.@kwdef mutable struct SimulationParameters
     A = 309.8
     B = 3.69
     ϵ = 0.98
-    LW_in = 150.0
-    SW_in = 200.0
-    T_Ib = 273.15 - 1.8
-    L = 3e5
+    LW_in = t -> 150.0
+    SW_in = t -> 200.0
+    J_q = t -> 0.0
+    J_s = nothing
+    T_Ib = 273 - 1.8
+    q_I = 2.75e8
     C_H_IO = 5e-3
     C_H_AI = 1.4e-3
     C_H_AO = 1e-3
@@ -52,6 +53,7 @@ Base.@kwdef mutable struct SimulationParameters
     T_O = nothing
     F_AO = nothing
     F_AL = nothing
+    F_O = nothing
     T_Is = nothing
     T_Ls = nothing
     stable_range = nothing

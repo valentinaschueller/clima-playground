@@ -6,7 +6,7 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
-export get_vertical_space, get_coupled_sim
+export get_vertical_space, get_coupled_sim, get_odesolver
 
 function get_vertical_space(device, lower_boundary, upper_boundary, nelems)
     domain = CC.Domains.IntervalDomain(
@@ -64,7 +64,7 @@ function get_coupled_sim(p::SimulationParameters)
 
     if p.ice_model_type != :constant
         @info("Determine initial ice surface temperature from SEB.")
-        p.T_I_ini = solve_surface_energy_balance(p)[1]
+        p.T_I_ini = T_Is(p)
     end
     p.T_Is = p.T_I_ini
     p.T_Ls = p.T_I_ini

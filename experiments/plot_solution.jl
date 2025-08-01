@@ -45,12 +45,12 @@ function plot_solution_over_time(; kwargs...)
     time = ncread("output/h_I_$(dt)_inst.nc", "time")
     T_O = ncread("output/T_O_$(dt)_inst.nc", "T_O", start=[1, p.n_O], count=[-1, 1])
     T_A = ncread("output/T_A_$(dt)_inst.nc", "T_A", start=[1, 1], count=[-1, 1])
-    T_Is = ncread("output/T_Is_$(dt)_inst.nc", "T_Is")
+    T_I = ncread("output/T_Is_$(dt)_inst.nc", "T_Is")
     h_I = ncread("output/h_I_$(dt)_inst.nc", "h_I")
     T_Ls = ncread("output/T_Ls_$(dt)_inst.nc", "T_Ls")
     p1 = plot(
         time,
-        [T_A T_O T_Is T_Ls],
+        [T_A T_O T_I T_Ls],
         xlabel="Time [s]",
         ylabel="Temperature [K]",
         label=[L"T_A" L"T_O" L"T_{I,s}" L"T_{L,s}"],
