@@ -6,7 +6,7 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler:
     Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
 
-export compute_ϱ_numerical, compute_ϱ_ana
+export compute_ϱ_ana
 
 function χ_A(p::SimulationParameters, s)
     return tanh(p.h_A * sqrt(s / p.α_A))
@@ -25,18 +25,5 @@ function compute_ϱ_ana(p::SimulationParameters; s=nothing)
     num = p.a_I * p.C_AI * ζ + (1 - p.a_I)^2 * p.C_AO * frac_in_num
     den = (p.k_A / sqrt(p.α_A)) * sqrt(s) * χ_A(p, s) - p.a_I * p.C_AI - (1 - p.a_I) * p.C_AO
     return abs(num / den)
-end
-
-function compute_ϱ_numerical(coupling_variable)
-    ϱ = []
-    e_old = abs.(coupling_variable[1] .- coupling_variable[end])
-    for i = 2:length(coupling_variable)-1
-        e_new = abs.(coupling_variable[i] .- coupling_variable[end])
-        ϱ_i = norm(e_new) / norm(e_old)
-        push!(ϱ, ϱ_i)
-
-        e_old = e_new
-    end
-    return mean_ϱ(ϱ)
 end
 

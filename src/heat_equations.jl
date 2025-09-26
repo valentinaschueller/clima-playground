@@ -1,10 +1,10 @@
 include("parameters.jl")
+include("analysis.jl")
 include("diagnostics.jl")
 include("components/atmosphere.jl")
 include("components/ocean.jl")
 include("components/ice.jl")
 include("coupled_simulation.jl")
-include("convergence_factors.jl")
 include("monin_obukhov.jl")
 include("postprocessing.jl")
 import Dates
@@ -128,8 +128,8 @@ function solve_coupler!(
             end
         end
         if iterations > 1
-            ϱ_A = compute_ϱ_numerical(atmos_vals_list)
-            ϱ_O = compute_ϱ_numerical(ocean_vals_list)
+            ϱ_A = compute_ϱ_numerical(atmos_vals_list, parallel)
+            ϱ_O = compute_ϱ_numerical(ocean_vals_list, parallel)
         end
     end
     set_time!(cs, tspan[end])

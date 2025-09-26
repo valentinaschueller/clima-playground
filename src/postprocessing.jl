@@ -1,4 +1,4 @@
-export check_stability, has_converged, mean_ϱ, update_ϱ_parallel, UnstableError
+export check_stability, has_converged, compute_ϱ_numerical, UnstableError
 
 struct UnstableError <: Exception
 end
@@ -32,6 +32,22 @@ function has_converged(T_A_Γ, T_A_Γ_old, T_O_Γ, T_O_Γ_old)
     end
 end
 
+function compute_ϱ_numerical(coupling_variable, parallel::Bool)
+    ϱ = []
+    e_old = abs.(coupling_variable[1] .- coupling_variable[end])
+    for i = 2:length(coupling_variable)-1
+        e_new = abs.(coupling_variable[i] .- coupling_variable[end])
+        ϱ_i = norm(e_new) / norm(e_old)
+        push!(ϱ, ϱ_i)
+
+        e_old = e_new
+    end
+    if parallel
+        update_ϱ_parallel!(ϱ)
+    end
+    return mean_ϱ(ϱ)
+end
+
 function mean_ϱ(ϱ_array)
     non_nan_values = filter(!isnan, ϱ_array)
     if isempty(non_nan_values)
@@ -40,10 +56,7 @@ function mean_ϱ(ϱ_array)
     return mean(non_nan_values)
 end
 
-function update_ϱ_parallel(ϱ_A, ϱ_O)
-    ϱ_A = ϱ_A[1:end-1] .* ϱ_A[2:end]
-    ϱ_O = ϱ_O[1:end-1] .* ϱ_O[2:end]
-    ϱ_A[1:2:end] .= NaN
-    ϱ_O[2:2:end] .= NaN
-    return ϱ_A, ϱ_O
+function update_ϱ_parallel!(ϱ)
+    ϱ = ϱ[1:end-1] .* ϱ[2:end]
+    ϱ[1:2:end] .= NaN
 end
