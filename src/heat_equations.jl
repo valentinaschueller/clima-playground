@@ -75,8 +75,8 @@ end
 
 function solve_coupler!(
     cs::Interfacer.CoupledSimulation;
-    iterations=1,
-    parallel=false,
+    iterations::Int=1,
+    parallel::Bool=false,
 )
     (; Δt_cpl, tspan) = cs
 
@@ -150,20 +150,10 @@ function run_simulation(
     return cs, ϱ_A, ϱ_O
 end
 
-"""
-Setup for running the coupled simulation and running it.
-
-**Optional Keyword Arguments:**
-
--`iterations::Int`: Number of iterations before the Schwarz iteration is terminated, default: `1`.
--`parallel::Boolean`: Whether to run the parallel or alternating Schwarz iteration, default: `false`.
--`params::Dict`: Simulation parameters, default: `Dict{Symbol,Int}()`.
-
-"""
 function coupled_heat_equations(;
-    iterations=1,
-    parallel=false,
-    monin_obukhov=true,
+    iterations::Int=1,
+    parallel::Bool=false,
+    monin_obukhov::Bool=true,
     kwargs...,
 )
     physical_values = SimulationParameters(; kwargs...)
