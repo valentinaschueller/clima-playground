@@ -17,32 +17,15 @@ function check_stability(values, value_range=nothing)
     end
 end
 
-"""
-Checks if the Schwarz iteration should terminated.
-
-**Arguments:**
-    
--`bound_atmos_vals: Array`: Atmosphere boundary temperatures.
--`pre_bound_atmos_vals: Array`: Previous iteration atmosphere boundary temperatures.
--`bound_ocean_vals: Array`: Ocean boundary temperatures.
--`pre_bound_ocean_vals: Array`: Previous iteration ocean boundary temperatures.    
--`iter: Int`: Current iteration.
-
-"""
-function has_converged(
-    bound_atmos_vals,
-    pre_bound_atmos_vals,
-    bound_ocean_vals,
-    pre_bound_ocean_vals
-)
-    if isnothing(pre_bound_atmos_vals)
+function has_converged(T_A_Γ, T_A_Γ_old, T_O_Γ, T_O_Γ_old)
+    if isnothing(T_A_Γ_old)
         return false
     end
-    bound_errors_atm_iter = abs.(bound_atmos_vals .- pre_bound_atmos_vals)
-    bound_errors_oce_iter = abs.(bound_ocean_vals .- pre_bound_ocean_vals)
-    tols_atm = 100 * eps.(max.(abs.(bound_atmos_vals), abs.(pre_bound_atmos_vals)))
-    tols_oce = 100 * eps.(max.(abs.(bound_ocean_vals), abs.(pre_bound_ocean_vals)))
-    if all(bound_errors_atm_iter .< tols_atm) && all(bound_errors_oce_iter .< tols_oce)
+    e_A_Γ = abs.(T_A_Γ .- T_A_Γ_old)
+    e_O_Γ = abs.(T_O_Γ .- T_O_Γ_old)
+    tols_atm = 100 * eps.(max.(abs.(T_A_Γ), abs.(T_A_Γ_old)))
+    tols_oce = 100 * eps.(max.(abs.(T_O_Γ), abs.(T_O_Γ_old)))
+    if all(e_A_Γ .< tols_atm) && all(e_O_Γ .< tols_oce)
         return true
     else
         return false

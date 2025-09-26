@@ -95,8 +95,8 @@ function solve_coupler!(
         iter = 1
         atmos_vals_list = []
         ocean_vals_list = []
-        bound_atmos_vals = nothing
-        bound_ocean_vals = nothing
+        T_A_Γ = nothing
+        T_O_Γ = nothing
 
         Checkpointer.checkpoint_sims(cs)
 
@@ -107,12 +107,11 @@ function solve_coupler!(
                 reinit!(cs, t)
             end
 
-            # Temperature values for the previous iteration.
-            pre_bound_atmos_vals = bound_atmos_vals
-            pre_bound_ocean_vals = bound_ocean_vals
+            T_A_Γ_old = T_A_Γ
+            T_O_Γ_old = T_O_Γ
 
             try
-                bound_atmos_vals, bound_ocean_vals = advance_simulation!(cs, t + Δt_cpl, parallel)
+                T_A_Γ, T_O_Γ = advance_simulation!(cs, t + Δt_cpl, parallel)
             catch err
                 if isa(err, UnstableError)
                     @warn("Unstable simulation!")
@@ -121,15 +120,10 @@ function solve_coupler!(
                 rethrow()
             end
 
-            push!(atmos_vals_list, bound_atmos_vals)
-            push!(ocean_vals_list, bound_ocean_vals)
+            push!(atmos_vals_list, T_A_Γ)
+            push!(ocean_vals_list, T_O_Γ)
 
-            if has_converged(
-                bound_atmos_vals,
-                pre_bound_atmos_vals,
-                bound_ocean_vals,
-                pre_bound_ocean_vals
-            )
+            if has_converged(T_A_Γ, T_A_Γ_old, T_O_Γ, T_O_Γ_old)
                 @info "Termination criterion satisfied!"
             end
         end
