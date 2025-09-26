@@ -1,8 +1,6 @@
 # Toy Examples for ClimaCoupler.jl
 
-⚠️ This is work in progress! ⚠️
-
-This repository contains coupled (toy) problems and coupling setups that are representative of and relevant for atmosphere-ocean-sea ice coupling.
+This repository contains coupled (toy) problems and coupling setups that are representative of and relevant for atmosphere-ocean-ice coupling.
 The idea is to explicitly make use of the [ClimaCoupler.jl](https://github.com/CliMA/ClimaCoupler.jl) API for these problems.
 
 To run the code:
@@ -25,7 +23,14 @@ If you want to use the parallel Schwarz iteration, run:
 coupled_heat_equations(iterations=10, parallel=true)
 ```
 
+To activate sea ice, use a nonzero ice area fraction, e.g., `a_I=0.5`.
+There are three implemented ice models:
+- `:constant`: ice thickness and temperature remain constant
+- `:temperature_feedback`: constant ice thickness, dynamic ice temperature
+- `:thickness_feedback`: dynamic ice thickness and temperature (the 0-layer model from Semtner, [1976](https://doi.org/10.1175/1520-0485(1976)006<0379:AMFTTG>2.0.CO;2))
+
 The directory `experiments` contains scripts for plotting analytical and numerical results with this code.
 - `kjellson_thesis_plots.jl` creates plots resembling figures from Hanna Kjellson's MSc thesis. 
 - `plot_solution.jl` creates plots that show the solution of a simulation over time or space
 - `plot_ice.jl` contains plots for when the dynamic sea ice component is active
+- `semtner_testcase.jl` runs a validation test case for the ice model based on (Semtner, [1976](https://doi.org/10.1175/1520-0485(1976)006<0379:AMFTTG>2.0.CO;2))
