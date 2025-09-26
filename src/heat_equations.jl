@@ -2,6 +2,7 @@ include("parameters.jl")
 include("analysis.jl")
 include("diagnostics.jl")
 include("components/atmosphere.jl")
+include("components/land.jl")
 include("components/ocean.jl")
 include("components/ice.jl")
 include("coupled_simulation.jl")
@@ -26,10 +27,20 @@ function reinit!(cs::Interfacer.CoupledSimulation, t)
 end
 
 function update_atmos_values!(cs)
+
+end
+
+function update_atmos_values!(cs, ::Val{:over_sea})
     bound_ocean_vals = get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
     ice_T = get_field(cs.model_sims.ice_sim, Val(:T_ice))
     update_field!(cs.model_sims.atmos_sim, bound_ocean_vals, ice_T)
     return bound_ocean_vals
+end
+
+function update_atmos_values!(cs, ::Val{:over_land})
+    T_Ls = get_field(cs.model_sims.land_sim, Val(:T_Ls))
+    update_field!(cs.model_sims.atmos_sim, T_Ls)
+    return T_Ls
 end
 
 function update_ocean_values!(cs)
@@ -45,6 +56,12 @@ function update_ice_values!(cs)
     return bound_atmos_vals, bound_ocean_vals
 end
 
+function update_land_values!(cs)
+    bound_atmos_vals = get_field(cs.model_sims.atmos_sim, Val(:F_AL))
+    update_field!(cs.model_sims.land_sim, bound_atmos_vals)
+    return bound_atmos_vals
+end
+
 function set_time!(cs::Interfacer.CoupledSimulation, t)
     cs.dates.date[1] = TimeManager.current_date(cs, t)
 end
@@ -56,18 +73,22 @@ function time_in_s(cs::Interfacer.CoupledSimulation)
 end
 
 function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::Float64, parallel::Bool)
+    config = Val(cs.model_sims[1].params.config)
     if parallel
         FieldExchanger.step_model_sims!(cs.model_sims, t_end)
-        update_atmos_values!(cs)
+        update_atmos_values!(cs, config)
         update_ocean_values!(cs)
         bound_atmos_vals, bound_ocean_vals = update_ice_values!(cs)
+        update_land_values!(cs)
     else
         Interfacer.step!(cs.model_sims.ice_sim, t_end)
         Interfacer.step!(cs.model_sims.ocean_sim, t_end)
-        update_atmos_values!(cs)
+        Interfacer.step!(cs.model_sims.land_sim, t_end)
+        update_atmos_values!(cs, config)
         Interfacer.step!(cs.model_sims.atmos_sim, t_end)
         update_ocean_values!(cs)
         bound_atmos_vals, bound_ocean_vals = update_ice_values!(cs)
+        update_land_values!(cs)
     end
     return bound_atmos_vals, bound_ocean_vals
 end

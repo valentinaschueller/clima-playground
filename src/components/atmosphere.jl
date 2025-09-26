@@ -16,6 +16,14 @@ end
 
 Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
 
+function surface_flux(T, p, ::Val{:over_sea})
+    return p.a_I * p.C_AI * (T[1] - p.T_Is) + (1 - p.a_I) * flux_AO(T, p)
+end
+
+function surface_flux(T, p, ::Val{:over_land})
+    return p.λ_L * (T[1] - p.T_Ls)
+end
+
 function Wfact_atm(W, Y, p, dtγ, t)
     C3 = CC.Geometry.WVector
     ᶠgradᵥ = CC.Operators.GradientC2F()
@@ -30,7 +38,7 @@ function Wfact_atm(W, Y, p, dtγ, t)
 end
 
 function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
-    F_sfc = p.a_I * p.C_AI * (T[1] - p.T_Is) + (1 - p.a_I) * flux_AO(T, p)
+    F_sfc = surface_flux(T, p, Val(p.config))
 
     # set boundary conditions
     C3 = CC.Geometry.WVector
@@ -106,6 +114,10 @@ function get_field(sim::HeatEquationAtmos, ::Val{:F_AO})
     return vec([flux_AO(fieldvec, sim.integrator.p) for fieldvec in sim.integrator.sol.u])
 end
 
+function get_field(sim::HeatEquationAtmos, ::Val{:F_AL})
+    return vec([surface_flux(fieldvec, sim.integrator.p, Val(:over_land)) for fieldvec in sim.integrator.sol.u])
+end
+
 function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationAtmos)
     coupler_fields = [:F_AO, :T_atm_sfc]
     push!(coupler_field_names, coupler_fields...)
@@ -114,4 +126,8 @@ end
 function update_field!(sim::HeatEquationAtmos, T_O, T_Is)
     sim.integrator.p.T_O = mean(T_O)
     sim.integrator.p.T_Is = mean(T_Is)
+end
+
+function update_field!(sim::HeatEquationAtmos, T_Ls)
+    sim.integrator.p.T_Ls = mean(T_Ls)
 end

@@ -47,7 +47,15 @@ function plot_solution_over_time(; kwargs...)
     T_A = ncread("output/T_A_$(dt)_inst.nc", "T_A", start=[1, 1], count=[-1, 1])
     T_I = ncread("output/T_Is_$(dt)_inst.nc", "T_Is")
     h_I = ncread("output/h_I_$(dt)_inst.nc", "h_I")
-    p1 = plot(time, [T_A T_O T_I], xlabel="Time [s]", ylabel="Temperature [K]", label=[L"T_A" L"T_O" L"T_{I,s}"], color=[:skyblue :seagreen :black])
+    T_Ls = ncread("output/T_Ls_$(dt)_inst.nc", "T_Ls")
+    p1 = plot(
+        time,
+        [T_A T_O T_I T_Ls],
+        xlabel="Time [s]",
+        ylabel="Temperature [K]",
+        label=[L"T_A" L"T_O" L"T_{I,s}" L"T_{L,s}"],
+        color=[:skyblue :seagreen :black :brown]
+    )
     p2 = plot(time, h_I, color=:black, label=L"h_I", ylabel="Ice Thickness [m]", xlabel="Time [s]")
     l = @layout [a b]
     plot(p1, p2, layout=l, legendfontsize=12, linewidth=2)

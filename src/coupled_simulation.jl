@@ -60,15 +60,18 @@ function get_coupled_sim(p::SimulationParameters)
     p.T_A = T_atm_0[1]
     p.T_O = T_oce_0[end]
     p.F_AO = p.C_AO * (p.T_A - p.T_O)
+    p.F_AL = p.λ_L * (p.T_A - p.T_I_ini)
 
     if p.ice_model_type != :constant
         @info("Determine initial ice surface temperature from SEB.")
         p.T_I_ini = T_Is(p)
     end
     p.T_Is = p.T_I_ini
+    p.T_Ls = p.T_I_ini
 
     field_h_I = CC.Fields.ones(point_space) .* p.h_I_ini
     h_ice_0 = CC.Fields.FieldVector(data=field_h_I)
+    T_sfc_0 = CC.Fields.FieldVector(data=CC.Fields.ones(point_space) .* p.T_I_ini)
 
     p.stable_range = get_stable_range([T_atm_0, T_oce_0, (data=[p.T_I_ini, p.T_Ib],)])
     if p.ice_model_type != :constant
@@ -81,6 +84,7 @@ function get_coupled_sim(p::SimulationParameters)
     atmos_sim = atmos_init(odesolver, T_atm_0, center_space_atm, p, output_dir)
     ocean_sim = ocean_init(odesolver, T_oce_0, center_space_oce, p, output_dir)
     ice_sim = ice_init(odesolver, h_ice_0, point_space, p, output_dir)
+    land_sim = land_init(odesolver, T_sfc_0, point_space, p, output_dir)
 
     start_date = "19790301"
     date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
@@ -91,7 +95,7 @@ function get_coupled_sim(p::SimulationParameters)
         new_month=[false],
     )
 
-    model_sims = (atmos_sim=atmos_sim, ocean_sim=ocean_sim, ice_sim=ice_sim)
+    model_sims = (atmos_sim=atmos_sim, ocean_sim=ocean_sim, ice_sim=ice_sim, land_sim=land_sim)
 
     coupler_field_names = []
     for sim in model_sims
