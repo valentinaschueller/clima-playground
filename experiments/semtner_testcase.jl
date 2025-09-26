@@ -95,5 +95,5 @@ function ice_only_test()
     plot(p1, p2, layout=(2, 1), legendfontsize=12, linewidth=2)
     display(current())
     @info("Mean thickness: $(mean(h_I))")
-    return ice_sim
+    savefig("plots/semtner.pdf")
 end
