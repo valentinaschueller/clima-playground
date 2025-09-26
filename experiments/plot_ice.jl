@@ -15,93 +15,95 @@ function plot_ice_seb_results()
     display(current())
 end
 
-function plot_ice_thickness_convergence(; iterations=5, kwargs...)
-    p = SimulationParameters(Δt_min=200, t_max=3600, Δt_cpl=3600, a_I=1.0, ice_model_type=:thickness_feedback)
-    h_Is = Base.logrange(1e-4, 1e3, length=10)
+function plot_ice_thickness_convergence(; plot_title="ice_thickness_convergence", iterations=5, kwargs...)
+    p = SimulationParameters(Δt_min=600, t_max=3600, Δt_cpl=3600, n_t_A=10, a_I=1.0, C_AI=1.82, ice_model_type=:thickness_feedback)
+    h_Is = Base.logrange(5e-4, 5e1, length=10)
     ϱs_atm = similar(h_Is)
     for (k, h_I) in enumerate(h_Is)
         setproperty!(p, :h_I_ini, h_I)
         _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
     end
-
-    plot(
-        h_Is,
-        ϱs_atm;
-        label=L"$ϱ_\mathrm{num}, h=h(t)$",
-        markershape=:o,
-        color=:black,
-        linewidth=2,
-        legendfontsize=12,
-        xlabel=L"h_I",
-        xscale=:log10,
-        yscale=:log10,
-        ylabel="ϱ",
-        legend=:right,
-        kwargs...
-    )
 
     p.ice_model_type = :temp_feedback
-    ϱs_atm = similar(h_Is)
+    ϱs_atm_lin = similar(h_Is)
     for (k, h_I) in enumerate(h_Is)
         setproperty!(p, :h_I_ini, h_I)
-        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
+        _, ϱs_atm_lin[k], _ = run_simulation(p, iterations=iterations)
     end
 
-    plot!(
-        h_Is,
-        ϱs_atm;
-        label=L"$ϱ_\mathrm{num}, h=h_0$",
-        markershape=:x,
-        color=:black,
-        linestyle=:dash,
-        linewidth=2,
-        legendfontsize=12,
-        xlabel=L"h_I",
-        xscale=:log10,
-        yscale=:log10,
-        ylabel="ϱ",
-        legend=:right,
-        kwargs...
-    )
-
-    h_Is = Base.logrange(1e-4, 1e3, length=100)
-    ϱ_theory = similar(h_Is)
-    for (k, h_I) in enumerate(h_Is)
+    finely_spaced_var = Base.logrange(h_Is[1], h_Is[end], length=100)
+    ϱ_theory = similar(finely_spaced_var)
+    for (k, h_I) in enumerate(finely_spaced_var)
         setproperty!(p, :h_I_ini, h_I)
         ϱ_theory[k] = compute_ϱ_ana(p)
     end
 
+    pgfplotsx()
+    plot(
+        finely_spaced_var,
+        ϱ_theory;
+        label=L"$\varrho_{AI}(\omega_\mathrm{max})$",
+        color=:black,
+    )
+
     plot!(
         h_Is,
-        ϱ_theory;
-        label=L"$ϱ_\mathrm{ana}$",
+        ϱs_atm;
+        label=L"\varrho_\mathrm{num}, h_I=h_I(t)",
+        markershape=:o,
+        ms=4,
+        ls=:dot,
         color=:black,
-        linewidth=2,
+    )
+
+    plot!(
+        h_Is,
+        ϱs_atm_lin;
+        label=L"\varrho_\mathrm{num}, h_I=h_0",
+        markershape=:x,
+        color=:black,
+        linestyle=:dash,
+        ms=6,
+    )
+    plot!(
+        labelfontsize=20,
+        tickfontsize=20,
+        legendfontsize=18,
+        xlabel=L"h_0",
+        xscale=:log10,
+        yscale=:log10,
+        ylabel=L"\varrho",
+        legend=:right,
+        ylim=[8e-4, 1.5],
+        yticks=[1e-3, 1e-2, 1e-1, 1],
+        xticks=[1e-3, 1e-2, 1e-1, 1, 1e1],
         kwargs...
     )
+
     display(current())
-    savefig("plots/ice_thickness_convergence.pdf")
+    savefig("plots/$plot_title.tikz")
 end
 
-function plot_a_I_dependence(; iterations=5, kwargs...)
-    p = SimulationParameters(Δt_min=600, t_max=3600, Δt_cpl=3600, a_I=1.0, ice_model_type=:temp_feedback)
+function plot_a_I_dependence(; plot_title="ice_a_i_dependence", iterations=5, kwargs...)
+    p = SimulationParameters(Δt_min=600, t_max=3600, Δt_cpl=3600, a_I=1.0, n_t_A=10, C_AI=1.82, C_AO=1.3, ice_model_type=:thickness_feedback)
 
     a_Is = range(0, 1, 100)
     ϱ_theory = similar(a_Is)
     for (k, a_I) in enumerate(a_Is)
         setproperty!(p, :a_I, a_I)
-        ϱ_theory[k] = compute_ϱ_ana(p; s=im * 1e-5)
+        ϱ_theory[k] = compute_ϱ_ana(p)
     end
+
+    pgfplotsx()
     plot(
         a_Is,
         ϱ_theory;
-        label=L"ϱ_\mathrm{ana}",
+        label=L"\varrho(\omega_\mathrm{max})",
         color=:black,
-        linewidth=2,
         kwargs...
     )
 
-    a_Is = range(0, 1, 20)
+    a_Is = range(0, 1, 15)
     ϱs_atm = similar(a_Is)
     for (k, a_I) in enumerate(a_Is)
         setproperty!(p, :a_I, a_I)
@@ -110,138 +112,101 @@ function plot_a_I_dependence(; iterations=5, kwargs...)
     plot!(
         a_Is,
         ϱs_atm;
-        label=L"$ϱ_\mathrm{num}$",
+        label=L"$\varrho_\mathrm{num}$",
         markershape=:x,
+        ms=6,
         color=:black,
-        linestyle=:dash,
-        linewidth=2,
-        legendfontsize=12,
+        labelfontsize=22,
+        tickfontsize=22,
+        legendfontsize=18,
         xlabel=L"a_I",
-        ylabel=L"ϱ",
-        legend=:bottomright,
-        kwargs...
-    )
-
-    display(current())
-    savefig("plots/ice_a_i_dependence.pdf")
-end
-
-function plot_a_I_zoom(; iterations=5, kwargs...)
-    p = SimulationParameters(Δt_min=600, t_max=1200, Δt_cpl=1200, a_I=1.0, ice_model_type=:temp_feedback)
-
-    a_Is = range(1e-4, 3e-4, 500)
-    ϱs_atm = similar(a_Is)
-    for (k, a_I) in enumerate(a_Is)
-        setproperty!(p, :a_I, a_I)
-        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
-    end
-    plot(
-        a_Is,
-        ϱs_atm;
-        label=L"$ϱ_\mathrm{num}$",
-        markershape=:x,
-        color=:black,
-        linestyle=:dash,
-        linewidth=2,
-        legendfontsize=12,
-        xlabel=L"a_I",
-        ylabel=L"ϱ",
-        legend=:bottomright,
-        kwargs...
-    )
-
-    display(current())
-    savefig("plots/ice_a_i_zoom.pdf")
-end
-
-
-function plot_ice_Δt_cpl_convergence(; iterations=10, ice_model_type=:temp_feedback, kwargs...)
-    p = SimulationParameters(a_I=1.0, ice_model_type=ice_model_type, Δt_min=10)
-    Δt_cpls = Base.logrange(1e1, 1e5, length=5)
-    ϱs_atm = similar(Δt_cpls)
-    for (k, Δt_cpl) in enumerate(Δt_cpls)
-        setproperty!(p, :Δt_cpl, Δt_cpl)
-        setproperty!(p, :t_max, Δt_cpl)
-        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
-    end
-    unstable_atm_indices = isinf.(ϱs_atm)
-    ϱs_atm[unstable_atm_indices] .= NaN
-
-    plot(
-        Δt_cpls,
-        ϱs_atm;
-        label=L"$ϱ_\mathrm{num}$",
-        markershape=:x,
-        color=:black,
-        linewidth=2,
-        legendfontsize=12,
-        xlabel=L"Δt_{cpl}",
-        xscale=:log10,
-        ylabel="ϱ",
+        ylabel=L"\varrho",
         legend=:right,
+        yscale=:log10,
+        ylim=[1e-5, 1],
+        yticks=[1e-4, 1e-2, 1],
         kwargs...
     )
 
-    Δt_cpls = Base.logrange(1e1, 1e5, length=100)
-    ρ_theory = similar(Δt_cpls)
-    for (k, Δt_cpl) in enumerate(Δt_cpls)
-        setproperty!(p, :t_max, Δt_cpl)
-        ρ_theory[k] = compute_ϱ_ana(p)
-    end
-
-    plot!(
-        Δt_cpls,
-        ρ_theory;
-        label=L"$ϱ_\mathrm{ana}$",
-        color=:black,
-        linewidth=2,
-        kwargs...
-    )
     display(current())
-    savefig("plots/ice_Δt_cpl_convergence.pdf")
+    savefig("plots/$plot_title.tikz")
 end
 
-function plot_C_AI_dependence(plot_title="C_AI_dependence"; kwargs...)
-    C_AIs = Base.logrange(1e-2, 1e2, length=15)
-    p = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=1.0, ice_model_type=:temp_feedback; kwargs...)
-    ϱs_atm = similar(C_AIs)
+function plot_C_AX_dependence(; plot_title="C_AX_dependence", kwargs...)
+    bulk_coeffs = Base.logrange(1e-2, 1e2, length=10)
+    finely_spaced_var = Base.logrange(bulk_coeffs[1], bulk_coeffs[end], length=100)
+    p = SimulationParameters(Δt_min=600, n_t_A=10, t_max=3600, Δt_cpl=3600, a_I=1.0, ice_model_type=:thickness_feedback; kwargs...)
+    ϱs_atm = similar(bulk_coeffs)
 
-    for (k, var) in enumerate(C_AIs)
-        p.C_AI = var
-        _, ϱs_atm[k], _ = run_simulation(p, iterations=6)
+    for (k, C_AI) in enumerate(bulk_coeffs)
+        p.C_AI = C_AI
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=5)
     end
 
-    finely_spaced_var = Base.logrange(C_AIs[1], C_AIs[end], length=100)
     ϱs_analytic = similar(finely_spaced_var)
-    for (k, var) in enumerate(finely_spaced_var)
-        p.C_AI = var
-        ω_min = im * π / p.Δt_cpl
-        ω_max = im * π / (p.Δt_min / p.n_t_A)
-        ϱs_analytic[k] = max(compute_ϱ_ana(p, s=ω_min), compute_ϱ_ana(p, s=ω_max))
+    for (k, C_AI) in enumerate(finely_spaced_var)
+        p.C_AI = C_AI
+        ϱs_analytic[k] = compute_ϱ_ana(p)
     end
+
+    pgfplotsx()
     plot(
         finely_spaced_var,
         ϱs_analytic,
-        label=L"$ϱ_\mathrm{ana}$",
-        linewidth=2,
+        label=L"$\varrho_\mathrm{AI}(\omega_\mathrm{max})$",
+        color=:black,
+        linestyle=:dash,
+    )
+    plot!(
+        bulk_coeffs,
+        ϱs_atm,
+        label=L"\varrho_\mathrm{num}, a_I=1",
+        color=:black,
+        markershape=:x,
+        ms=6,
+        linestyle=:dash,
+    )
+
+    p = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=0.0, ice_model_type=:temp_feedback; kwargs...)
+    ϱs_atm = similar(bulk_coeffs)
+
+    for (k, C_AO) in enumerate(bulk_coeffs)
+        p.C_AO = C_AO
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=5)
+    end
+
+    ϱs_analytic = similar(finely_spaced_var)
+    for (k, C_AO) in enumerate(finely_spaced_var)
+        p.C_AO = C_AO
+        ϱs_analytic[k] = compute_ϱ_ana(p)
+    end
+    plot!(
+        finely_spaced_var,
+        ϱs_analytic,
+        label=L"$\varrho_\mathrm{AO}(\omega_\mathrm{max})$",
         color=:black,
     )
     plot!(
-        C_AIs,
+        bulk_coeffs,
         ϱs_atm,
-        label=L"$ϱ_\mathrm{num}$",
+        label=L"\varrho_\mathrm{num}, a_I=0",
         color=:black,
         markershape=:x,
-        linewidth=2,
+        ms=6,
     )
     plot!(;
-        legendfontsize=12,
-        xlabel=L"C_{AI}",
-        ylabel="ϱ",
-        xscale=:log10,
+        labelfontsize=22,
+        tickfontsize=22,
+        legendfontsize=18,
+        legendcolumns=2,
+        xlabel=L"$C_{AO}, C_{AI}$",
+        ylabel=L"\varrho",
         yscale=:log10,
-        legend=:bottomright,
+        xscale=:log10,
+        legend=:right,
+        yticks=[1e-6, 1e-4, 1e-2, 1],
+        ylim=[5e-7, 1.5],
     )
     display(current())
-    savefig("plots/$plot_title.pdf")
+    savefig("plots/$plot_title.tikz")
 end
