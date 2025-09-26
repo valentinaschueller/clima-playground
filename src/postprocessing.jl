@@ -1,4 +1,4 @@
-export check_stability, has_converged, mean_ϱ, update_ρ_parallel, UnstableError
+export check_stability, has_converged, mean_ϱ, update_ϱ_parallel, UnstableError
 
 struct UnstableError <: Exception
 end
@@ -57,10 +57,10 @@ function mean_ϱ(ϱ_array)
     return mean(non_nan_values)
 end
 
-function update_ρ_parallel(ρ_A, ρ_O)
-    ρ_A = ρ_A[1:end-1] .* ρ_A[2:end]
-    ρ_O = ρ_O[1:end-1] .* ρ_O[2:end]
-    ρ_A[1:2:end] .= NaN
-    ρ_O[2:2:end] .= NaN
-    return ρ_A, ρ_O
+function update_ϱ_parallel(ϱ_A, ϱ_O)
+    ϱ_A = ϱ_A[1:end-1] .* ϱ_A[2:end]
+    ϱ_O = ϱ_O[1:end-1] .* ϱ_O[2:end]
+    ϱ_A[1:2:end] .= NaN
+    ϱ_O[2:2:end] .= NaN
+    return ϱ_A, ϱ_O
 end
