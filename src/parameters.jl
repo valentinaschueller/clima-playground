@@ -27,8 +27,8 @@ Base.@kwdef mutable struct SimulationParameters
     Δu_AO = 4.0
     Δu_AI = 5.0
     Δu_IO = 1.0
-    h_O = 51.0
-    h_A = 210.0
+    h_O = -50.0
+    h_A = 200.0
     z_A0 = 10.0
     z_O0 = 1.0
     T_A_ini = 267.0

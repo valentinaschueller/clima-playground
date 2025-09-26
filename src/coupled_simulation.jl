@@ -49,8 +49,8 @@ function get_coupled_sim(p::SimulationParameters)
         checkpoints=output_dir,
     )
 
-    center_space_atm = get_vertical_space(device, p.z_A0, p.h_A, p.n_A)
-    center_space_oce = get_vertical_space(device, -p.h_O, -p.z_O0, p.n_O)
+    center_space_atm = get_vertical_space(device, 0.0, p.h_A, p.n_A)
+    center_space_oce = get_vertical_space(device, p.h_O, 0.0, p.n_O)
     point_space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(0.0))
 
     field_atm = CC.Fields.ones(center_space_atm) .* p.T_A_ini

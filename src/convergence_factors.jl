@@ -9,11 +9,11 @@ import ClimaCoupler:
 export compute_ϱ_numerical, compute_ϱ_ana
 
 function χ_A(p::SimulationParameters, s)
-    return tanh((p.h_A - p.z_A0) * sqrt(s / p.α_A))
+    return tanh(p.h_A * sqrt(s / p.α_A))
 end
 
 function χ_O(p::SimulationParameters, s)
-    return tanh((p.h_O - p.z_O0) * sqrt(s / p.α_O))
+    return tanh(p.h_O * sqrt(s / p.α_O))
 end
 
 function compute_ϱ_ana(p::SimulationParameters; s=nothing)
