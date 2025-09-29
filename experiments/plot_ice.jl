@@ -50,7 +50,7 @@ function plot_ice_thickness_convergence(; plot_title="ice_thickness_convergence"
         h_Is,
         ϱs_atm;
         label=L"\varrho_\mathrm{num}, h_I=h_I(t)",
-        markershape=:o,
+        markershape=:circle,
         ms=4,
         ls=:dot,
         color=:black,
@@ -74,8 +74,9 @@ function plot_ice_thickness_convergence(; plot_title="ice_thickness_convergence"
         yscale=:log10,
         ylabel=L"\varrho",
         legend=:right,
-        ylim=[8e-4, 1.5],
-        yticks=[1e-3, 1e-2, 1e-1, 1],
+        ylim=[6e-5, 1.5],
+        yticks=[1e-4, 1e-2, 1],
+        yminorticks=1,
         xticks=[1e-3, 1e-2, 1e-1, 1, 1e1],
         kwargs...
     )
@@ -123,8 +124,9 @@ function plot_a_I_dependence(; plot_title="ice_a_i_dependence", iterations=5, kw
         ylabel=L"\varrho",
         legend=:right,
         yscale=:log10,
-        ylim=[1e-5, 1],
-        yticks=[1e-4, 1e-2, 1],
+        ylim=[1e-6, 1],
+        yminorticks=1,
+        yticks=[1e-6, 1e-4, 1e-2, 1],
         kwargs...
     )
 
