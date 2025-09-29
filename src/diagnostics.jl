@@ -1,3 +1,5 @@
+import ClimaDiagnostics as CD
+
 export get_prognostic_data!
 
 function get_prognostic_data!(out, Y, p, t)

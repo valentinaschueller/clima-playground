@@ -14,8 +14,6 @@ struct SeaIce{P,Y,D,I} <: Interfacer.SeaIceModelSimulation
     integrator::I
 end
 
-Interfacer.name(::SeaIce) = "SeaIce"
-
 function J_s(t, p, T_sfc)
     if isnothing(p.J_s)
         return p.C_AI * (p.T_A - T_sfc)
@@ -138,8 +136,6 @@ Checkpointer.get_model_prog_state(sim::SeaIce) = sim.integrator.u
 function Interfacer.step!(sim::SeaIce, t)
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
 end
-
-Interfacer.reinit!(sim::SeaIce) = Interfacer.reinit!(sim.integrator)
 
 function get_field(sim::SeaIce, ::Val{:T_ice})
     h_I = get_field(sim, Val(:h_I))

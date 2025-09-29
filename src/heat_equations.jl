@@ -7,13 +7,8 @@ include("components/ice.jl")
 include("coupled_simulation.jl")
 include("monin_obukhov.jl")
 include("postprocessing.jl")
-import Dates
 import SciMLBase
-import ClimaComms
-import ClimaCore as CC
-import ClimaTimeSteppers as CTS
-import ClimaCoupler:
-    Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
+import ClimaCoupler: Checkpointer, FieldExchanger, Interfacer
 
 export coupled_heat_equations, solve_coupler!, run_simulation
 
@@ -21,7 +16,7 @@ export coupled_heat_equations, solve_coupler!, run_simulation
 """Sets u0 = u(t), t0 = t, and empties u."""
 function reinit!(cs::Interfacer.CoupledSimulation, t)
     for sim in cs.model_sims
-        Interfacer.reinit!(sim.integrator, sim.integrator.u, t0=t)
+        SciMLBase.reinit!(sim.integrator, sim.integrator.u, t0=t)
     end
 end
 
@@ -43,16 +38,6 @@ function update_ice_values!(cs)
     bound_ocean_vals = get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
     update_field!(cs.model_sims.ice_sim, bound_atmos_vals, bound_ocean_vals)
     return bound_atmos_vals, bound_ocean_vals
-end
-
-function set_time!(cs::Interfacer.CoupledSimulation, t)
-    cs.dates.date[1] = TimeManager.current_date(cs, t)
-end
-
-function time_in_s(cs::Interfacer.CoupledSimulation)
-    t = Dates.datetime2epochms(cs.dates.date[1])
-    t0 = Dates.datetime2epochms(cs.dates.date0[1])
-    return Int((t - t0) / 1e3)
 end
 
 function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::Float64, parallel::Bool)
@@ -89,7 +74,7 @@ function solve_coupler!(
 
     for t = t0:Δt_cpl:(tspan[end]-Δt_cpl)
         @info("Current time: $t")
-        set_time!(cs, t)
+        cs.t[] = t
         reinit!(cs, t)
 
         iter = 1
@@ -103,7 +88,7 @@ function solve_coupler!(
         for iter = 1:iterations
             @info("Current iter: $(iter)")
             if iter > 1
-                Checkpointer.restart!(cs, cs.dirs.checkpoints, time_in_s(cs))
+                Checkpointer.restart!(cs, cs.dirs.checkpoints, Int(cs.t[]))
                 reinit!(cs, t)
             end
 
@@ -132,7 +117,7 @@ function solve_coupler!(
             ϱ_O = compute_ϱ_numerical(ocean_vals_list, parallel)
         end
     end
-    set_time!(cs, tspan[end])
+    cs.t[] = tspan[end]
     return ϱ_A, ϱ_O
 end
 

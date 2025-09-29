@@ -1,11 +1,3 @@
-import Dates
-import SciMLBase
-import ClimaComms
-import ClimaCore as CC
-import ClimaTimeSteppers as CTS
-import ClimaCoupler:
-    Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
-
 export compute_ϱ_ana
 
 function χ_A(p::SimulationParameters, s)

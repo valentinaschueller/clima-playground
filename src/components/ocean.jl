@@ -13,7 +13,6 @@ struct HeatEquationOcean{P,Y,D,I} <: Interfacer.OceanModelSimulation
     domain::D
     integrator::I
 end
-Interfacer.name(::HeatEquationOcean) = "HeatEquationOcean"
 
 function Wfact_oce(W, Y, p, dtγ, t)
     C3 = CC.Geometry.WVector
@@ -88,9 +87,6 @@ function Interfacer.step!(sim::HeatEquationOcean, t)
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
     check_stability(sim.integrator.u, sim.params.stable_range)
 end
-
-
-Interfacer.reinit!(sim::HeatEquationOcean) = Interfacer.reinit!(sim.integrator)
 
 function get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc})
     return vec([fieldvec[end] for fieldvec in sim.integrator.sol.u])

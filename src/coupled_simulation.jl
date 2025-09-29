@@ -3,8 +3,7 @@ import SciMLBase
 import ClimaComms
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
-import ClimaCoupler:
-    Checkpointer, FieldExchanger, FluxCalculator, Interfacer, TimeManager, Utilities
+import ClimaCoupler: Interfacer
 
 export get_vertical_space, get_coupled_sim, get_odesolver
 
@@ -82,14 +81,7 @@ function get_coupled_sim(p::SimulationParameters)
     ocean_sim = ocean_init(odesolver, T_oce_0, center_space_oce, p, output_dir)
     ice_sim = ice_init(odesolver, h_ice_0, point_space, p, output_dir)
 
-    start_date = "19790301"
-    date = Dates.DateTime(start_date, Dates.dateformat"yyyymmdd")
-    dates = (;
-        date=[date],
-        date0=[date],
-        date1=[Dates.firstdayofmonth(date)],
-        new_month=[false],
-    )
+    start_date = Dates.DateTime("19790301", Dates.dateformat"yyyymmdd")
 
     model_sims = (atmos_sim=atmos_sim, ocean_sim=ocean_sim, ice_sim=ice_sim)
 
@@ -99,18 +91,18 @@ function get_coupled_sim(p::SimulationParameters)
     end
     coupler_fields = Interfacer.init_coupler_fields(Float64, coupler_field_names, boundary_space)
 
+    tspan = (p.t_0, p.t_max)
     cs = Interfacer.CoupledSimulation{Float64}(
-        context,
-        dates,
-        boundary_space,
+        Ref(start_date),
         coupler_fields,
         nothing, # conservation checks
-        (p.t_0, p.t_max),
+        tspan,
         p.Δt_cpl,
+        Ref(tspan[begin]),
+        Ref(-1),
         model_sims,
         (;), # callbacks
         dir_paths,
-        FluxCalculator.PartitionedStateFluxes(),
         nothing, # thermo_params
         nothing, # diagnostic_handlers
     )

@@ -14,8 +14,6 @@ struct HeatEquationAtmos{P,Y,D,I} <: Interfacer.AtmosModelSimulation
     integrator::I
 end
 
-Interfacer.name(::HeatEquationAtmos) = "HeatEquationAtmos"
-
 function Wfact_atm(W, Y, p, dtγ, t)
     C3 = CC.Geometry.WVector
     ᶠgradᵥ = CC.Operators.GradientC2F()
@@ -95,8 +93,6 @@ end
 function flux_AO(T, p::SimulationParameters)
     return p.C_AO * (T[1] - p.T_O)
 end
-
-Interfacer.reinit!(sim::HeatEquationAtmos) = Interfacer.reinit!(sim.integrator)
 
 function get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc})
     return vec([fieldvec[1] for fieldvec in sim.integrator.sol.u])
