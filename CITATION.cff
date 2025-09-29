@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+title: "Toy Examples for ClimaCoupler.jl"
+version: 0.4.1
+license: "MIT"
+type: software
+authors:
+  - given-names: Valentina
+    family-names: Schüller
+    affiliation: Lund University
+    orcid: "https://orcid.org/0000-0002-4579-4217"
+  - given-names: Hanna
+    family-names: Kjellson
+    affiliation: Lund University
+    orcid: "https://orcid.org/0009-0002-1809-0473"
