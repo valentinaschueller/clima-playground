@@ -1,7 +1,7 @@
 name = "clima_playground"
 uuid = "366f1826-f195-47e4-a4a5-3fa8cfc1c36d"
 authors = ["Valentina Schüller <valentina.schuller@math.lu.se>"]
-version = "0.3.0"
+version = "0.4.0"
 
 [deps]
 ClimaComms = "3a4d1b5c-c61d-41fd-a00a-5873ba7a1b0d"
