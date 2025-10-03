@@ -88,7 +88,7 @@ end
 function plot_a_I_dependence(; plot_title="ice_a_i_dependence", iterations=5, kwargs...)
     p = SimulationParameters(Δt_min=600, t_max=3600, Δt_cpl=3600, a_I=1.0, n_t_A=10, C_AI=1.82, C_AO=1.3, ice_model_type=:thickness_feedback)
 
-    a_Is = range(0, 1, 100)
+    a_Is = range(0, 1, 500)
     ϱ_theory = similar(a_Is)
     for (k, a_I) in enumerate(a_Is)
         setproperty!(p, :a_I, a_I)
