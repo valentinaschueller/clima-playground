@@ -1,4 +1,4 @@
-export SimulationParameters, restore_physical_values!
+export SimulationParameters, restore_physical_values!, get_vertical_space
 
 Base.@kwdef mutable struct SimulationParameters
     a_I::Float64 = 0.0
@@ -67,3 +67,13 @@ function restore_physical_values!(p::SimulationParameters)
     p.C_IO = p.ρ_O * p.c_O * p.C_H_IO * p.Δu_IO
 end
 
+function get_vertical_space(lower_boundary, upper_boundary, nelems)
+    device = Utilities.get_device(Dict("device" => "auto"))
+    domain = CC.Domains.IntervalDomain(
+        CC.Geometry.ZPoint{Float64}(lower_boundary),
+        CC.Geometry.ZPoint{Float64}(upper_boundary);
+        boundary_names=(:bottom, :top),
+    )
+    mesh = CC.Meshes.IntervalMesh(domain, nelems=nelems)
+    return CC.Spaces.CenterFiniteDifferenceSpace(device, mesh)
+end

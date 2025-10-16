@@ -54,7 +54,11 @@ function get_atm_odefunction(ics, ::Val{:explicit})
 end
 
 
-function atmos_init(odesolver, ics, space, p::SimulationParameters, output_dir)
+function atmos_init(odesolver, p::SimulationParameters, output_dir)
+    space = get_vertical_space(0.0, p.h_A, p.n_A)
+    field_atm = CC.Fields.ones(space) .* p.T_A_ini
+    ics = CC.Fields.FieldVector(data=field_atm)
+
     ode_function = get_atm_odefunction(ics, Val(p.timestepping))
     problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_max), p)
 
