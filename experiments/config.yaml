@@ -17,17 +17,19 @@ moist: "nonequil"
 config: "column"
 z_max: 9000.0
 dz_bottom: 20.0
-z_elem: 100
+z_elem: 30
 z_stretch: true
 x_elem: 2
 y_elem: 2
 
+FLOAT_TYPE: "Float64"
+
 #perturb_initstate: false
-dt: 2secs
+dt: 30secs
 dt_rad: 10mins
 t_end: 1hours # full run length is 20days
 cloud_model: "grid_scale"
-call_cloud_diagnostics_per_stage : true
+call_cloud_diagnostics_per_stage : false
 toml: [/home/valentina/dev/larc/ClimaAtmos.jl/toml/longrun_aquaplanet_1M.toml] #[toml/diagnostic_edmfx_1M.toml]
 netcdf_output_at_levels: true
 #netcdf_interpolation_num_points: [2, 2, 200] # needed?
@@ -44,7 +46,3 @@ diagnostics:
   - short_name: [rlut, rlus, rlds, evspsbl, lwp, rsdt, rlutcs, rldscs, hfss, hfls, ts]  # time-series (1D)
     period: 1hours
     reduction: average
-
-# TODO:
-# prognostic surface_temperature // sea-ice model
-# consider greenhouse gas concentrations
