@@ -3,13 +3,13 @@
 ---
 ⚠️ This branch is to experiment with using the `ClimaAtmos.jl` SCM as an atmosphere component ⚠️
 
-You will need to locally check out the latest versions of `ClimaCoupler.jl` (I am at [`98b85cf`](https://github.com/CliMA/ClimaCoupler.jl/commit/98b85cf082c7a0da9b5a52d3e807bd8210229298)), as well as the correct branches for the atmospheric SCM:
+You need to locally check out the latest versions of `ClimaCoupler.jl` (I am at [`98b85cf`](https://github.com/CliMA/ClimaCoupler.jl/commit/98b85cf082c7a0da9b5a52d3e807bd8210229298)), as well as the correct branches for the atmospheric SCM:
 - `ClimaAtmos.jl`: [`jy/larcform1_1M`](https://github.com/CliMA/ClimaAtmos.jl/tree/jy/larcform1_1M)
 - `AtmosphericProfilesLibrary.jl`: [`jy/Larcform1`](https://github.com/CliMA/AtmosphericProfilesLibrary.jl/tree/jy/Larcform1)
 
-Then you will need to link to them when setting up `clima_playground` (see below)
+You should link to them when setting up `clima_playground` (see below)
 
-```
+```julia
 > ]dev /path/to/ClimaCoupler.jl /path/to/ClimaAtmos.jl /path/to/AtmosphericProfilesLibrary.jl
 ```
 ---
