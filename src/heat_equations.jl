@@ -1,6 +1,7 @@
 include("parameters.jl")
 include("analysis.jl")
 include("diagnostics.jl")
+include("components/climaatmos_scm.jl")
 include("components/atmosphere.jl")
 include("components/ocean.jl")
 include("components/ice.jl")

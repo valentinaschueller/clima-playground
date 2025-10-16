@@ -1,9 +1,11 @@
 import Dates
 import SciMLBase
+import ClimaAtmos as CA
 import ClimaComms
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Interfacer, Utilities
+import YAML
 
 export get_coupled_sim, get_odesolver
 
@@ -45,7 +47,10 @@ function get_coupled_sim(p::SimulationParameters)
     end
 
     odesolver = get_odesolver(Val(p.timestepping))
-    atmos_sim = atmos_init(odesolver, p, output_dir)
+    config = CA.AtmosConfig("experiments/config.yaml")
+    atmos_sim = ClimaAtmosSimulation(config)
+    thermo_params = get_thermo_params(atmos_sim)
+
     ocean_sim = ocean_init(odesolver, p, output_dir)
     ice_sim = ice_init(odesolver, p, output_dir)
 
@@ -73,7 +78,7 @@ function get_coupled_sim(p::SimulationParameters)
         model_sims,
         (;), # callbacks
         dir_paths,
-        nothing, # thermo_params
+        thermo_params, # thermo_params
         nothing, # diagnostic_handlers
     )
     return cs
