@@ -52,7 +52,11 @@ function get_oce_odefunction(ics, ::Val{:explicit})
     return CTS.ClimaODEFunction((T_exp!)=heat_oce_rhs!)
 end
 
-function ocean_init(odesolver, ics, space, p::SimulationParameters, output_dir)
+function ocean_init(odesolver, p::SimulationParameters, output_dir)
+    space = get_vertical_space(p.h_O, 0.0, p.n_O)
+    field_oce = CC.Fields.ones(space) .* p.T_O_ini
+    ics = CC.Fields.FieldVector(data=field_oce)
+
     ode_function = get_oce_odefunction(ics, Val(p.timestepping))
     problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_0 + p.t_max), p)
 

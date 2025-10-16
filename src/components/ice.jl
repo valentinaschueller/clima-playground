@@ -1,7 +1,7 @@
 import SciMLBase
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
-import ClimaCoupler: Checkpointer, Interfacer
+import ClimaCoupler: Checkpointer, Interfacer, Utilities
 import ClimaDiagnostics as CD
 import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix
 
@@ -92,7 +92,12 @@ function get_ice_odefunction(ics, ::Val{:explicit})
     return CTS.ClimaODEFunction((T_exp!)=thickness_rhs!)
 end
 
-function ice_init(odesolver, ics, space, p, output_dir)
+function ice_init(odesolver, p, output_dir)
+    context = Utilities.get_comms_context(Dict("device" => "auto"))
+    space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(0.0))
+    field_h_I = CC.Fields.ones(space) .* p.h_I_ini
+    ics = CC.Fields.FieldVector(data=field_h_I)
+
     ode_function = get_ice_odefunction(ics, Val(p.timestepping))
     problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_max), p)
     Δt = p.Δt_min / p.n_t_I
