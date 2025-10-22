@@ -1,54 +1,55 @@
-export SimulationParameters, restore_physical_values!, get_vertical_space
+export SimulationParameters, restore_physical_values!, get_vertical_space, FT
 
+FT = Float64
 Base.@kwdef mutable struct SimulationParameters
-    a_I::Float64 = 0.0
-    ρ_A::Float64 = 1.225
-    ρ_O::Float64 = 1e3
-    c_A::Float64 = 1005.0
-    c_O::Float64 = 4182.0
-    ν_O::Float64 = 1e-6
-    ν_A::Float64 = 1.5e-5
-    k_A::Float64 = 0.02364
-    k_O::Float64 = 0.58
-    k_I::Float64 = 2.03
-    alb_I::Float64 = 0.8
-    A::Float64 = 309.8
-    B::Float64 = 3.69
-    ϵ::Float64 = 0.98
-    LW_in = t -> 150.0
-    SW_in = t -> 200.0
-    J_q = t -> 0.0
+    a_I::FT = 0.0
+    ρ_A::FT = 1.225
+    ρ_O::FT = 1e3
+    c_A::FT = 1005.0
+    c_O::FT = 4182.0
+    ν_O::FT = 1e-6
+    ν_A::FT = 1.5e-5
+    k_A::FT = 0.02364
+    k_O::FT = 0.58
+    k_I::FT = 2.03
+    alb_I::FT = 0.8
+    A::FT = 309.8
+    B::FT = 3.69
+    ϵ::FT = 0.98
+    LW_in = t -> FT(150.0)
+    SW_in = t -> FT(200.0)
+    J_q = t -> FT(0.0)
     J_s = nothing
-    T_Ib = 273 - 1.8
-    q_I::Float64 = 2.75e8
-    C_H_IO::Float64 = 5e-3
-    C_H_AI::Float64 = 1.4e-3
-    C_H_AO::Float64 = 1e-3
-    Δu_AO::Float64 = 4.0
-    Δu_AI::Float64 = 5.0
-    Δu_IO::Float64 = 1.0
-    h_O::Float64 = -50.0
-    h_A::Float64 = 200.0
-    z_A0::Float64 = 10.0
-    z_O0::Float64 = 1.0
-    T_A_ini = 267.0
-    T_O_ini = 271.0
-    T_I_ini = 270.0
-    h_I_ini = 1.0
-    t_0::Float64 = 0.0
-    t_max::Float64 = 3600.0
-    Δt_cpl::Float64 = 100.0
-    Δt_min::Float64 = 1.0
+    T_Ib::FT = 273 - 1.8
+    q_I::FT = 2.75e8
+    C_H_IO::FT = 5e-3
+    C_H_AI::FT = 1.4e-3
+    C_H_AO::FT = 1e-3
+    Δu_AO::FT = 4.0
+    Δu_AI::FT = 5.0
+    Δu_IO::FT = 1.0
+    h_O::FT = -50.0
+    h_A::FT = 200.0
+    z_A0::FT = 10.0
+    z_O0::FT = 1.0
+    T_A_ini::FT = 267.0
+    T_O_ini::FT = 271.0
+    T_I_ini::FT = 270.0
+    h_I_ini::FT = 1.0
+    t_0::FT = 0.0
+    t_max::FT = 3600.0
+    Δt_cpl::FT = 100.0
+    Δt_min::FT = 1.0
     n_t_A = 50
     n_t_O = 1
     n_t_I = 1
     n_A = 200
     n_O = 50
-    α_O::Float64 = k_O / (ρ_O * c_O)
-    α_A::Float64 = k_A / (ρ_A * c_A)
-    C_AO::Float64 = ρ_A * c_A * C_H_AO * Δu_AO
-    C_AI::Float64 = ρ_A * c_A * C_H_AI * Δu_AI
-    C_IO::Float64 = ρ_O * c_O * C_H_IO * Δu_IO
+    α_O::FT = k_O / (ρ_O * c_O)
+    α_A::FT = k_A / (ρ_A * c_A)
+    C_AO::FT = ρ_A * c_A * C_H_AO * Δu_AO
+    C_AI::FT = ρ_A * c_A * C_H_AI * Δu_AI
+    C_IO::FT = ρ_O * c_O * C_H_IO * Δu_IO
     T_A = nothing
     T_O = nothing
     F_AO = nothing
@@ -70,8 +71,8 @@ end
 function get_vertical_space(lower_boundary, upper_boundary, nelems)
     device = Utilities.get_device(Dict("device" => "auto"))
     domain = CC.Domains.IntervalDomain(
-        CC.Geometry.ZPoint{Float64}(lower_boundary),
-        CC.Geometry.ZPoint{Float64}(upper_boundary);
+        CC.Geometry.ZPoint{FT}(lower_boundary),
+        CC.Geometry.ZPoint{FT}(upper_boundary);
         boundary_names=(:bottom, :top),
     )
     mesh = CC.Meshes.IntervalMesh(domain, nelems=nelems)

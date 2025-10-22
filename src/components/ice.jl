@@ -7,6 +7,7 @@ import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix
 
 export SeaIce, thickness_rhs!, T_Is, ice_init
 
+FT = Float64
 struct SeaIce{P,Y,D,I} <: Interfacer.SeaIceModelSimulation
     params::P
     Y_init::Y
@@ -83,7 +84,7 @@ function get_T_Is(out, h, p, t)
 end
 
 function get_ice_odefunction(ics, ::Val{:implicit})
-    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.DiagonalMatrixRow{Float64}))
+    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.DiagonalMatrixRow{FT}))
     T_imp! = SciMLBase.ODEFunction(thickness_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact)
     return CTS.ClimaODEFunction((T_imp!)=T_imp!)
 end
@@ -94,7 +95,7 @@ end
 
 function ice_init(odesolver, p, output_dir)
     context = Utilities.get_comms_context(Dict("device" => "auto"))
-    space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(0.0))
+    space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(FT(0.0)))
     field_h_I = CC.Fields.ones(space) .* p.h_I_ini
     ics = CC.Fields.FieldVector(data=field_h_I)
 

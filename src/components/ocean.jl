@@ -7,6 +7,8 @@ import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
 
 export HeatEquationOcean, heat_oce_rhs!, ocean_init
 
+FT = Float64
+
 struct HeatEquationOcean{P,Y,D,I} <: Interfacer.OceanModelSimulation
     params::P
     Y_init::Y
@@ -33,7 +35,7 @@ function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
     C3 = CC.Geometry.WVector
     # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)
     bcs_top = CC.Operators.SetValue(C3(F_sfc))
-    bcs_bottom = CC.Operators.SetValue(C3(Float64(0)))
+    bcs_bottom = CC.Operators.SetValue(C3(FT(0)))
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
     ᶠgradᵥ = CC.Operators.GradientC2F()
@@ -43,7 +45,7 @@ function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
 end
 
 function get_oce_odefunction(ics, ::Val{:implicit})
-    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{Float64}))
+    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{FT}))
     T_imp! = SciMLBase.ODEFunction(heat_oce_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact_oce)
     return CTS.ClimaODEFunction((T_exp!)=nothing, (T_imp!)=T_imp!)
 end

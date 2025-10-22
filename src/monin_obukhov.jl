@@ -45,7 +45,7 @@ function Ψ_O_u(ζ)
     return ψ_O_unstable(x)
 end
 
-function z_ruAI(a_I::Float64)
+function z_ruAI(a_I)
     return max(1e-3, 0.93e-3 * (1 - a_I) + 6.05e-3 * exp(-17 * (a_I - 0.5)^2))
 end
 
