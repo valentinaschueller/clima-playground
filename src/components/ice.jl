@@ -5,7 +5,7 @@ import ClimaCoupler: Checkpointer, Interfacer, Utilities
 import ClimaDiagnostics as CD
 import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix
 
-export SeaIce, thickness_rhs!, T_Is, ice_init, get_field, update_field!
+export SeaIce, thickness_rhs!, T_Is, ice_init
 
 struct SeaIce{P,Y,D,I} <: Interfacer.SeaIceModelSimulation
     params::P
@@ -142,15 +142,15 @@ function Interfacer.step!(sim::SeaIce, t)
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
 end
 
-function get_field(sim::SeaIce, ::Val{:T_ice})
-    h_I = get_field(sim, Val(:h_I))
+function Interfacer.get_field(sim::SeaIce, ::Val{:T_ice})
+    h_I = Interfacer.get_field(sim, Val(:h_I))
     if sim.integrator.p.ice_model_type == :constant
         return sim.integrator.p.T_I_ini .* ones(size(h_I))
     end
     return vec([T_Is(sim.integrator.p, h, sim.integrator.t) for h in h_I])
 end
 
-function get_field(sim::SeaIce, ::Val{:h_I})
+function Interfacer.get_field(sim::SeaIce, ::Val{:h_I})
     return vec([fieldvec[end] for fieldvec in sim.integrator.sol.u])
 end
 
@@ -159,7 +159,7 @@ function Interfacer.add_coupler_fields!(coupler_field_names, ::SeaIce)
     push!(coupler_field_names, coupler_fields...)
 end
 
-function update_field!(sim::SeaIce, T_A, T_O)
+function Interfacer.update_field!(sim::SeaIce, T_A, T_O)
     sim.integrator.p.T_A = mean(T_A)
     sim.integrator.p.T_O = mean(T_O)
 end

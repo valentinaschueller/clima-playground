@@ -5,7 +5,7 @@ import ClimaCoupler: Checkpointer, Interfacer
 import ClimaDiagnostics as CD
 import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
 
-export HeatEquationOcean, heat_oce_rhs!, ocean_init, get_field, update_field!
+export HeatEquationOcean, heat_oce_rhs!, ocean_init
 
 struct HeatEquationOcean{P,Y,D,I} <: Interfacer.OceanModelSimulation
     params::P
@@ -92,11 +92,11 @@ function Interfacer.step!(sim::HeatEquationOcean, t)
     check_stability(sim.integrator.u, sim.params.stable_range)
 end
 
-function get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc})
+function Interfacer.get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc})
     return vec([fieldvec[end] for fieldvec in sim.integrator.sol.u])
 end
 
-function update_field!(sim::HeatEquationOcean, F_AO)
+function Interfacer.update_field!(sim::HeatEquationOcean, F_AO)
     sim.integrator.p.F_AO = mean(F_AO)
 end
 
