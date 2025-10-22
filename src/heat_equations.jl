@@ -141,7 +141,7 @@ function coupled_heat_equations(;
     monin_obukhov::Bool=true,
     kwargs...,
 )
-    physical_values = SimulationParameters(; kwargs...)
+    physical_values = SimulationParameters{Float64}(; kwargs...)
 
     if monin_obukhov
         physical_values.C_H_AO = compute_C_H_AO(physical_values)

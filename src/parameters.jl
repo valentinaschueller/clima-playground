@@ -1,7 +1,6 @@
 export SimulationParameters, restore_physical_values!, get_vertical_space, FT
 
-FT = Float64
-Base.@kwdef mutable struct SimulationParameters
+Base.@kwdef mutable struct SimulationParameters{FT}
     a_I::FT = 0.0
     ρ_A::FT = 1.225
     ρ_O::FT = 1e3

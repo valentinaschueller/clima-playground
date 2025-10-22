@@ -7,8 +7,6 @@ import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
 
 export HeatEquationAtmos, heat_atm_rhs!, atmos_init
 
-FT = Float64
-
 struct HeatEquationAtmos{P,Y,D,I} <: Interfacer.AtmosModelSimulation
     params::P
     Y_init::Y
@@ -29,7 +27,7 @@ function Wfact_atm(W, Y, p, dtγ, t)
     return nothing
 end
 
-function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
+function heat_atm_rhs!(dT, T, p::SimulationParameters{FT}, t)
     F_sfc = p.a_I * p.C_AI * (T[1] - p.T_Is) + (1 - p.a_I) * flux_AO(T, p)
 
     # set boundary conditions
@@ -46,6 +44,7 @@ function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
 end
 
 function get_atm_odefunction(ics, ::Val{:implicit})
+    FT = eltype(ics)
     jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{FT}))
     T_imp! = SciMLBase.ODEFunction(heat_atm_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact_atm)
     return CTS.ClimaODEFunction((T_exp!)=nothing, (T_imp!)=T_imp!)
@@ -56,7 +55,7 @@ function get_atm_odefunction(ics, ::Val{:explicit})
 end
 
 
-function atmos_init(odesolver, p::SimulationParameters, output_dir)
+function atmos_init(odesolver, p::SimulationParameters{FT}, output_dir)
     space = get_vertical_space(0.0, p.h_A, p.n_A)
     field_atm = CC.Fields.ones(space) .* p.T_A_ini
     ics = CC.Fields.FieldVector(data=field_atm)

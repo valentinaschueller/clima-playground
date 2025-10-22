@@ -6,9 +6,6 @@ import ClimaDiagnostics as CD
 import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
 
 export HeatEquationOcean, heat_oce_rhs!, ocean_init
-
-FT = Float64
-
 struct HeatEquationOcean{P,Y,D,I} <: Interfacer.OceanModelSimulation
     params::P
     Y_init::Y
@@ -28,7 +25,7 @@ function Wfact_oce(W, Y, p, dtγ, t)
     @. W.matrix[@name(data), @name(data)] = dtγ * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
 end
 
-function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
+function heat_oce_rhs!(dT, T, p::SimulationParameters{FT}, t)
     F_sfc = p.a_I * p.C_IO * (p.T_Ib - T[end]) + (1 - p.a_I) * p.F_AO
 
     ## set boundary conditions
@@ -45,6 +42,7 @@ function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
 end
 
 function get_oce_odefunction(ics, ::Val{:implicit})
+    FT = eltype(ics)
     jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{FT}))
     T_imp! = SciMLBase.ODEFunction(heat_oce_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact_oce)
     return CTS.ClimaODEFunction((T_exp!)=nothing, (T_imp!)=T_imp!)
@@ -54,7 +52,7 @@ function get_oce_odefunction(ics, ::Val{:explicit})
     return CTS.ClimaODEFunction((T_exp!)=heat_oce_rhs!)
 end
 
-function ocean_init(odesolver, p::SimulationParameters, output_dir)
+function ocean_init(odesolver, p::SimulationParameters{FT}, output_dir)
     space = get_vertical_space(p.h_O, 0.0, p.n_O)
     field_oce = CC.Fields.ones(space) .* p.T_O_ini
     ics = CC.Fields.FieldVector(data=field_oce)
