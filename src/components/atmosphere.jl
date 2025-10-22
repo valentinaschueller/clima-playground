@@ -5,7 +5,7 @@ import ClimaCoupler: Checkpointer, Interfacer
 import ClimaDiagnostics as CD
 import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
 
-export HeatEquationAtmos, heat_atm_rhs!, atmos_init, get_field, update_field!
+export HeatEquationAtmos, heat_atm_rhs!, atmos_init
 
 struct HeatEquationAtmos{P,Y,D,I} <: Interfacer.AtmosModelSimulation
     params::P
@@ -98,11 +98,11 @@ function flux_AO(T, p::SimulationParameters)
     return p.C_AO * (T[1] - p.T_O)
 end
 
-function get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc})
+function Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc})
     return vec([fieldvec[1] for fieldvec in sim.integrator.sol.u])
 end
 
-function get_field(sim::HeatEquationAtmos, ::Val{:F_AO})
+function Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:F_AO})
     return vec([flux_AO(fieldvec, sim.integrator.p) for fieldvec in sim.integrator.sol.u])
 end
 
@@ -111,7 +111,7 @@ function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationAtmos
     push!(coupler_field_names, coupler_fields...)
 end
 
-function update_field!(sim::HeatEquationAtmos, T_O, T_Is)
+function Interfacer.update_field!(sim::HeatEquationAtmos, T_O, T_Is)
     sim.integrator.p.T_O = mean(T_O)
     sim.integrator.p.T_Is = mean(T_Is)
 end
