@@ -4,12 +4,13 @@ using LaTeXStrings
 import ClimaCoupler: Interfacer
 
 function plot_C_H_AO_dependence()
-    params = SimulationParameters()
+    params = SimulationParameters{Float64}()
     L_AOs = vec(-200:200)
     C_H_AO = similar(L_AOs, Float64)
     for (j, L_AO) in enumerate(L_AOs)
         C_H_AO[j] = compute_C_H_AO(params; L_AO=L_AO)
     end
+    pgfplotsx()
     plot(
         L_AOs,
         C_H_AO,
@@ -23,7 +24,7 @@ end
 function plot_C_H_AI_dependence()
     a_Is = 0:0.01:1
     L_AIs = vec(-200:200)
-    params = SimulationParameters()
+    params = SimulationParameters{Float64}()
     C_H_AI = zeros(length(a_Is), length(L_AIs))
     for (i, a_I) in enumerate(a_Is)
         params.a_I = a_I
@@ -31,6 +32,7 @@ function plot_C_H_AI_dependence()
             C_H_AI[i, j] = compute_C_H_AI(params; L_AI=L_AI)
         end
     end
+    gr()
     plot()
     surface(L_AIs, a_Is, C_H_AI, xlabel=L"L_{AI}", ylabel=L"a_I", zlabel=L"C_{H,AI}")
 end
@@ -39,7 +41,7 @@ end
 function plot_ϱ_AO()
     ωs = Base.logrange(1e-6, 1e6, length=100)
     ϱs = similar(ωs)
-    params = SimulationParameters()
+    params = SimulationParameters{Float64}()
 
     for (j, ω) in enumerate(ωs)
         ϱs[j] = compute_ϱ_ana(params; s=im * ω)
@@ -62,7 +64,7 @@ end
 
 function plot_Δt_cpl_dependence(; plot_title="Δt_cpl_dependence", kwargs...)
     Δt_cpl = [400, 1200, 3600, 10800]
-    p = SimulationParameters(Δt_min=400; kwargs...)
+    p = SimulationParameters{Float64}(Δt_min=400; kwargs...)
     ϱs_atm = similar(Δt_cpl, Float64)
     p.n_t_A = 1
     p.n_t_O = 1
