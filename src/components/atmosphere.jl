@@ -27,7 +27,8 @@ function Wfact_atm(W, Y, p, dtγ, t)
     return nothing
 end
 
-function heat_atm_rhs!(dT, T, p::SimulationParameters{FT}, t)
+function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
+    FT = eltype(p)
     F_sfc = p.a_I * p.C_AI * (T[1] - p.T_Is) + (1 - p.a_I) * flux_AO(T, p)
 
     # set boundary conditions
@@ -55,8 +56,9 @@ function get_atm_odefunction(ics, ::Val{:explicit})
 end
 
 
-function atmos_init(odesolver, p::SimulationParameters{FT}, output_dir)
-    space = get_vertical_space(0.0, p.h_A, p.n_A)
+function atmos_init(odesolver, p::SimulationParameters, output_dir)
+    FT = eltype(p)
+    space = get_vertical_space(FT(0.0), p.h_A, p.n_A)
     field_atm = CC.Fields.ones(space) .* p.T_A_ini
     ics = CC.Fields.FieldVector(data=field_atm)
 

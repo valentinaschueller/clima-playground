@@ -92,7 +92,8 @@ function get_ice_odefunction(ics, ::Val{:explicit})
     return CTS.ClimaODEFunction((T_exp!)=thickness_rhs!)
 end
 
-function ice_init(odesolver, p::SimulationParameters{FT}, output_dir)
+function ice_init(odesolver, p::SimulationParameters, output_dir)
+    FT = eltype(p)
     context = Utilities.get_comms_context(Dict("device" => "auto"))
     space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(FT(0.0)))
     field_h_I = CC.Fields.ones(space) .* p.h_I_ini

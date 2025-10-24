@@ -25,7 +25,8 @@ function Wfact_oce(W, Y, p, dtγ, t)
     @. W.matrix[@name(data), @name(data)] = dtγ * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
 end
 
-function heat_oce_rhs!(dT, T, p::SimulationParameters{FT}, t)
+function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
+    FT = eltype(p)
     F_sfc = p.a_I * p.C_IO * (p.T_Ib - T[end]) + (1 - p.a_I) * p.F_AO
 
     ## set boundary conditions
@@ -52,8 +53,9 @@ function get_oce_odefunction(ics, ::Val{:explicit})
     return CTS.ClimaODEFunction((T_exp!)=heat_oce_rhs!)
 end
 
-function ocean_init(odesolver, p::SimulationParameters{FT}, output_dir)
-    space = get_vertical_space(p.h_O, 0.0, p.n_O)
+function ocean_init(odesolver, p::SimulationParameters, output_dir)
+    FT = eltype(p)
+    space = get_vertical_space(p.h_O, FT(0.0), p.n_O)
     field_oce = CC.Fields.ones(space) .* p.T_O_ini
     ics = CC.Fields.FieldVector(data=field_oce)
 

@@ -40,7 +40,7 @@ function update_ice_values!(cs)
     return bound_atmos_vals, bound_ocean_vals
 end
 
-function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::FT, parallel::Bool)
+function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::FT, parallel::Bool) where {FT}
     if parallel
         FieldExchanger.step_model_sims!(cs.model_sims, t_end)
         update_atmos_values!(cs)

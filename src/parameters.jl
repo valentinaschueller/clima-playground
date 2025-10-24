@@ -1,4 +1,4 @@
-export SimulationParameters, restore_physical_values!, get_vertical_space, FT
+export SimulationParameters, restore_physical_values!, get_vertical_space
 
 Base.@kwdef mutable struct SimulationParameters{FT}
     a_I::FT = 0.0
@@ -59,6 +59,8 @@ Base.@kwdef mutable struct SimulationParameters{FT}
     timestepping = :implicit
 end
 
+Base.eltype(::SimulationParameters{FT}) where {FT} = FT
+
 function restore_physical_values!(p::SimulationParameters)
     p.α_O = p.k_O / (p.ρ_O * p.c_O)
     p.α_A = p.k_A / (p.ρ_A * p.c_A)
@@ -67,7 +69,7 @@ function restore_physical_values!(p::SimulationParameters)
     p.C_IO = p.ρ_O * p.c_O * p.C_H_IO * p.Δu_IO
 end
 
-function get_vertical_space(lower_boundary, upper_boundary, nelems)
+function get_vertical_space(lower_boundary::FT, upper_boundary::FT, nelems::Int) where {FT}
     device = Utilities.get_device(Dict("device" => "auto"))
     domain = CC.Domains.IntervalDomain(
         CC.Geometry.ZPoint{FT}(lower_boundary),

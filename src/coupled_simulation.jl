@@ -7,8 +7,6 @@ import ClimaCoupler: Interfacer, Utilities
 
 export get_coupled_sim, get_odesolver
 
-FT = Float64
-
 function get_odesolver(::Val{:implicit})
     return CTS.IMEXAlgorithm(CTS.ARS111(), CTS.NewtonsMethod())
 end
@@ -18,6 +16,7 @@ function get_odesolver(::Val{:explicit})
 end
 
 function get_coupled_sim(p::SimulationParameters)
+    FT = eltype(p)
     output_dir = "output"
     rm(output_dir, recursive=true, force=true)
     mkpath(output_dir)
