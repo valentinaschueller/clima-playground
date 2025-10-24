@@ -6,6 +6,7 @@ import ClimaDiagnostics as CD
 import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
 
 export HeatEquationOcean, heat_oce_rhs!, ocean_init
+
 struct HeatEquationOcean{P,Y,D,I} <: Interfacer.OceanModelSimulation
     params::P
     Y_init::Y

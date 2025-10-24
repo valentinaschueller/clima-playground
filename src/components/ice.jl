@@ -6,6 +6,7 @@ import ClimaDiagnostics as CD
 import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix
 
 export SeaIce, thickness_rhs!, T_Is, ice_init
+
 struct SeaIce{P,Y,D,I} <: Interfacer.SeaIceModelSimulation
     params::P
     Y_init::Y
