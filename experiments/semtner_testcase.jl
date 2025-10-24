@@ -58,7 +58,7 @@ function ice_only_test()
     context = CC.ClimaComms.context()
     point_space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(0.0))
     F_r, F_L, J_s, J_q = interpolants()
-    p = SimulationParameters(
+    p = SimulationParameters{Float64}(
         SW_in=F_r,
         LW_in=F_L,
         J_s=J_s,
@@ -76,12 +76,10 @@ function ice_only_test()
         p.T_I_ini = T_Is(p)
     end
     odesolver = get_odesolver(Val(p.timestepping))
-    field_h_I = CC.Fields.ones(point_space) .* p.h_I_ini
-    h_ice_0 = CC.Fields.FieldVector(data=field_h_I)
     output_dir = "ice_only"
     rm(output_dir, recursive=true, force=true)
     mkpath(output_dir)
-    ice_sim = ice_init(odesolver, h_ice_0, point_space, p, output_dir)
+    ice_sim = ice_init(odesolver, p, output_dir)
     Interfacer.step!(ice_sim, p.t_max)
     dt = CD.seconds_to_str_short(p.Δt_min)
     time = ncread("$(output_dir)/h_I_$(dt)_inst.nc", "time")

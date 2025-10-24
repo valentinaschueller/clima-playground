@@ -27,13 +27,14 @@ function Wfact_oce(W, Y, p, dtγ, t)
 end
 
 function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
+    FT = eltype(p)
     F_sfc = p.a_I * p.C_IO * (p.T_Ib - T[end]) + (1 - p.a_I) * p.F_AO
 
     ## set boundary conditions
     C3 = CC.Geometry.WVector
     # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)
     bcs_top = CC.Operators.SetValue(C3(F_sfc))
-    bcs_bottom = CC.Operators.SetValue(C3(Float64(0)))
+    bcs_bottom = CC.Operators.SetValue(C3(FT(0)))
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
     ᶠgradᵥ = CC.Operators.GradientC2F()
@@ -43,7 +44,8 @@ function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
 end
 
 function get_oce_odefunction(ics, ::Val{:implicit})
-    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{Float64}))
+    FT = eltype(ics)
+    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{FT}))
     T_imp! = SciMLBase.ODEFunction(heat_oce_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact_oce)
     return CTS.ClimaODEFunction((T_exp!)=nothing, (T_imp!)=T_imp!)
 end
@@ -53,7 +55,8 @@ function get_oce_odefunction(ics, ::Val{:explicit})
 end
 
 function ocean_init(odesolver, p::SimulationParameters, output_dir)
-    space = get_vertical_space(p.h_O, 0.0, p.n_O)
+    FT = eltype(p)
+    space = get_vertical_space(p.h_O, FT(0.0), p.n_O)
     field_oce = CC.Fields.ones(space) .* p.T_O_ini
     ics = CC.Fields.FieldVector(data=field_oce)
 

@@ -83,7 +83,8 @@ function get_T_Is(out, h, p, t)
 end
 
 function get_ice_odefunction(ics, ::Val{:implicit})
-    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.DiagonalMatrixRow{Float64}))
+    FT = eltype(ics)
+    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.DiagonalMatrixRow{FT}))
     T_imp! = SciMLBase.ODEFunction(thickness_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact)
     return CTS.ClimaODEFunction((T_imp!)=T_imp!)
 end
@@ -92,9 +93,10 @@ function get_ice_odefunction(ics, ::Val{:explicit})
     return CTS.ClimaODEFunction((T_exp!)=thickness_rhs!)
 end
 
-function ice_init(odesolver, p, output_dir)
+function ice_init(odesolver, p::SimulationParameters, output_dir)
+    FT = eltype(p)
     context = Utilities.get_comms_context(Dict("device" => "auto"))
-    space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(0.0))
+    space = CC.Spaces.PointSpace(context, CC.Geometry.ZPoint(FT(0.0)))
     field_h_I = CC.Fields.ones(space) .* p.h_I_ini
     ics = CC.Fields.FieldVector(data=field_h_I)
 

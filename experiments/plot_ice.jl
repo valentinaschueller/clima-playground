@@ -4,7 +4,7 @@ using LaTeXStrings
 import ClimaCore as CC
 
 function plot_ice_seb_results()
-    params = SimulationParameters(C_H_AI=1.4e-3, h_I_ini=1.0)
+    params = SimulationParameters{Float64}(C_H_AI=1.4e-3, h_I_ini=1.0)
     T_As = vec(range(270, 290, length=100))
     T_ice = similar(T_As)
     for (i, T_A) in enumerate(T_As)
@@ -16,7 +16,7 @@ function plot_ice_seb_results()
 end
 
 function plot_ice_thickness_convergence(; plot_title="ice_thickness_convergence", iterations=5, kwargs...)
-    p = SimulationParameters(Δt_min=600, t_max=3600, Δt_cpl=3600, n_t_A=10, a_I=1.0, C_AI=1.82, ice_model_type=:thickness_feedback)
+    p = SimulationParameters{Float64}(Δt_min=600, t_max=3600, Δt_cpl=3600, n_t_A=10, a_I=1.0, C_AI=1.82, ice_model_type=:thickness_feedback)
     h_Is = Base.logrange(5e-4, 5e1, length=10)
     ϱs_atm = similar(h_Is)
     for (k, h_I) in enumerate(h_Is)
@@ -86,7 +86,7 @@ function plot_ice_thickness_convergence(; plot_title="ice_thickness_convergence"
 end
 
 function plot_a_I_dependence(; plot_title="ice_a_i_dependence", iterations=5, kwargs...)
-    p = SimulationParameters(Δt_min=600, t_max=3600, Δt_cpl=3600, a_I=1.0, n_t_A=10, C_AI=1.82, C_AO=1.3, ice_model_type=:thickness_feedback)
+    p = SimulationParameters{Float64}(Δt_min=600, t_max=3600, Δt_cpl=3600, a_I=1.0, n_t_A=10, C_AI=1.82, C_AO=1.3, ice_model_type=:thickness_feedback)
 
     a_Is = range(0, 1, 500)
     ϱ_theory = similar(a_Is)
@@ -137,7 +137,7 @@ end
 function plot_C_AX_dependence(; plot_title="C_AX_dependence", kwargs...)
     bulk_coeffs = Base.logrange(1e-2, 1e2, length=10)
     finely_spaced_var = Base.logrange(bulk_coeffs[1], bulk_coeffs[end], length=100)
-    p = SimulationParameters(Δt_min=600, n_t_A=10, t_max=3600, Δt_cpl=3600, a_I=1.0, ice_model_type=:thickness_feedback; kwargs...)
+    p = SimulationParameters{Float64}(Δt_min=600, n_t_A=10, t_max=3600, Δt_cpl=3600, a_I=1.0, ice_model_type=:thickness_feedback; kwargs...)
     ϱs_atm = similar(bulk_coeffs)
 
     for (k, C_AI) in enumerate(bulk_coeffs)
@@ -169,7 +169,7 @@ function plot_C_AX_dependence(; plot_title="C_AX_dependence", kwargs...)
         linestyle=:dash,
     )
 
-    p = SimulationParameters(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=0.0, ice_model_type=:temp_feedback; kwargs...)
+    p = SimulationParameters{Float64}(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=0.0, ice_model_type=:temp_feedback; kwargs...)
     ϱs_atm = similar(bulk_coeffs)
 
     for (k, C_AO) in enumerate(bulk_coeffs)
