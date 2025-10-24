@@ -9,7 +9,6 @@ import YAML
 
 export get_coupled_sim, get_odesolver
 
-
 function get_odesolver(::Val{:implicit})
     return CTS.IMEXAlgorithm(CTS.ARS111(), CTS.NewtonsMethod())
 end
@@ -19,6 +18,7 @@ function get_odesolver(::Val{:explicit})
 end
 
 function get_coupled_sim(p::SimulationParameters)
+    FT = eltype(p)
     output_dir = "output"
     rm(output_dir, recursive=true, force=true)
     mkpath(output_dir)
@@ -64,10 +64,10 @@ function get_coupled_sim(p::SimulationParameters)
     for sim in model_sims
         Interfacer.add_coupler_fields!(coupler_field_names, sim)
     end
-    coupler_fields = Interfacer.init_coupler_fields(Float64, coupler_field_names, boundary_space)
+    coupler_fields = Interfacer.init_coupler_fields(FT, coupler_field_names, boundary_space)
 
     tspan = (p.t_0, p.t_max)
-    cs = Interfacer.CoupledSimulation{Float64}(
+    cs = Interfacer.CoupledSimulation{FT}(
         Ref(start_date),
         coupler_fields,
         nothing, # conservation checks

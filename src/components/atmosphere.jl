@@ -5,7 +5,7 @@ import ClimaCoupler: Checkpointer, Interfacer
 import ClimaDiagnostics as CD
 import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
 
-export HeatEquationAtmos, heat_atm_rhs!, atmos_init, get_field, update_field!
+export HeatEquationAtmos, heat_atm_rhs!, atmos_init
 
 struct HeatEquationAtmos{P,Y,D,I} <: Interfacer.AtmosModelSimulation
     params::P
@@ -28,13 +28,14 @@ function Wfact_atm(W, Y, p, dtγ, t)
 end
 
 function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
+    FT = eltype(p)
     F_sfc = p.a_I * p.C_AI * (T[1] - p.T_Is) + (1 - p.a_I) * flux_AO(T, p)
 
     # set boundary conditions
     C3 = CC.Geometry.WVector
     # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)
     bcs_bottom = CC.Operators.SetValue(C3(F_sfc))
-    bcs_top = CC.Operators.SetValue(C3(Float64(0)))
+    bcs_top = CC.Operators.SetValue(C3(FT(0)))
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
     ᶠgradᵥ = CC.Operators.GradientC2F()
@@ -44,7 +45,8 @@ function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
 end
 
 function get_atm_odefunction(ics, ::Val{:implicit})
-    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{Float64}))
+    FT = eltype(ics)
+    jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{FT}))
     T_imp! = SciMLBase.ODEFunction(heat_atm_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact_atm)
     return CTS.ClimaODEFunction((T_exp!)=nothing, (T_imp!)=T_imp!)
 end
@@ -55,7 +57,8 @@ end
 
 
 function atmos_init(odesolver, p::SimulationParameters, output_dir)
-    space = get_vertical_space(0.0, p.h_A, p.n_A)
+    FT = eltype(p)
+    space = get_vertical_space(FT(0.0), p.h_A, p.n_A)
     field_atm = CC.Fields.ones(space) .* p.T_A_ini
     ics = CC.Fields.FieldVector(data=field_atm)
 

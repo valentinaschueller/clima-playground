@@ -41,7 +41,7 @@ function update_ice_values!(cs)
     return bound_atmos_vals, bound_ocean_vals
 end
 
-function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::Float64, parallel::Bool)
+function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::FT, parallel::Bool) where {FT}
     if parallel
         FieldExchanger.step_model_sims!(cs.model_sims, t_end)
         update_atmos_values!(cs)
@@ -142,7 +142,7 @@ function coupled_heat_equations(;
     monin_obukhov::Bool=true,
     kwargs...,
 )
-    physical_values = SimulationParameters(; kwargs...)
+    physical_values = SimulationParameters{Float64}(; kwargs...)
 
     if monin_obukhov
         physical_values.C_H_AO = compute_C_H_AO(physical_values)
