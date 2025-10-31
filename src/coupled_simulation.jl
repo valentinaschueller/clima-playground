@@ -26,7 +26,7 @@ function get_coupled_sim(p::SimulationParameters)
         output=output_dir,
         artifacts=output_dir,
         regrid=output_dir,
-        checkpoints=output_dir,
+        checkpoints_dir=output_dir,
     )
 
     p.T_A = p.T_A_ini
@@ -47,7 +47,7 @@ function get_coupled_sim(p::SimulationParameters)
     end
 
     odesolver = get_odesolver(Val(p.timestepping))
-    config = CA.AtmosConfig("experiments/config.yaml")
+    config = CA.AtmosConfig("/Users/valentina/dev/clima/clima-playground/experiments/config.yaml")
     atmos_sim = ClimaAtmosSimulation(config)
     thermo_params = get_thermo_params(atmos_sim)
 
