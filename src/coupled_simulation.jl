@@ -60,7 +60,13 @@ function get_coupled_sim(p::SimulationParameters)
 
     model_sims = (atmos_sim=atmos_sim, ocean_sim=ocean_sim, ice_sim=ice_sim)
 
-    coupler_field_names = []
+    coupler_field_names = [
+        :scalar_temp1,
+        :scalar_temp2,
+        :scalar_temp3,
+        :scalar_temp4,
+        :T_sfc,
+    ]
     for sim in model_sims
         Interfacer.add_coupler_fields!(coupler_field_names, sim)
     end
