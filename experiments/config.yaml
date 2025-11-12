@@ -1,4 +1,4 @@
-initial_condition: "Larcform1"
+initial_condition: "PrecipitatingColumn"
 surface_setup: DefaultMoninObukhov     #"Larcform1_test"     # hijacked for const surface temperature
 turbconv: "diagnostic_edmfx"
 implicit_diffusion: true
@@ -17,12 +17,12 @@ moist: "nonequil"
 config: "column"
 z_max: 9000.0
 dz_bottom: 20.0
-z_elem: 30
+z_elem: 10
 z_stretch: true
-x_elem: 2
-y_elem: 2
+x_elem: 1
+y_elem: 1
 
-FLOAT_TYPE: "Float64"
+FLOAT_TYPE: "Float32"
 
 #perturb_initstate: false
 dt: 30secs
@@ -30,7 +30,7 @@ dt_rad: 10mins
 t_end: 1hours # full run length is 20days
 cloud_model: "grid_scale"
 call_cloud_diagnostics_per_stage : false
-toml: [/home/valentina/dev/larc/ClimaAtmos.jl/toml/longrun_aquaplanet_1M.toml] #[toml/diagnostic_edmfx_1M.toml]
+toml: [/Users/valentina/dev/clima/ClimaAtmos.jl/toml/single_column_precipitation_test.toml] #[toml/diagnostic_edmfx_1M.toml]
 netcdf_output_at_levels: true
 #netcdf_interpolation_num_points: [2, 2, 200] # needed?
 output_default_diagnostics: false
