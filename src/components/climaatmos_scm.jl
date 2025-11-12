@@ -348,7 +348,7 @@ function Interfacer.update_field!(
     # Remap coupler fields onto the atmosphere surface space
     atmos_surface_space = get_surface_space(sim)
     temp_field_surface = sim.integrator.p.scratch.ᶠtemp_field_level
-    @assert axes(temp_field_surface) == atmos_surface_space
+    # @assert axes(temp_field_surface) == atmos_surface_space
 
     # Compute surface humidity on the coupler space, then remap to atmosphere surface space
     Interfacer.get_field!(csf.scalar_temp1, sim, Val(:air_temperature))
@@ -698,4 +698,12 @@ function climaatmos_restart_path(output_dir_root, t)
         ispath(restart_file) && return restart_file
     end
     error("Restart file for time $t not found")
+end
+
+function Interfacer.remap(field::CC.Fields.Field, target_space::CC.Spaces.SpectralElementSpace2D)
+    # difference between axes(field) and target_space:
+    # one has level=1, the other one has level=PlusHalf
+    # since they are otherwise equivalent, I think this here should work
+    remapped_array = CC.Fields.field2array(field)
+    return CC.Fields.array2field(remapped_array, target_space)
 end

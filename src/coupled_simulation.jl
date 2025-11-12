@@ -23,7 +23,7 @@ function get_coupled_sim(p::SimulationParameters)
     rm(output_dir, recursive=true, force=true)
     mkpath(output_dir)
     dir_paths = (
-        output=output_dir,
+        output_dir_root=output_dir,
         artifacts=output_dir,
         regrid=output_dir,
         checkpoints_dir=output_dir,
@@ -54,7 +54,7 @@ function get_coupled_sim(p::SimulationParameters)
     ocean_sim = ocean_init(odesolver, p, output_dir)
     ice_sim = ice_init(odesolver, p, output_dir)
 
-    boundary_space = ice_sim.domain
+    boundary_space = get_surface_space(atmos_sim)
 
     start_date = Dates.DateTime("19790301", Dates.dateformat"yyyymmdd")
 

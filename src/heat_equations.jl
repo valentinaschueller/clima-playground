@@ -29,13 +29,13 @@ function update_atmos_values!(cs)
 end
 
 function update_ocean_values!(cs)
-    bound_atmos_vals = Interfacer.get_field(cs.model_sims.atmos_sim, Val(:F_AO))
+    bound_atmos_vals = Interfacer.get_field(cs.model_sims.atmos_sim, Val(:SW_d))
     Interfacer.update_field!(cs.model_sims.ocean_sim, bound_atmos_vals)
     return bound_atmos_vals
 end
 
 function update_ice_values!(cs)
-    bound_atmos_vals = Interfacer.get_field(cs.model_sims.atmos_sim, Val(:T_atm_sfc))
+    bound_atmos_vals = Interfacer.get_field(cs.model_sims.atmos_sim, Val(:air_temperature))
     bound_ocean_vals = Interfacer.get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
     Interfacer.update_field!(cs.model_sims.ice_sim, bound_atmos_vals, bound_ocean_vals)
     return bound_atmos_vals, bound_ocean_vals
@@ -142,6 +142,7 @@ function coupled_heat_equations(;
     monin_obukhov::Bool=true,
     kwargs...,
 )
+    redirect_stderr(IOContext(stderr, :stacktrace_types_limited => Ref(false)))
     physical_values = SimulationParameters{Float32}(; kwargs...)
 
     if monin_obukhov
