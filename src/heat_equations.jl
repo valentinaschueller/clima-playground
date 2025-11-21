@@ -9,9 +9,20 @@ include("coupled_simulation.jl")
 include("monin_obukhov.jl")
 include("postprocessing.jl")
 import SciMLBase
-import ClimaCoupler: Checkpointer, FieldExchanger, Interfacer
+import ClimaCoupler: Checkpointer, FieldExchanger, Interfacer, FluxCalculator
+import ClimaComms
+import ClimaAtmos as CA
 
-export coupled_heat_equations, solve_coupler!, run_simulation
+include(joinpath(pkgdir(CA), "post_processing", "ci_plots.jl"))
+include(
+        joinpath(
+            pkgdir(CA),
+            "reproducibility_tests",
+            "reproducibility_utils.jl",
+        ),
+    )
+
+export coupled_heat_equations, solve_coupler!, run_simulation, atmos_only
 
 
 """Sets u0 = u(t), t0 = t, and empties u."""
@@ -44,14 +55,20 @@ end
 function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::FT, parallel::Bool) where {FT}
     if parallel
         FieldExchanger.step_model_sims!(cs.model_sims, t_end)
-        update_atmos_values!(cs)
+        # FieldExchanger.update_surface_fractions!(cs)
+        FieldExchanger.exchange!(cs)
+        # FluxCalculator.turbulent_fluxes!(cs)
+        # update_atmos_values!(cs)
         update_ocean_values!(cs)
         bound_atmos_vals, bound_ocean_vals = update_ice_values!(cs)
     else
         Interfacer.step!(cs.model_sims.ice_sim, t_end)
         Interfacer.step!(cs.model_sims.ocean_sim, t_end)
-        update_atmos_values!(cs)
+        # update_atmos_values!(cs)
         Interfacer.step!(cs.model_sims.atmos_sim, t_end)
+        # FieldExchanger.update_surface_fractions!(cs)
+        FieldExchanger.exchange!(cs)
+        # FluxCalculator.turbulent_fluxes!(cs)
         update_ocean_values!(cs)
         bound_atmos_vals, bound_ocean_vals = update_ice_values!(cs)
     end
@@ -152,5 +169,36 @@ function coupled_heat_equations(;
     end
 
     cs, ϱ_A, ϱ_O = run_simulation(physical_values, iterations=iterations, parallel=parallel)
+
+    reference_job_id = "single_column_precipitation_test"
+
+    output_dir = cs.dir_paths.output_dir_root
+    @info "Plotting"
+    make_plots(Val(Symbol(reference_job_id)), output_dir)
+    @info "Plotting done"
+
     return cs, ϱ_A, ϱ_O
 end;
+
+function atmos_only(monin_obukhov::Bool=true, kwargs...)
+    redirect_stderr(IOContext(stderr, :stacktrace_types_limited => Ref(false)))
+    physical_values = SimulationParameters{Float32}(; kwargs...)
+
+    if monin_obukhov
+        physical_values.C_H_AO = compute_C_H_AO(physical_values)
+        physical_values.C_H_AI = compute_C_H_AI(physical_values)
+        restore_physical_values!(physical_values)
+    end
+
+    config = CA.AtmosConfig("/Users/valentina/dev/clima/clima-playground/experiments/config.yaml")
+    simulation = CA.get_simulation(config)
+    CA.solve_atmos!(simulation)
+
+    reference_job_id = "single_column_precipitation_test"
+
+    output_dir = simulation.output_dir
+    @info "Plotting"
+    make_plots(Val(Symbol(reference_job_id)), output_dir)
+    @info "Plotting done"
+end;
+

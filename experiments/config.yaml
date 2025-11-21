@@ -25,7 +25,7 @@ y_elem: 1
 FLOAT_TYPE: "Float32"
 
 #perturb_initstate: false
-dt: 30secs
+dt: 10secs
 dt_rad: 10mins
 t_end: 1hours # full run length is 20days
 cloud_model: "grid_scale"
@@ -39,10 +39,15 @@ insolation: "larcform1"
 precip_model: "1M"
 ode_algo: ARS343
 
-diagnostics: 
-  - short_name: [] #ta, thetaa, pfull, cl, clw, cli, pr, prsn, hus, hur, ua, va, wa, rlu, rld, rhoa] # profiles (2D)
-    period: 1hours
-    reduction: average
-  - short_name: [] #rlut, rlus, rlds, evspsbl, lwp, rsdt, rlutcs, rldscs, hfss, hfls, ts]  # time-series (1D)
-    period: 1hours
-    reduction: average
+# diagnostics: 
+#   - short_name: [hus, clw, cli, husra, hussn, ta, pr] #ta, thetaa, pfull, cl, clw, cli, pr, prsn, hus, hur, ua, va, wa, rlu, rld, rhoa] # profiles (2D)
+#     period: 1hours
+#     reduction: average
+#   - short_name: [] #rlut, rlus, rlds, evspsbl, lwp, rsdt, rlutcs, rldscs, hfss, hfls, ts]  # time-series (1D)
+#     period: 1hours
+#     reduction: average
+diagnostics:
+  - short_name: [hus, clw, cli, husra, hussn, ta, wa]
+    period: 500secs
+  - short_name: [pr]
+    period: 10secs

@@ -99,8 +99,41 @@ function Interfacer.get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc})
     return vec([fieldvec[end] for fieldvec in sim.integrator.sol.u])
 end
 
+function Interfacer.get_field(sim::HeatEquationOcean, ::Val{:area_fraction})
+    return 1 - sim.integrator.p.a_I
+end
+
+function Interfacer.get_field(sim::HeatEquationOcean, ::Val{:emissivity})
+    return sim.integrator.p.ϵ
+end
+
+function Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_temperature})
+    return sim.integrator.p.T_O_ini
+end
+
+function Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_diffuse_albedo})
+    return sim.integrator.p.alb_I
+end
+
+function Interfacer.get_field(sim::HeatEquationOcean, ::Val{:surface_direct_albedo})
+    return sim.integrator.p.alb_I
+end
+
 function Interfacer.update_field!(sim::HeatEquationOcean, F_AO)
     sim.integrator.p.F_AO = mean(F_AO)
+end
+
+Interfacer.update_field!(sim::HeatEquationOcean, ::Union{Val{:SW_d}, Val{:LW_d}, Val{:snow_precipitation}, Val{:turbulent_energy_flux}, Val{:turbulent_moisture_flux}}, ::Any) = nothing
+
+Interfacer.get_field(sim::HeatEquationOcean, ::Val{:roughness_momentum}) = sim.integrator.p.z_A0
+Interfacer.get_field(sim::HeatEquationOcean, ::Val{:roughness_buoyancy}) = sim.integrator.p.z_A0
+
+function FluxCalculator.update_turbulent_fluxes!(
+    sim::HeatEquationOcean,
+    fields::NamedTuple,
+)
+    # Interfacer.update_field!(sim, Val(:turbulent_energy_flux), fields.F_lh .+ fields.F_sh)
+    return nothing
 end
 
 function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationOcean)

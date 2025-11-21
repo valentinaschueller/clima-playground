@@ -156,8 +156,46 @@ function Interfacer.get_field(sim::SeaIce, ::Val{:h_I})
     return vec([fieldvec[end] for fieldvec in sim.integrator.sol.u])
 end
 
+function Interfacer.get_field(sim::SeaIce, ::Val{:area_fraction})
+    return sim.integrator.p.a_I
+end
+
+function Interfacer.get_field(sim::SeaIce, ::Val{:ice_concentration})
+    return sim.integrator.p.a_I
+end
+
+function Interfacer.get_field(sim::SeaIce, ::Val{:emissivity})
+    return sim.integrator.p.ϵ
+end
+
+function Interfacer.get_field(sim::SeaIce, ::Val{:surface_temperature})
+    return sim.integrator.p.T_I_ini
+end
+
+function Interfacer.get_field(sim::SeaIce, ::Val{:surface_diffuse_albedo})
+    return sim.integrator.p.alb_I
+end
+
+function Interfacer.get_field(sim::SeaIce, ::Val{:surface_direct_albedo})
+    return sim.integrator.p.alb_I
+end
+
+
+Interfacer.update_field!(sim::SeaIce, ::Union{Val{:area_fraction}, Val{:SW_d}, Val{:LW_d}, Val{:snow_precipitation}, Val{:liquid_precipitation}, Val{:turbulent_energy_flux}, Val{:turbulent_moisture_flux}}, field) = nothing
+
+Interfacer.get_field(sim::SeaIce, ::Val{:roughness_momentum}) = sim.integrator.p.z_A0
+Interfacer.get_field(sim::SeaIce, ::Val{:roughness_buoyancy}) = sim.integrator.p.z_A0
+
+function FluxCalculator.update_turbulent_fluxes!(
+    sim::SeaIce,
+    fields::NamedTuple,
+)
+    # Interfacer.update_field!(sim, Val(:turbulent_energy_flux), fields.F_lh .+ fields.F_sh)
+    return nothing
+end
+
 function Interfacer.add_coupler_fields!(coupler_field_names, ::SeaIce)
-    coupler_fields = [:T_ice, :h_I]
+    coupler_fields = [:T_ice, :h_I, :surface_temperature, :surface_diffuse_albedo, :surface_direct_albedo, :emissivity, :area_fraction, :ice_concentration]
     push!(coupler_field_names, coupler_fields...)
 end
 
