@@ -68,7 +68,7 @@ function plot_ice_thickness_convergence(; plot_title="ice_thickness_convergence"
     plot!(
         labelfontsize=20,
         tickfontsize=20,
-        legendfontsize=18,
+        legendfontsize=22,
         xlabel=L"h_0",
         xscale=:log10,
         yscale=:log10,
@@ -117,9 +117,31 @@ function plot_a_I_dependence(; plot_title="ice_a_i_dependence", iterations=5, kw
         markershape=:x,
         ms=6,
         color=:black,
+        kwargs...
+    )
+
+
+    setproperty!(p, :n_t_A, p.n_t_A * 100)
+    setproperty!(p, :n_t_O, p.n_t_O * 100)
+    setproperty!(p, :n_t_O, p.n_t_I * 100)
+    setproperty!(p, :n_A, p.n_A * 10)
+    setproperty!(p, :n_O, p.n_O * 10)
+    ϱs_atm_ref = similar(a_Is)
+    for (k, a_I) in enumerate(a_Is)
+        setproperty!(p, :a_I, a_I)
+        _, ϱs_atm_ref[k], _ = run_simulation(p, iterations=iterations)
+    end
+    plot!(
+        a_Is,
+        ϱs_atm_ref;
+        label=L"$\varrho_\mathrm{num}$",
+        markershape=:circle,
+        linestyle=:dash,
+        ms=3,
+        color=:black,
         labelfontsize=22,
         tickfontsize=22,
-        legendfontsize=18,
+        legendfontsize=22,
         xlabel=L"a_I",
         ylabel=L"\varrho",
         legend=:right,
@@ -199,7 +221,7 @@ function plot_C_AX_dependence(; plot_title="C_AX_dependence", kwargs...)
     plot!(;
         labelfontsize=22,
         tickfontsize=22,
-        legendfontsize=18,
+        legendfontsize=20,
         legendcolumns=2,
         xlabel=L"$C_{AO}, C_{AI}$",
         ylabel=L"\varrho",
