@@ -5,14 +5,13 @@ import LinearAlgebra
 import ClimaAtmos as CA
 import ClimaAtmos: set_surface_albedo!
 import ClimaAtmos.Parameters as CAP
+import ClimaParams as CP
 import ClimaCore as CC
 import ClimaCore.Geometry: ⊗
 import SurfaceFluxes as SF
 import Thermodynamics as TD
 import ClimaCoupler: Checkpointer, FieldExchanger, FluxCalculator, Interfacer, Utilities
 import ClimaUtilities.TimeManager: ITime
-
-include("climaatmos_extra_diags.jl")
 
 if pkgversion(CA) < v"0.28.6"
     # Allow cache to be moved to CPU (this is a little bit of type piracy, but we
@@ -26,7 +25,7 @@ include("restore.jl")
 ###
 ### Functions required by ClimaCoupler.jl for an AtmosModelSimulation
 ###
-struct ClimaAtmosSimulation{P,D,I,OW} <: Interfacer.AtmosModelSimulation
+struct ClimaAtmosSimulation{P, D, I, OW} <: Interfacer.AtmosModelSimulation
     params::P
     domain::D
     integrator::I
@@ -49,13 +48,13 @@ function ClimaAtmosSimulation(atmos_config)
     Y = integrator.u
     center_space = axes(Y.c.ρe_tot)
     face_space = axes(Y.f.u₃)
-    spaces = (; center_space=center_space, face_space=face_space)
+    spaces = (; center_space = center_space, face_space = face_space)
 
     # define shorter references for long variable names to increase readability, and set to zero
     ρ_flux_h_tot = integrator.p.precomputed.sfc_conditions.ρ_flux_h_tot
     ρ_flux_uₕ = integrator.p.precomputed.sfc_conditions.ρ_flux_uₕ
     @. ρ_flux_h_tot = CC.Geometry.Covariant3Vector(FT(0.0))
-    ρ_flux_uₕ.components .= Ref(StaticArrays.SMatrix{1,2}([FT(0), FT(0)]))
+    ρ_flux_uₕ.components .= Ref(StaticArrays.SMatrix{1, 2}([FT(0), FT(0)]))
 
     if hasmoisture(integrator)
         ρ_flux_q_tot = integrator.p.precomputed.sfc_conditions.ρ_flux_q_tot
@@ -101,20 +100,20 @@ end
 
 # Extension of CA.set_surface_albedo! to set the surface albedo to 0.38 at the beginning of the simulation,
 # so the initial callback initialization doesn't lead to NaNs in the radiation model.
-# function CA.set_surface_albedo!(Y, p, t, ::CA.CouplerAlbedo)
-#     if float(t) == 0
-#         FT = eltype(Y)
-#         # set initial insolation initial conditions
-#         !(p.atmos.insolation isa CA.IdealizedInsolation) &&
-#             CA.set_insolation_variables!(Y, p, t, p.atmos.insolation)
-#         # set surface albedo to 0.38
-#         @warn "Setting surface albedo to 0.38 at the beginning of the simulation"
-#         p.radiation.rrtmgp_model.direct_sw_surface_albedo .= FT(0.38)
-#         p.radiation.rrtmgp_model.diffuse_sw_surface_albedo .= FT(0.38)
-#     else
-#         nothing
-#     end
-# end
+function CA.set_surface_albedo!(Y, p, t, ::CA.CouplerAlbedo)
+    if float(t) == 0
+        FT = eltype(Y)
+        # set initial insolation initial conditions
+        !(p.atmos.insolation isa CA.IdealizedInsolation) &&
+            CA.set_insolation_variables!(Y, p, t, p.atmos.insolation)
+        # set surface albedo to 0.38
+        @warn "Setting surface albedo to 0.38 at the beginning of the simulation"
+        p.radiation.rrtmgp_model.direct_sw_surface_albedo .= FT(0.38)
+        p.radiation.rrtmgp_model.diffuse_sw_surface_albedo .= FT(0.38)
+    else
+        nothing
+    end
+end
 
 """
     get_surface_space(sim::ClimaAtmosSimulation)
@@ -145,13 +144,14 @@ function Checkpointer.restore_cache!(sim::ClimaAtmosSimulation, new_cache)
         Checkpointer.get_model_cache(sim),
         new_cache,
         comms_ctx;
-        ignore=Set([
+        ignore = Set([
             :rc,
             :params,
             :ghost_buffer,
             :hyperdiffusion_ghost_buffer,
             :data_handler,
             :graph_context,
+            :dt,
         ]),
     )
     return nothing
@@ -227,7 +227,7 @@ end
 # helpers for get_field extensions, dipatchable on different moisture model options and radiation modes
 
 surface_rain_flux(::CA.DryModel, integrator) = eltype(integrator.u)(0)
-function surface_rain_flux(::Union{CA.EquilMoistModel,CA.NonEquilMoistModel}, integrator)
+function surface_rain_flux(::Union{CA.EquilMoistModel, CA.NonEquilMoistModel}, integrator)
     if pkgversion(CA) >= v"0.29.0"
         return integrator.p.precomputed.surface_rain_flux
     else
@@ -236,7 +236,7 @@ function surface_rain_flux(::Union{CA.EquilMoistModel,CA.NonEquilMoistModel}, in
 end
 
 surface_snow_flux(::CA.DryModel, integrator) = eltype(integrator.u)(0)
-function surface_snow_flux(::Union{CA.EquilMoistModel,CA.NonEquilMoistModel}, integrator)
+function surface_snow_flux(::Union{CA.EquilMoistModel, CA.NonEquilMoistModel}, integrator)
     if pkgversion(CA) >= v"0.29.0"
         return integrator.p.precomputed.surface_snow_flux
     else
@@ -249,11 +249,11 @@ surface_radiation_flux(::CA.RRTMGPI.AbstractRRTMGPMode, integrator) =
     CC.Fields.level(integrator.p.radiation.ᶠradiation_flux, CC.Utilities.half)
 
 moisture_flux(::CA.DryModel, integrator) = eltype(integrator.u)(0)
-moisture_flux(::Union{CA.EquilMoistModel,CA.NonEquilMoistModel}, integrator) =
+moisture_flux(::Union{CA.EquilMoistModel, CA.NonEquilMoistModel}, integrator) =
     CC.Geometry.WVector.(integrator.p.precomputed.sfc_conditions.ρ_flux_q_tot)
 
 ρq_tot(::CA.DryModel, integrator) = eltype(integrator.u)(0)
-ρq_tot(::Union{CA.EquilMoistModel,CA.NonEquilMoistModel}, integrator) =
+ρq_tot(::Union{CA.EquilMoistModel, CA.NonEquilMoistModel}, integrator) =
     integrator.u.c.ρq_tot
 
 # extensions required by the Interfacer
@@ -278,7 +278,10 @@ Interfacer.get_field(sim::ClimaAtmosSimulation, ::Val{:co2}) =
     sim.integrator.p.tracers.co2[1]
 
 function Interfacer.get_field(sim::ClimaAtmosSimulation, ::Val{:diffuse_fraction})
-    hasradiation(sim.integrator) || return nothing
+    # Diffuse fraction doesn't matter when we don't have radiation, so return zero
+    FT = eltype(sim.integrator.u)
+    hasradiation(sim.integrator) || return zero(FT)
+
     radiation_model = sim.integrator.p.radiation.rrtmgp_model
     # only take the first level
     total_flux_dn = radiation_model.face_sw_flux_dn[1, :]
@@ -302,7 +305,10 @@ end
 Interfacer.get_field(sim::ClimaAtmosSimulation, ::Val{:liquid_precipitation}) =
     surface_rain_flux(sim.integrator.p.atmos.moisture_model, sim.integrator)
 function Interfacer.get_field(sim::ClimaAtmosSimulation, ::Val{:LW_d})
-    hasradiation(sim.integrator) || return nothing
+    # If we don't have radiation, downwelling LW is zero
+    FT = eltype(sim.integrator.u)
+    hasradiation(sim.integrator) || return zero(FT)
+
     return CC.Fields.level(
         CC.Fields.array2field(
             sim.integrator.p.radiation.rrtmgp_model.face_lw_flux_dn,
@@ -317,12 +323,13 @@ Interfacer.get_field(sim::ClimaAtmosSimulation, ::Val{:specific_humidity}) =
         sim.integrator.u.c.ρ,
         1,
     )
-Interfacer.get_field(sim::ClimaAtmosSimulation, ::Val{:radiative_energy_flux_sfc}) =
-    surface_radiation_flux(sim.integrator.p.atmos.radiation_mode, sim.integrator)
 Interfacer.get_field(sim::ClimaAtmosSimulation, ::Val{:snow_precipitation}) =
     surface_snow_flux(sim.integrator.p.atmos.moisture_model, sim.integrator)
 function Interfacer.get_field(sim::ClimaAtmosSimulation, ::Val{:SW_d})
-    hasradiation(sim.integrator) || return nothing
+    # If we don't have radiation, downwelling SW is zero
+    FT = eltype(sim.integrator.u)
+    hasradiation(sim.integrator) || return zero(FT)
+
     return CC.Fields.level(
         CC.Fields.array2field(
             sim.integrator.p.radiation.rrtmgp_model.face_sw_flux_dn,
@@ -348,7 +355,7 @@ function Interfacer.update_field!(
     # Remap coupler fields onto the atmosphere surface space
     atmos_surface_space = get_surface_space(sim)
     temp_field_surface = sim.integrator.p.scratch.ᶠtemp_field_level
-    # @assert axes(temp_field_surface) == atmos_surface_space
+    @assert axes(temp_field_surface) == atmos_surface_space
 
     # Compute surface humidity on the coupler space, then remap to atmosphere surface space
     Interfacer.get_field!(csf.scalar_temp1, sim, Val(:air_temperature))
@@ -416,26 +423,30 @@ end
 
 # extensions required by the Interfacer
 function Interfacer.update_field!(sim::ClimaAtmosSimulation, ::Val{:emissivity}, field)
-    hasradiation(sim.integrator) || return nothing
-    # Remap field onto the atmosphere surface space in scratch field
-    temp_field_surface = sim.integrator.p.scratch.ᶠtemp_field_level
-    Interfacer.remap!(temp_field_surface, field)
-    # Set each row (band) of the emissivity matrix by transposing the vector returned from `field2array`
-    sim.integrator.p.radiation.rrtmgp_model.surface_emissivity .=
-        CC.Fields.field2array(temp_field_surface)'
+    if hasradiation(sim.integrator)
+        # Remap field onto the atmosphere surface space in scratch field
+        temp_field_surface = sim.integrator.p.scratch.ᶠtemp_field_level
+        Interfacer.remap!(temp_field_surface, field)
+        # Set each row (band) of the emissivity matrix by transposing the vector returned from `field2array`
+        sim.integrator.p.radiation.rrtmgp_model.surface_emissivity .=
+            CC.Fields.field2array(temp_field_surface)'
+    end
+    return nothing
 end
 function Interfacer.update_field!(
     sim::ClimaAtmosSimulation,
     ::Val{:surface_direct_albedo},
     field,
 )
-    hasradiation(sim.integrator) || return nothing
-    # Remap field onto the atmosphere surface space in scratch field
-    temp_field_surface = sim.integrator.p.scratch.ᶠtemp_field_level
-    Interfacer.remap!(temp_field_surface, field)
-    # Set each row (band) of the albedo matrix by transposing the vector returned from `field2array`
-    sim.integrator.p.radiation.rrtmgp_model.direct_sw_surface_albedo .=
-        CC.Fields.field2array(temp_field_surface)'
+    if hasradiation(sim.integrator)
+        # Remap field onto the atmosphere surface space in scratch field
+        temp_field_surface = sim.integrator.p.scratch.ᶠtemp_field_level
+        Interfacer.remap!(temp_field_surface, field)
+        # Set each row (band) of the albedo matrix by transposing the vector returned from `field2array`
+        sim.integrator.p.radiation.rrtmgp_model.direct_sw_surface_albedo .=
+            CC.Fields.field2array(temp_field_surface)'
+    end
+    return nothing
 end
 
 function Interfacer.update_field!(
@@ -443,13 +454,15 @@ function Interfacer.update_field!(
     ::Val{:surface_diffuse_albedo},
     field,
 )
-    hasradiation(sim.integrator) || return nothing
-    # Remap field onto the atmosphere surface space in scratch field
-    temp_field_surface = sim.integrator.p.scratch.ᶠtemp_field_level
-    Interfacer.remap!(temp_field_surface, field)
-    # Set each row (band) of the albedo matrix by transposing the vector returned from `field2array`
-    sim.integrator.p.radiation.rrtmgp_model.diffuse_sw_surface_albedo .=
-        CC.Fields.field2array(temp_field_surface)'
+    if hasradiation(sim.integrator)
+        # Remap field onto the atmosphere surface space in scratch field
+        temp_field_surface = sim.integrator.p.scratch.ᶠtemp_field_level
+        Interfacer.remap!(temp_field_surface, field)
+        # Set each row (band) of the albedo matrix by transposing the vector returned from `field2array`
+        sim.integrator.p.radiation.rrtmgp_model.diffuse_sw_surface_albedo .=
+            CC.Fields.field2array(temp_field_surface)'
+    end
+    return nothing
 end
 
 function FluxCalculator.update_turbulent_fluxes!(sim::ClimaAtmosSimulation, fields)
@@ -548,7 +561,7 @@ FluxCalculator.get_surface_params(sim::ClimaAtmosSimulation) =
     CAP.surface_fluxes_params(sim.integrator.p.params)
 
 """
-    Interfacer.set_cache!(sim::ClimaAtmosSimulation)
+    Interfacer.set_cache!(sim::ClimaAtmosSimulation, csf)
 
 Set cache variables that cannot be initialized before the initial exchange.
 Radiation must be called here because it requires the surface model initial
@@ -558,7 +571,7 @@ Any other callbacks which modify the cache should be called here as well.
 This function does not set all the cache variables, because many are computed
 as part of the tendendencies.
 """
-function Interfacer.set_cache!(sim::ClimaAtmosSimulation)
+function Interfacer.set_cache!(sim::ClimaAtmosSimulation, csf)
     if hasradiation(sim.integrator)
         CA.rrtmgp_model_callback!(sim.integrator)
         if pkgversion(CA) == v"0.30" &&
@@ -598,13 +611,16 @@ The TOML parameter file to use is chosen using the following priority:
 If a coupler TOML file is provided, it is used.
 Otherwise we use an atmos TOML file if it's provided.
 If neither file is provided, the default ClimaAtmos parameters are used.
+This is analogous to the logic in `get_coupler_config_dict` for selecting
+the coupler configuration TOML file.
 """
-function get_atmos_config_dict(coupler_config::Dict, atmos_output_dir)
+function get_atmos_config_dict(
+    coupler_config::Dict,
+    atmos_output_dir,
+    coupled_param_dict::CP.ParamDict,
+    comms_ctx,
+)
     atmos_config = deepcopy(coupler_config)
-
-    # Rename parameters for consistency with ClimaAtmos.jl
-    # Rename atmosphere config file from ClimaCoupler convention to ClimaAtmos convention
-    atmos_config["config_file"] = coupler_config["atmos_config_file"]
 
     # Ensure Atmos's own checkpoints are synced up with ClimaCoupler, so that we
     # can pick up from where we have left. NOTE: This should not be needed, but
@@ -618,17 +634,24 @@ function get_atmos_config_dict(coupler_config::Dict, atmos_output_dir)
         coupler_config["dt"]
     atmos_config["dt"] = dt_atmos
 
-    # Use atmos toml if coupler toml is not defined
-    # If we can't find the file at the relative path, prepend pkgdir(ClimaAtmos)
+    # Set up the atmosphere parameter dictionary (`toml_dict`)
+    # If we can't find the atmos TOML file at the relative path, prepend pkgdir(ClimaAtmos)
     atmos_toml = map(atmos_config["toml"]) do file
         isfile(file) ? file : joinpath(pkgdir(CA), file)
     end
+    # Use atmos toml only if coupler toml is not defined
     coupler_toml = atmos_config["coupler_toml"]
     toml = isempty(coupler_toml) ? atmos_toml : coupler_toml
     if !isempty(toml)
         @info "Overwriting Atmos parameters from input TOML file(s): $toml"
         atmos_config["toml"] = toml
     end
+
+    # Override atmos parameters with coupled parameters
+    FT = atmos_config["FLOAT_TYPE"] == "Float64" ? Float64 : Float32
+    override_file = CP.merge_toml_files(atmos_config["toml"], override = true)
+    atmos_toml = CP.create_toml_dict(FT; override_file)
+    toml_dict = CP.merge_override_default_values(coupled_param_dict, atmos_toml)
 
     # Specify atmos output directory to be inside the coupler output directory
     atmos_config["output_dir_style"] = "RemovePreexisting"
@@ -646,7 +669,23 @@ function get_atmos_config_dict(coupler_config::Dict, atmos_output_dir)
         atmos_config["restart_file"] =
             replace(atmos_config["restart_file"], "active" => "0000")
     end
-    return CA.AtmosConfig(atmos_config)
+
+    # Construct the AtmosConfig object
+    config_files = atmos_config["toml"]
+    job_id = atmos_config["job_id"]
+    config = CA.override_default_config(atmos_config)
+
+    TD = typeof(toml_dict)
+    PA = typeof(config)
+    C = typeof(comms_ctx)
+    CF = typeof(config_files)
+    return CA.AtmosConfig{FT, TD, PA, C, CF}(
+        toml_dict,
+        config,
+        comms_ctx,
+        config_files,
+        job_id,
+    )
 end
 
 """
@@ -688,7 +727,7 @@ function climaatmos_restart_path(output_dir_root, t)
     sec = floor(Int, t % (60 * 60 * 24))
 
     # Walk back the folders and tyr to find a checkpoint
-    for output in sort(existing_outputs, rev=true)
+    for output in sort(existing_outputs, rev = true)
         previous_folder = joinpath(output_dir_root, output)
         restart_file = joinpath(previous_folder, "clima_atmos", "day$day.$sec.hdf5")
         ispath(restart_file) && return restart_file

@@ -1,6 +1,8 @@
 include("parameters.jl")
 include("analysis.jl")
 include("diagnostics.jl")
+include("components/simple_surface.jl")
+include("coupled_driver.jl")
 include("components/climaatmos_scm.jl")
 include("components/atmosphere.jl")
 include("components/ocean.jl")
@@ -13,16 +15,7 @@ import ClimaCoupler: Checkpointer, FieldExchanger, Interfacer, FluxCalculator
 import ClimaComms
 import ClimaAtmos as CA
 
-include(joinpath(pkgdir(CA), "post_processing", "ci_plots.jl"))
-include(
-        joinpath(
-            pkgdir(CA),
-            "reproducibility_tests",
-            "reproducibility_utils.jl",
-        ),
-    )
-
-export coupled_heat_equations, solve_coupler!, run_simulation, atmos_only
+export coupled_heat_equations, solve_coupler!, run_simulation
 
 
 """Sets u0 = u(t), t0 = t, and empties u."""
@@ -179,26 +172,3 @@ function coupled_heat_equations(;
 
     return cs, ϱ_A, ϱ_O
 end;
-
-function atmos_only(monin_obukhov::Bool=true, kwargs...)
-    redirect_stderr(IOContext(stderr, :stacktrace_types_limited => Ref(false)))
-    physical_values = SimulationParameters{Float32}(; kwargs...)
-
-    if monin_obukhov
-        physical_values.C_H_AO = compute_C_H_AO(physical_values)
-        physical_values.C_H_AI = compute_C_H_AI(physical_values)
-        restore_physical_values!(physical_values)
-    end
-
-    config = CA.AtmosConfig("/Users/valentina/dev/clima/clima-playground/experiments/config.yaml")
-    simulation = CA.get_simulation(config)
-    CA.solve_atmos!(simulation)
-
-    reference_job_id = "single_column_precipitation_test"
-
-    output_dir = simulation.output_dir
-    @info "Plotting"
-    make_plots(Val(Symbol(reference_job_id)), output_dir)
-    @info "Plotting done"
-end;
-
