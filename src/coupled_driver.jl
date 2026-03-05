@@ -60,6 +60,7 @@ function get_simple_coupled_sim(config::CA.AtmosConfig, config_file::String)
         dir_paths,
         thermo_params, # thermo_params
         nothing, # diagnostic_handlers
+        false,
     )
     return cs
 end
