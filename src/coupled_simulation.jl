@@ -84,20 +84,20 @@ function reinit!(cs::Interfacer.CoupledSimulation, t)
     end
 end
 
-function update_atmos_values!(cs)
+function update_atmos_values!(cs::Interfacer.CoupledSimulation)
     bound_ocean_vals = Interfacer.get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
     ice_T = Interfacer.get_field(cs.model_sims.ice_sim, Val(:T_ice))
     Interfacer.update_field!(cs.model_sims.atmos_sim, bound_ocean_vals, ice_T)
     return bound_ocean_vals
 end
 
-function update_ocean_values!(cs)
+function update_ocean_values!(cs::Interfacer.CoupledSimulation)
     bound_atmos_vals = Interfacer.get_field(cs.model_sims.atmos_sim, Val(:F_AO))
     Interfacer.update_field!(cs.model_sims.ocean_sim, bound_atmos_vals)
     return bound_atmos_vals
 end
 
-function update_ice_values!(cs)
+function update_ice_values!(cs::Interfacer.CoupledSimulation)
     bound_atmos_vals = Interfacer.get_field(cs.model_sims.atmos_sim, Val(:T_atm_sfc))
     bound_ocean_vals = Interfacer.get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
     Interfacer.update_field!(cs.model_sims.ice_sim, bound_atmos_vals, bound_ocean_vals)
