@@ -29,11 +29,10 @@ end
 
 function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
     FT = eltype(p)
-    F_sfc = p.a_I * p.C_AI * (T[1] - p.T_Is) + (1 - p.a_I) * flux_AO(T, p)
+    F_sfc = p.a_I * flux_AI(T, p) + (1 - p.a_I) * flux_AO(T, p)
 
-    # set boundary conditions
+    # (vector-valued) boundary conditions
     C3 = CC.Geometry.WVector
-    # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)
     bcs_bottom = CC.Operators.SetValue(C3(F_sfc))
     bcs_top = CC.Operators.SetValue(C3(FT(0)))
 
@@ -95,6 +94,10 @@ Checkpointer.get_model_prog_state(sim::HeatEquationAtmos) = sim.integrator.u
 function Interfacer.step!(sim::HeatEquationAtmos, t)
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
     check_stability(sim.integrator.u, sim.params.stable_range)
+end
+
+function flux_AI(T, p::SimulationParameters)
+    return p.C_AI * (T[1] - p.T_Is)
 end
 
 function flux_AO(T, p::SimulationParameters)

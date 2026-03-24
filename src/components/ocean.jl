@@ -28,11 +28,10 @@ end
 
 function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
     FT = eltype(p)
-    F_sfc = p.a_I * p.C_IO * (p.T_Ib - T[end]) + (1 - p.a_I) * p.F_AO
+    F_sfc = p.a_I * flux_IO(T, p) + (1 - p.a_I) * p.F_AO
 
-    ## set boundary conditions
+    # (vector-valued) boundary conditions
     C3 = CC.Geometry.WVector
-    # note: F_sfc is converted to a Cartesian vector in direction 3 (vertical)
     bcs_top = CC.Operators.SetValue(C3(F_sfc))
     bcs_bottom = CC.Operators.SetValue(C3(FT(0)))
 
@@ -89,6 +88,10 @@ function ocean_init(odesolver, p::SimulationParameters, output_dir)
 end
 
 Checkpointer.get_model_prog_state(sim::HeatEquationOcean) = sim.integrator.u
+
+function flux_IO(T, p)
+    return p.C_IO * (p.T_Ib - T[end])
+end
 
 function Interfacer.step!(sim::HeatEquationOcean, t)
     Interfacer.step!(sim.integrator, t - sim.integrator.t)
