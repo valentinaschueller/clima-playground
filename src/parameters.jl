@@ -1,3 +1,6 @@
+import ClimaCore as CC
+import ClimaCoupler: Utilities
+
 export SimulationParameters, restore_physical_values!, get_vertical_space
 
 Base.@kwdef mutable struct SimulationParameters{FT}

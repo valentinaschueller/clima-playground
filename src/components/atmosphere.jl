@@ -4,6 +4,7 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
 import ClimaDiagnostics as CD
 import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
+import Statistics: mean
 
 export HeatEquationAtmos, heat_atm_rhs!, atmos_init
 

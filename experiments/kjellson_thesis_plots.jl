@@ -2,6 +2,7 @@ using clima_playground
 using Plots
 using LaTeXStrings
 import ClimaCoupler: Interfacer
+import LinearAlgebra: zeros
 
 function plot_C_H_AO_dependence()
     params = SimulationParameters{Float64}()

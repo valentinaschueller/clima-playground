@@ -1,9 +1,7 @@
 import Dates
 import SciMLBase
-import ClimaComms
-import ClimaCore as CC
 import ClimaTimeSteppers as CTS
-import ClimaCoupler: Interfacer, Utilities
+import ClimaCoupler: FieldExchanger, Interfacer
 
 export get_coupled_sim, get_odesolver
 
@@ -77,4 +75,112 @@ function get_coupled_sim(p::SimulationParameters)
         nothing, # diagnostic_handlers
     )
     return cs
+end
+
+"""Sets u0 = u(t), t0 = t, and empties u."""
+function reinit!(cs::Interfacer.CoupledSimulation, t)
+    for sim in cs.model_sims
+        SciMLBase.reinit!(sim.integrator, sim.integrator.u, t0=t)
+    end
+end
+
+function update_atmos_values!(cs)
+    bound_ocean_vals = Interfacer.get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
+    ice_T = Interfacer.get_field(cs.model_sims.ice_sim, Val(:T_ice))
+    Interfacer.update_field!(cs.model_sims.atmos_sim, bound_ocean_vals, ice_T)
+    return bound_ocean_vals
+end
+
+function update_ocean_values!(cs)
+    bound_atmos_vals = Interfacer.get_field(cs.model_sims.atmos_sim, Val(:F_AO))
+    Interfacer.update_field!(cs.model_sims.ocean_sim, bound_atmos_vals)
+    return bound_atmos_vals
+end
+
+function update_ice_values!(cs)
+    bound_atmos_vals = Interfacer.get_field(cs.model_sims.atmos_sim, Val(:T_atm_sfc))
+    bound_ocean_vals = Interfacer.get_field(cs.model_sims.ocean_sim, Val(:T_oce_sfc))
+    Interfacer.update_field!(cs.model_sims.ice_sim, bound_atmos_vals, bound_ocean_vals)
+    return bound_atmos_vals, bound_ocean_vals
+end
+
+function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::FT, parallel::Bool) where {FT}
+    if parallel
+        FieldExchanger.step_model_sims!(cs.model_sims, t_end)
+        update_atmos_values!(cs)
+        update_ocean_values!(cs)
+        bound_atmos_vals, bound_ocean_vals = update_ice_values!(cs)
+    else
+        Interfacer.step!(cs.model_sims.ice_sim, t_end)
+        Interfacer.step!(cs.model_sims.ocean_sim, t_end)
+        update_atmos_values!(cs)
+        Interfacer.step!(cs.model_sims.atmos_sim, t_end)
+        update_ocean_values!(cs)
+        bound_atmos_vals, bound_ocean_vals = update_ice_values!(cs)
+    end
+    return bound_atmos_vals, bound_ocean_vals
+end
+
+
+function solve_coupler!(
+    cs::Interfacer.CoupledSimulation;
+    iterations::Int=1,
+    parallel::Bool=false,
+)
+    (; Δt_cpl, tspan) = cs
+
+    @info("Starting coupling loop")
+
+    ϱ_A = nothing
+    ϱ_O = nothing
+
+    t0 = tspan[begin]
+
+    for t = t0:Δt_cpl:(tspan[end]-Δt_cpl)
+        @info("Current time: $t")
+        cs.t[] = t
+        reinit!(cs, t)
+
+        iter = 1
+        atmos_vals_list = []
+        ocean_vals_list = []
+        T_A_Γ = nothing
+        T_O_Γ = nothing
+
+        Checkpointer.checkpoint_sims(cs)
+
+        for iter = 1:iterations
+            @info("Current iter: $(iter)")
+            if iter > 1
+                Checkpointer.restart!(cs, cs.dirs.checkpoints, Int(cs.t[]))
+                reinit!(cs, t)
+            end
+
+            T_A_Γ_old = T_A_Γ
+            T_O_Γ_old = T_O_Γ
+
+            try
+                T_A_Γ, T_O_Γ = advance_simulation!(cs, t + Δt_cpl, parallel)
+            catch err
+                if isa(err, UnstableError)
+                    @warn("Unstable simulation!")
+                    return NaN, NaN
+                end
+                rethrow()
+            end
+
+            push!(atmos_vals_list, T_A_Γ)
+            push!(ocean_vals_list, T_O_Γ)
+
+            if has_converged(T_A_Γ, T_A_Γ_old, T_O_Γ, T_O_Γ_old)
+                @info "Termination criterion satisfied!"
+            end
+        end
+        if iterations > 1
+            ϱ_A = compute_ϱ_numerical(atmos_vals_list, parallel)
+            ϱ_O = compute_ϱ_numerical(ocean_vals_list, parallel)
+        end
+    end
+    cs.t[] = tspan[end]
+    return ϱ_A, ϱ_O
 end

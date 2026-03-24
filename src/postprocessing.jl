@@ -1,3 +1,6 @@
+import LinearAlgebra: norm
+import Statistics: mean
+
 export check_stability, has_converged, compute_ϱ_numerical, UnstableError
 
 struct UnstableError <: Exception

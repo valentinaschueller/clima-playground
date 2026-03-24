@@ -4,6 +4,8 @@ import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer, Utilities
 import ClimaDiagnostics as CD
 import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix
+import Statistics: mean
+import LinearAlgebra
 
 export SeaIce, thickness_rhs!, T_Is, ice_init
 
@@ -147,7 +149,7 @@ end
 function Interfacer.get_field(sim::SeaIce, ::Val{:T_ice})
     h_I = Interfacer.get_field(sim, Val(:h_I))
     if sim.integrator.p.ice_model_type == :constant
-        return sim.integrator.p.T_I_ini .* ones(size(h_I))
+        return sim.integrator.p.T_I_ini .* LinearAlgebra.ones(size(h_I))
     end
     return vec([T_Is(sim.integrator.p, h, sim.integrator.t) for h in h_I])
 end
