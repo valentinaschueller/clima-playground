@@ -4,6 +4,7 @@ using LaTeXStrings
 using Statistics
 using NetCDF
 using clima_playground
+using clima_playground: SeaIce
 import ClimaTimeSteppers as CTS
 import ClimaCore as CC
 import ClimaCoupler: Interfacer
@@ -73,13 +74,13 @@ function ice_only_test()
     )
     if p.ice_model_type != :constant
         @info("Determine initial ice surface temperature from SEB.")
-        p.T_I_ini = T_Is(p)
+        p.T_I_ini = SeaIce.T_Is(p, p.h_I_ini, 0.0)
     end
     odesolver = get_odesolver(Val(p.timestepping))
     output_dir = "ice_only"
     rm(output_dir, recursive=true, force=true)
     mkpath(output_dir)
-    ice_sim = ice_init(odesolver, p, output_dir)
+    ice_sim = SeaIce.init(odesolver, p, output_dir, Val(p.ice_model_type))
     Interfacer.step!(ice_sim, p.t_max)
     dt = CD.seconds_to_str_short(p.Δt_min)
     time = ncread("$(output_dir)/h_I_$(dt)_inst.nc", "time")

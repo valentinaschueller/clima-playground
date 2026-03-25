@@ -31,7 +31,7 @@ function get_coupled_sim(p::SimulationParameters)
 
     if p.ice_model_type != :constant
         @info("Determine initial ice surface temperature from SEB.")
-        p.T_I_ini = T_Is(p)
+        p.T_I_ini = SeaIce.T_Is(p, p.h_I_ini, 0.0)
     end
     p.T_Is = p.T_I_ini
 
@@ -45,7 +45,7 @@ function get_coupled_sim(p::SimulationParameters)
     odesolver = get_odesolver(Val(p.timestepping))
     atmos_sim = atmos_init(odesolver, p, output_dir)
     ocean_sim = ocean_init(odesolver, p, output_dir)
-    ice_sim = ice_init(odesolver, p, output_dir)
+    ice_sim = SeaIce.init(odesolver, p, output_dir, Val(p.ice_model_type))
 
     boundary_space = ice_sim.domain
 
