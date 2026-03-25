@@ -1,4 +1,5 @@
 using clima_playground
+using clima_playground: SeaIce
 using Plots
 using LaTeXStrings
 import ClimaCore as CC
@@ -9,7 +10,7 @@ function plot_ice_seb_results()
     T_ice = similar(T_As)
     for (i, T_A) in enumerate(T_As)
         params.T_A = T_A
-        T_ice[i] = T_Is(params)
+        T_ice[i] = SeaIce.T_Is(params, params.h_I_ini, 0.0)
     end
     plot(T_As, T_ice, color=:black, xlabel=L"T_A", ylabel=L"T_{I,s}", legend=false)
     display(current())
@@ -24,7 +25,7 @@ function plot_ice_thickness_convergence(; plot_title="ice_thickness_convergence"
         _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
     end
 
-    p.ice_model_type = :temp_feedback
+    p.ice_model_type = :temperature_feedback
     ϱs_atm_lin = similar(h_Is)
     for (k, h_I) in enumerate(h_Is)
         setproperty!(p, :h_I_ini, h_I)
@@ -191,7 +192,7 @@ function plot_C_AX_dependence(; plot_title="C_AX_dependence", kwargs...)
         linestyle=:dash,
     )
 
-    p = SimulationParameters{Float64}(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=0.0, ice_model_type=:temp_feedback; kwargs...)
+    p = SimulationParameters{Float64}(Δt_min=10, t_max=1000, Δt_cpl=1000, a_I=0.0, ice_model_type=:temperature_feedback; kwargs...)
     ϱs_atm = similar(bulk_coeffs)
 
     for (k, C_AO) in enumerate(bulk_coeffs)

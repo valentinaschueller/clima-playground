@@ -32,7 +32,7 @@ cs, _ = coupled_heat_equations(timestepping=:explicit)
 @test isapprox(maximum(cs.model_sims.ocean_sim.integrator.u), 271.0)
 @test isapprox(minimum(cs.model_sims.ocean_sim.integrator.u), 270.998233166346)
 
-cs, _ = coupled_heat_equations(t_max=1000, Δt_cpl=1000, a_I=1.0, ice_model_type=:temp_feedback, timestepping=:explicit)
+cs, _ = coupled_heat_equations(t_max=1000, Δt_cpl=1000, a_I=1.0, ice_model_type=:temperature_feedback, timestepping=:explicit)
 T_I = Interfacer.get_field(cs.model_sims.ice_sim, Val(:T_ice))
 @test Statistics.mean(T_I) != cs.model_sims.ice_sim.params.T_I_ini
 h_I = Interfacer.get_field(cs.model_sims.ice_sim, Val(:h_I))
