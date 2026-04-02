@@ -45,7 +45,7 @@ h_I = Interfacer.get_field(cs.model_sims.ice_sim, Val(:h_I))
 @test Statistics.mean(h_I) != cs.model_sims.ice_sim.params.h_I_ini
 
 cs, _ = coupled_heat_equations()
-@test isapprox(Statistics.mean(cs.model_sims.atmos_sim.integrator.u), 267.0215118819473)
+@test isapprox(Statistics.mean(cs.model_sims.atmos_sim.integrator.u), 267.0211608703832)
 @test isapprox(Statistics.mean(cs.model_sims.ocean_sim.integrator.u), 270.99996464720743)
 
 cs, _ = coupled_heat_equations(a_I=1.0, ice_model_type=:thickness_feedback)

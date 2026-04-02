@@ -25,7 +25,7 @@ function Wfact_oce(W, Y, p, dtγ, t)
     ᶠgradᵥ = CC.Operators.GradientC2F()
     div_matrix = CC.MatrixFields.operator_matrix(ᶜdivᵥ)
     grad_matrix = CC.MatrixFields.operator_matrix(ᶠgradᵥ)
-    @. W.matrix[@name(data), @name(data)] = dtγ * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
+    @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_O / (p.ρ_O * p.c_O)) * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
 end
 
 function heat_oce_rhs!(dT, T, p::SimulationParameters, t)

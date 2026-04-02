@@ -24,7 +24,7 @@ function Wfact_atm(W, Y, p, dtγ, t)
     )
     div_matrix = CC.MatrixFields.operator_matrix(ᶜdivᵥ)
     grad_matrix = CC.MatrixFields.operator_matrix(ᶠgradᵥ)
-    @. W.matrix[@name(data), @name(data)] = dtγ * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
+    @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_A / (p.ρ_A * p.c_A)) * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
     return nothing
 end
 
