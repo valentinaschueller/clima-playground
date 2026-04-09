@@ -119,3 +119,52 @@ function plot_Δt_cpl_dependence(; plot_title="Δt_cpl_dependence", kwargs...)
     display(current())
     savefig("plots/$plot_title.pdf")
 end
+
+function plot_conductivity_dependence(; plot_title="conductivity", kwargs...)
+    p = SimulationParameters{Float64}(Δt_min=600, n_t_A=10, t_max=3600, Δt_cpl=3600, ice_model_type=:constant; kwargs...)
+
+    plot()
+    k_As = [2e-3, 0.02, 0.2, 2.0, 20.0, 200.0]
+    ϱs_atm = similar(k_As, Float64)
+    k = 1
+    ϱ_analytic = similar(k_As, Float64)
+    for k_A in k_As
+        p.k_A = k_A
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=10)
+
+        ω_min = im * π / p.Δt_cpl
+        ω_max = im * π / (p.Δt_min / p.n_t_A)
+        ϱ_analytic[k] = max(compute_ϱ_ana(p, s=ω_min), compute_ϱ_ana(p, s=ω_max))
+
+        k += 1
+    end
+    plot!(
+        k_As,
+        ϱs_atm,
+        label=L"$ϱ_\mathrm{num}$",
+        markershape=:x,
+        linewidth=2,
+        color=:black,
+    )
+    plot!(
+        k_As,
+        ϱ_analytic,
+        label=L"$ϱ_\mathrm{ana}$",
+        linewidth=2,
+        color=:black,
+    )
+
+
+    plot!(;
+        fontsize=18,
+        xlabel=L"k_A",
+        ylabel=L"ϱ",
+        yscale=:log10,
+        xscale=:log2,
+        legend=:right,
+        color=:black,
+        ylim=[5e-7, 5e-1],
+    )
+    display(current())
+    savefig("plots/$plot_title.pdf")
+end
