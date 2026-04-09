@@ -16,12 +16,12 @@ struct HeatEquationAtmos{P,Y,D,I} <: Interfacer.AtmosModelSimulation
 end
 
 function Wfact_atm(W, Y, p, dtγ, t)
-    C3 = CC.Geometry.WVector
-    ᶠgradᵥ = CC.Operators.GradientC2F()
-    ᶜdivᵥ = CC.Operators.DivergenceF2C(;
-        bottom=CC.Operators.SetValue(C3(0.0)),
-        top=CC.Operators.SetValue(C3(0.0)),
+    # we can use homogeneous BC here, only the type is relevant to determine W
+    ᶠgradᵥ = CC.Operators.GradientC2F(
+        bottom=CC.Operators.SetValue(0.0),
+        top=CC.Operators.SetGradient(CC.Geometry.WVector(0.0)),
     )
+    ᶜdivᵥ = CC.Operators.DivergenceF2C()
     div_matrix = CC.MatrixFields.operator_matrix(ᶜdivᵥ)
     grad_matrix = CC.MatrixFields.operator_matrix(ᶠgradᵥ)
     @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_A / (p.ρ_A * p.c_A)) * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
@@ -30,16 +30,17 @@ end
 
 function heat_atm_rhs!(dT, T, p::SimulationParameters, t)
     FT = eltype(p)
-    F_sfc = p.a_I * flux_AI(T, p) + (1 - p.a_I) * flux_AO(T, p)
 
-    # (vector-valued) boundary conditions
-    C3 = CC.Geometry.WVector
-    bcs_bottom = CC.Operators.SetValue(C3(F_sfc))
-    bcs_top = CC.Operators.SetValue(C3(FT(0)))
+    # Dirichlet BC
+    bcs_bottom = CC.Operators.SetValue(p.T_O)
+    # Neumann BC
+    bcs_top = CC.Operators.SetGradient(
+        CC.Geometry.WVector(FT(0))
+    )
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
-    ᶠgradᵥ = CC.Operators.GradientC2F()
-    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
+    ᶠgradᵥ = CC.Operators.GradientC2F(bottom=bcs_bottom, top=bcs_top)
+    ᶜdivᵥ = CC.Operators.DivergenceF2C()
 
     @. dT.data = ᶜdivᵥ(p.k_A * ᶠgradᵥ(T.data)) / (p.ρ_A * p.c_A)
 end
@@ -105,12 +106,25 @@ function flux_AO(T, p::SimulationParameters)
     return p.C_AO * (T[1] - p.T_O)
 end
 
+function surface_gradient(T, p::SimulationParameters)
+    ᶠgradᵥ = CC.Operators.GradientC2F(;
+        bottom=CC.Operators.SetValue(p.T_O),
+        top=CC.Operators.SetGradient(CC.Geometry.WVector(0.0)),
+    )
+    # cast gradient to WVector to apply multiplication with Δz
+    gradient_values = p.k_A.* CC.Geometry.WVector.(ᶠgradᵥ.(T.data))
+
+    surface_gradient = parent(gradient_values)[1]
+    return surface_gradient
+end
+
 function Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:T_atm_sfc})
     return vec([fieldvec[1] for fieldvec in sim.integrator.sol.u])
 end
 
 function Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:F_AO})
-    return vec([flux_AO(fieldvec, sim.integrator.p) for fieldvec in sim.integrator.sol.u])
+    flux_vector = vec([surface_gradient(fieldvec, sim.integrator.p) for fieldvec in sim.integrator.sol.u])
+    return flux_vector
 end
 
 function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationAtmos)

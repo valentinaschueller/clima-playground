@@ -20,9 +20,8 @@ function Wfact_oce(W, Y, p, dtγ, t)
     C3 = CC.Geometry.WVector
     ᶜdivᵥ = CC.Operators.DivergenceF2C(;
         bottom=CC.Operators.SetValue(C3(0.0)),
-        top=CC.Operators.SetValue(C3(0.0)),
     )
-    ᶠgradᵥ = CC.Operators.GradientC2F()
+    ᶠgradᵥ = CC.Operators.GradientC2F(top=CC.Operators.SetGradient(C3(0.0)),)
     div_matrix = CC.MatrixFields.operator_matrix(ᶜdivᵥ)
     grad_matrix = CC.MatrixFields.operator_matrix(ᶠgradᵥ)
     @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_O / (p.ρ_O * p.c_O)) * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
@@ -30,16 +29,15 @@ end
 
 function heat_oce_rhs!(dT, T, p::SimulationParameters, t)
     FT = eltype(p)
-    F_sfc = p.a_I * flux_IO(T, p) + (1 - p.a_I) * p.F_AO
 
     # (vector-valued) boundary conditions
     C3 = CC.Geometry.WVector
-    bcs_top = CC.Operators.SetValue(C3(F_sfc))
-    bcs_bottom = CC.Operators.SetValue(C3(FT(0)))
+    bcs_top = CC.Operators.SetGradient(C3(p.F_AO / p.k_O))
+    bcs_bottom = CC.Operators.SetGradient(C3(FT(0)))
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
-    ᶠgradᵥ = CC.Operators.GradientC2F()
-    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom, top=bcs_top)
+    ᶠgradᵥ = CC.Operators.GradientC2F(bottom=bcs_bottom, top=bcs_top)
+    ᶜdivᵥ = CC.Operators.DivergenceF2C()
 
     @. dT.data = ᶜdivᵥ(p.k_O * ᶠgradᵥ(T.data)) / (p.ρ_O * p.c_O)
 end
@@ -105,6 +103,7 @@ function Interfacer.get_field(sim::HeatEquationOcean, ::Val{:T_oce_sfc})
 end
 
 function Interfacer.update_field!(sim::HeatEquationOcean, F_AO)
+    @info "flux seen by ocean: $(mean(F_AO))"
     sim.integrator.p.F_AO = mean(F_AO)
 end
 
