@@ -29,7 +29,6 @@ function Wfact_heat_ice(W, Y, p, dtγ, t)
 end
 
 function heat_ice_rhs!(dT, T, p::SimulationParameters, t)
-    FT = eltype(p)
     T_sfc = T_Is(p, p.h_I_ini, t)
 
     # boundary conditions
