@@ -18,11 +18,11 @@ end
 
 function Wfact_heat_ice(W, Y, p, dtγ, t)
     C3 = CC.Geometry.WVector
-    ᶜdivᵥ = CC.Operators.DivergenceF2C(;
+    ᶜdivᵥ = CC.Operators.DivergenceF2C()
+    ᶠgradᵥ = CC.Operators.GradientC2F(;
         bottom=CC.Operators.SetValue(C3(0.0)),
         top=CC.Operators.SetValue(C3(0.0)),
     )
-    ᶠgradᵥ = CC.Operators.GradientC2F()
     div_matrix = CC.MatrixFields.operator_matrix(ᶜdivᵥ)
     grad_matrix = CC.MatrixFields.operator_matrix(ᶠgradᵥ)
     @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_I / (p.ρ_I * p.c_I)) * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
@@ -32,14 +32,13 @@ function heat_ice_rhs!(dT, T, p::SimulationParameters, t)
     FT = eltype(p)
     T_sfc = T_Is(p, p.h_I_ini, t)
 
-    # (vector-valued) boundary conditions
+    # boundary conditions
     bcs_top = CC.Operators.SetValue(T_sfc)
-    C3 = CC.Geometry.WVector
-    bcs_bottom = CC.Operators.SetValue(C3(FT(0)))
+    bcs_bottom = CC.Operators.SetValue(p.T_Ib)
 
     ## gradient and divergence operators needed for diffusion in tendency calc.
-    ᶠgradᵥ = CC.Operators.GradientC2F(top=bcs_top)
-    ᶜdivᵥ = CC.Operators.DivergenceF2C(bottom=bcs_bottom)
+    ᶠgradᵥ = CC.Operators.GradientC2F(top=bcs_top, bottom=bcs_bottom)
+    ᶜdivᵥ = CC.Operators.DivergenceF2C()
 
     @. dT.data = ᶜdivᵥ(p.k_I * ᶠgradᵥ(T.data)) / (p.ρ_I * p.c_I)
 end
