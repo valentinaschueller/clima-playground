@@ -28,8 +28,8 @@ function compute_ϱ_ana_heat_ice(p::SimulationParameters; s=nothing)
         s = im * π / p.t_max
     end
     @assert p.a_I == 1
-    term_one = p.ϵ * p.B / p.C_AI + 1 + p.ν_I * sqrt(s) / χ_I(p, s)
-    term_two = p.ν_AI * sqrt(s) * χ_A(p, s) - 1
-    return abs(-1 / (term_one * term_two))
+    term_one = (p.ϵ * p.B / p.C_AI) + 1 + (p.k_I / (p.C_AI * sqrt(p.α_I))) * sqrt(s) / χ_I(p, s)
+    term_two = (p.k_A / (p.C_AI * sqrt(p.α_A))) * sqrt(s) * χ_A(p, s) - 1
+    return abs(1 / (term_one * term_two))
 end
 

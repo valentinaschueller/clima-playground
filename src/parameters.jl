@@ -7,14 +7,12 @@ Base.@kwdef mutable struct SimulationParameters{FT}
     a_I::FT = 0.0
     ρ_A::FT = 1.225
     ρ_O::FT = 1e3
-    ρ_I::FT = 1e3
+    ρ_I::FT = 917
     c_A::FT = 1005.0
     c_O::FT = 4182.0
-    c_I::FT = 4182.0
+    c_I::FT = 2.1e3
     ν_O::FT = 1e-6
     ν_A::FT = 1.5e-5
-    ν_I::FT = 338
-    ν_AI::FT = 0.63
     k_A::FT = 0.02364
     k_O::FT = 0.58
     k_I::FT = 2.03
