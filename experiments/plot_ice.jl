@@ -83,7 +83,7 @@ function plot_ice_thickness_convergence(; plot_title="ice_thickness_convergence"
     )
 
     display(current())
-    savefig("plots/$plot_title.tikz")
+    savefig("plots/$plot_title.pdf")
 end
 
 function plot_a_I_dependence(; plot_title="ice_a_i_dependence", iterations=5, kwargs...)
@@ -154,7 +154,7 @@ function plot_a_I_dependence(; plot_title="ice_a_i_dependence", iterations=5, kw
     )
 
     display(current())
-    savefig("plots/$plot_title.tikz")
+    savefig("plots/$plot_title.pdf")
 end
 
 function plot_C_AX_dependence(; plot_title="C_AX_dependence", kwargs...)
@@ -233,5 +233,6 @@ function plot_C_AX_dependence(; plot_title="C_AX_dependence", kwargs...)
         ylim=[5e-7, 1.5],
     )
     display(current())
+    savefig("plots/$plot_title.pdf")
     savefig("plots/$plot_title.tikz")
 end
