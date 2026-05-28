@@ -1,4 +1,3 @@
-import SciMLBase
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
@@ -9,7 +8,7 @@ import Statistics: mean
 
 export HeatEquationIce, heat_ice_rhs!, init
 
-struct HeatEquationIce{P,Y,D,I} <: Interfacer.SeaIceModelSimulation
+struct HeatEquationIce{P,Y,D,I} <: Interfacer.AbstractSeaIceSimulation
     params::P
     Y_init::Y
     domain::D
@@ -45,7 +44,7 @@ end
 function get_heat_odefunction(ics, ::Val{:implicit})
     FT = eltype(ics)
     jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.TridiagonalMatrixRow{FT}))
-    T_imp! = SciMLBase.ODEFunction(heat_ice_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact_heat_ice)
+    T_imp! = CTS.ODEFunction(heat_ice_rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=Wfact_heat_ice)
     return CTS.ClimaODEFunction((T_exp!)=nothing, (T_imp!)=T_imp!)
 end
 
@@ -60,7 +59,7 @@ function init(odesolver, p::SimulationParameters, output_dir, ::Val{:heat_ice})
     ics = CC.Fields.FieldVector(data=field_ice)
 
     ode_function = get_heat_odefunction(ics, Val(p.timestepping))
-    problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_0 + p.t_max), p)
+    problem = CTS.ODEProblem(ode_function, ics, (p.t_0, p.t_0 + p.t_max), p)
 
     Δt = p.Δt_min / p.n_t_O
     sea_ice_temperature = CD.DiagnosticVariable(;
@@ -80,13 +79,13 @@ function init(odesolver, p::SimulationParameters, output_dir, ::Val{:heat_ice})
     diag_cb = CD.DiagnosticsCallback(diagnostic_handler)
 
     saveat = p.t_0:p.Δt_min:p.t_max
-    integrator = SciMLBase.init(
+    integrator = CTS.init(
         problem,
         odesolver,
         dt=Δt,
         saveat=saveat,
         adaptive=false,
-        callback=SciMLBase.CallbackSet(diag_cb),
+        callback=CTS.CallbackSet(diag_cb),
     )
 
     sim = HeatEquationIce(p, ics, space, integrator)

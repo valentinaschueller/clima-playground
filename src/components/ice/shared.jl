@@ -23,18 +23,14 @@ function LW_net(t, p, T_sfc)
     return p.ϵ * (p.LW_in(t) - (p.A + p.B * (T_sfc - 273)))
 end
 
-function Interfacer.update_field!(sim::Interfacer.SeaIceModelSimulation, T_A, T_O)
+function Interfacer.update_field!(sim::Interfacer.AbstractSeaIceSimulation, T_A, T_O)
     sim.integrator.p.T_A = mean(T_A)
     sim.integrator.p.T_O = mean(T_O)
 end
 
-function Interfacer.add_coupler_fields!(coupler_field_names, ::Interfacer.SeaIceModelSimulation)
+function Interfacer.add_coupler_fields!(coupler_field_names, ::Interfacer.AbstractSeaIceSimulation)
     coupler_fields = [:T_ice, :h_I]
     push!(coupler_field_names, coupler_fields...)
-end
-
-function Interfacer.step!(sim::Interfacer.SeaIceModelSimulation, t)
-    Interfacer.step!(sim.integrator, t - sim.integrator.t)
 end
 
 function T_Is(p, h_I, t)
@@ -60,7 +56,7 @@ end
 function get_ice_odefunction(ics, rhs!, wfact, ::Val{:implicit})
     FT = eltype(ics)
     jacobian = FieldMatrix((@name(data), @name(data)) => similar(ics.data, CC.MatrixFields.DiagonalMatrixRow{FT}))
-    T_imp! = SciMLBase.ODEFunction(rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=wfact)
+    T_imp! = CTS.ODEFunction(rhs!; jac_prototype=FieldMatrixWithSolver(jacobian, ics), Wfact=wfact)
     return CTS.ClimaODEFunction((T_imp!)=T_imp!)
 end
 
@@ -68,4 +64,4 @@ function get_ice_odefunction(ics, rhs!, wfact, ::Val{:explicit})
     return CTS.ClimaODEFunction((T_exp!)=rhs!)
 end
 
-Checkpointer.get_model_prog_state(sim::Interfacer.SeaIceModelSimulation) = sim.integrator.u
+Checkpointer.get_model_prog_state(sim::Interfacer.AbstractSeaIceSimulation) = sim.integrator.u

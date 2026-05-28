@@ -1,4 +1,3 @@
-import SciMLBase
 import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer, Utilities
@@ -9,7 +8,7 @@ import LinearAlgebra
 
 export LinearSeaIce, init
 
-struct LinearSeaIce{P,Y,D,I} <: Interfacer.SeaIceModelSimulation
+struct LinearSeaIce{P,Y,D,I} <: Interfacer.AbstractSeaIceSimulation
     params::P
     Y_init::Y
     domain::D
@@ -33,7 +32,7 @@ function init(odesolver, p::SimulationParameters, output_dir, ::Val{:temperature
     ics = CC.Fields.FieldVector(data=field_h_I)
 
     ode_function = get_ice_odefunction(ics, linear_rhs!, linear_Wfact, Val(p.timestepping))
-    problem = SciMLBase.ODEProblem(ode_function, ics, (p.t_0, p.t_max), p)
+    problem = CTS.ODEProblem(ode_function, ics, (p.t_0, p.t_max), p)
     Δt = p.Δt_min / p.n_t_I
     ice_thickness = CD.DiagnosticVariable(;
         short_name="h_I",
@@ -58,13 +57,13 @@ function init(odesolver, p::SimulationParameters, output_dir, ::Val{:temperature
 
     saveat = p.t_0:p.Δt_min:p.t_max
 
-    integrator = SciMLBase.init(
+    integrator = CTS.init(
         problem,
         odesolver,
         dt=Δt,
         saveat=saveat,
         adaptive=false,
-        callback=SciMLBase.CallbackSet(diag_cb),
+        callback=CTS.CallbackSet(diag_cb),
     )
     return LinearSeaIce(p, ics, space, integrator)
 end

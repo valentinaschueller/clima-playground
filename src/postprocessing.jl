@@ -6,20 +6,6 @@ export check_stability, has_converged, compute_ϱ_numerical, UnstableError
 struct UnstableError <: Exception
 end
 
-function check_stability(values, value_range=nothing)
-    if any(isnan, values)
-        throw(UnstableError())
-    end
-    if !isnothing(value_range)
-        if (
-            maximum(values) > maximum(value_range) ||
-            minimum(values) < minimum(value_range)
-        )
-            @warn "Outside initial value range!"
-        end
-    end
-end
-
 function has_converged(T_A_Γ, T_A_Γ_old, T_O_Γ, T_O_Γ_old)
     if isnothing(T_A_Γ_old)
         return false
