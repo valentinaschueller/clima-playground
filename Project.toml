@@ -1,7 +1,7 @@
 name = "clima_playground"
 uuid = "366f1826-f195-47e4-a4a5-3fa8cfc1c36d"
-authors = ["Valentina Schüller <valentina.schuller@math.lu.se>"]
 version = "0.4.1"
+authors = ["Valentina Schüller <valentina.schuller@math.lu.se>"]
 
 [deps]
 ClimaComms = "3a4d1b5c-c61d-41fd-a00a-5873ba7a1b0d"
@@ -24,7 +24,7 @@ SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [sources]
-ClimaCoupler = { rev = "e3652957eadc10eac86195f1025df878262b6175", url = "https://github.com/CliMA/ClimaCoupler.jl" }
+ClimaCoupler = {rev = "e3652957eadc10eac86195f1025df878262b6175", url = "https://github.com/CliMA/ClimaCoupler.jl"}
 
 [compat]
 ClimaComms = "0.6.2"

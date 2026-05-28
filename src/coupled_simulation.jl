@@ -31,9 +31,12 @@ function get_coupled_sim(p::SimulationParameters)
 
     if p.ice_model_type != :constant
         @info("Determine initial ice surface temperature from SEB.")
-        p.T_I_ini = SeaIce.T_Is(p, p.h_I_ini, 0.0)
+        p.T_Is = SeaIce.T_Is(p, p.h_I_ini, 0.0)
+        p.T_I_ini = 0.5 * (p.T_Is + p.T_Ib)
+    else 
+        p.T_Is = p.T_I_ini
     end
-    p.T_Is = p.T_I_ini
+    
 
     if p.ice_model_type == :constant
         initial_values = [p.T_A, p.T_O, p.T_Is, p.T_Ib]
