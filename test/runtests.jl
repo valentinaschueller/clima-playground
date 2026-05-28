@@ -54,7 +54,7 @@ T_I = Interfacer.get_field(cs.model_sims.ice_sim, Val(:T_ice))
 h_I = Interfacer.get_field(cs.model_sims.ice_sim, Val(:h_I))
 @test Statistics.mean(h_I) != cs.model_sims.ice_sim.params.h_I_ini
 
-p = SimulationParameters()
+p = SimulationParameters{Float64}()
 p.C_H_AO = compute_C_H_AO(p)
 p.C_H_AI = compute_C_H_AI(p)
 restore_physical_values!(p)
