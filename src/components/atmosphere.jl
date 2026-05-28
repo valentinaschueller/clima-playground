@@ -113,8 +113,12 @@ function Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:F_AO})
     return vec([flux_AO(fieldvec, sim.integrator.p) for fieldvec in sim.integrator.sol.u])
 end
 
+function Interfacer.get_field(sim::HeatEquationAtmos, ::Val{:F_AI})
+    return vec([flux_AI(fieldvec, sim.integrator.p) for fieldvec in sim.integrator.sol.u])
+end
+
 function Interfacer.add_coupler_fields!(coupler_field_names, ::HeatEquationAtmos)
-    coupler_fields = [:F_AO, :T_atm_sfc]
+    coupler_fields = [:F_AO, :F_AI, :T_atm_sfc]
     push!(coupler_field_names, coupler_fields...)
 end
 
