@@ -234,5 +234,134 @@ function plot_C_AX_dependence(; plot_title="C_AX_dependence", kwargs...)
     )
     display(current())
     savefig("plots/$plot_title.pdf")
-    savefig("plots/$plot_title.tikz")
+end
+
+
+function plot_ice_heat_convergence(; plot_title="ice_heat_convergence", iterations=5, kwargs...)
+    p = SimulationParameters{Float64}(Δt_min=600, t_max=3600, Δt_cpl=3600, a_I=1.0, n_t_A=10, C_AI=1.82, C_AO=1.3, ice_model_type=:heat_ice)
+
+    gr()
+
+    a_Is = range(0, 1, 15)
+    ϱs_atm = similar(a_Is)
+    for (k, a_I) in enumerate(a_Is)
+        setproperty!(p, :a_I, a_I)
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
+    end
+    plot(
+        a_Is,
+        ϱs_atm;
+        label=L"$\varrho_\mathrm{num}$, coarse",
+        markershape=:x,
+        ms=6,
+        color=:black,
+        kwargs...
+    )
+
+
+    setproperty!(p, :n_t_A, p.n_t_A * 100)
+    setproperty!(p, :n_t_O, p.n_t_O * 100)
+    setproperty!(p, :n_t_O, p.n_t_I * 100)
+    setproperty!(p, :n_A, p.n_A * 10)
+    setproperty!(p, :n_O, p.n_O * 10)
+    setproperty!(p, :n_I, p.n_I * 10)
+    ϱs_atm_ref = similar(a_Is)
+    for (k, a_I) in enumerate(a_Is)
+        setproperty!(p, :a_I, a_I)
+        _, ϱs_atm_ref[k], _ = run_simulation(p, iterations=iterations)
+    end
+    plot!(
+        a_Is,
+        ϱs_atm_ref;
+        label=L"$\varrho_\mathrm{num}$, fine",
+        markershape=:circle,
+        linestyle=:dash,
+        ms=3,
+        color=:black,
+        labelfontsize=14,
+        tickfontsize=14,
+        legendfontsize=12,
+        xlabel=L"a_I",
+        ylabel=L"\varrho",
+        legend=:right,
+        yscale=:log10,
+        ylim=[1e-6, 1],
+        yminorticks=1,
+        yticks=[1e-6, 1e-4, 1e-2, 1],
+        kwargs...
+    )
+
+    display(current())
+    savefig("plots/$plot_title.png")
+end
+
+function plot_ice_thickness_heat_convergence(; plot_title="ice_thickness_heat_convergence", iterations=5, kwargs...)
+    p = SimulationParameters{Float64}(Δt_min=600, t_max=3600, Δt_cpl=3600, n_t_A=10, a_I=1.0, C_AI=1.82, ice_model_type=:heat_ice)
+    h_Is = Base.logrange(5e-4, 5e1, length=10)
+    ϱs_atm = similar(h_Is)
+    for (k, h_I) in enumerate(h_Is)
+        setproperty!(p, :h_I_ini, h_I)
+        _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
+    end
+
+    p.n_I = 50
+    # p.ice_model_type = :thickness_feedback
+    ϱs_atm_lin = similar(h_Is)
+    for (k, h_I) in enumerate(h_Is)
+        setproperty!(p, :h_I_ini, h_I)
+        _, ϱs_atm_lin[k], _ = run_simulation(p, iterations=iterations)
+    end
+
+    finely_spaced_var = Base.logrange(h_Is[1], h_Is[end], length=100)
+    ϱ_theory = similar(finely_spaced_var)
+    for (k, h_I) in enumerate(finely_spaced_var)
+        setproperty!(p, :h_I_ini, h_I)
+        ϱ_theory[k] = compute_ϱ_ana_heat_ice(p)
+    end
+
+    gr()
+    plot(
+        finely_spaced_var,
+        ϱ_theory;
+        label=L"$\varrho_{AI}(\omega_\mathrm{max})$",
+        color=:black,
+    )
+
+    plot!(
+        h_Is,
+        ϱs_atm;
+        label=L"\varrho_\mathrm{num}, n_I=5",
+        markershape=:circle,
+        ms=4,
+        ls=:dot,
+        color=:black,
+    )
+
+    plot!(
+        h_Is,
+        ϱs_atm_lin;
+        label=L"\varrho_\mathrm{num}, n_I=50",
+        markershape=:x,
+        color=:black,
+        linestyle=:dash,
+        ms=6,
+    )
+    plot!(
+        labelfontsize=14,
+        tickfontsize=14,
+        legendfontsize=12,
+        xlabel=L"h_0",
+        xscale=:log10,
+        yscale=:log10,
+        ylabel=L"\varrho",
+        legend=:topleft,
+        ylim=[6e-5, 1.5],
+        yticks=[1e-4, 1e-2, 1],
+        yminorticks=1,
+        xticks=[1e-3, 1e-2, 1e-1, 1, 1e1],
+        kwargs...
+    )
+
+    display(current())
+    savefig("plots/$plot_title.png")
 end
