@@ -62,7 +62,6 @@ Base.@kwdef mutable struct SimulationParameters{FT}
     F_AI = nothing
     F_O = nothing
     T_Is = nothing
-    stable_range = nothing
     ice_model_type = :constant
     timestepping = :implicit
 end

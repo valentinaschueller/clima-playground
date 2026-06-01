@@ -22,7 +22,7 @@ function get_coupled_sim(p::SimulationParameters)
         output=output_dir,
         artifacts=output_dir,
         regrid=output_dir,
-        checkpoints=output_dir,
+        checkpoints_dir=output_dir,
     )
 
     p.T_A = p.T_A_ini
@@ -35,14 +35,6 @@ function get_coupled_sim(p::SimulationParameters)
         p.T_I_ini = 0.5 * (p.T_Is + p.T_Ib)
     else 
         p.T_Is = p.T_I_ini
-    end
-    
-
-    if p.ice_model_type == :constant
-        initial_values = [p.T_A, p.T_O, p.T_Is, p.T_Ib]
-        min_value = minimum(initial_values)
-        max_value = maximum(initial_values)
-        p.stable_range = (min_value - eps(min_value), max_value + eps(max_value))
     end
 
     odesolver = get_odesolver(Val(p.timestepping))
@@ -76,6 +68,7 @@ function get_coupled_sim(p::SimulationParameters)
         dir_paths,
         nothing, # thermo_params
         nothing, # diagnostic_handlers
+        true, # save_cache
     )
     return cs
 end
@@ -107,9 +100,11 @@ function update_ice_values!(cs::Interfacer.CoupledSimulation)
     return bound_atmos_vals, bound_ocean_vals
 end
 
-function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::FT, parallel::Bool) where {FT}
+function advance_simulation!(cs::Interfacer.CoupledSimulation, t_end::Float64, parallel::Bool)
     if parallel
-        FieldExchanger.step_model_sims!(cs.model_sims, t_end)
+        Interfacer.step!(cs.model_sims.ice_sim, t_end)
+        Interfacer.step!(cs.model_sims.ocean_sim, t_end)
+        Interfacer.step!(cs.model_sims.atmos_sim, t_end)
         update_atmos_values!(cs)
         update_ocean_values!(cs)
         bound_atmos_vals, bound_ocean_vals = update_ice_values!(cs)
@@ -155,7 +150,7 @@ function solve_coupler!(
         for iter = 1:iterations
             @info("Current iter: $(iter)")
             if iter > 1
-                Checkpointer.restart!(cs, cs.dirs.checkpoints, Int(cs.t[]))
+                Checkpointer.restart!(cs, cs.dir_paths.checkpoints_dir, Int(cs.t[]), true)
                 reinit!(cs, t)
             end
 

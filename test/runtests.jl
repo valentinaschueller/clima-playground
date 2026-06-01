@@ -59,3 +59,7 @@ p.C_H_AO = compute_C_H_AO(p)
 p.C_H_AI = compute_C_H_AI(p)
 restore_physical_values!(p)
 @test isapprox(compute_ϱ_ana(p), 0.00339343840709341)
+
+cs, _ = coupled_heat_equations(a_I=0.5, ice_model_type=:heat_ice)
+T_I = Interfacer.get_field(cs.model_sims.ice_sim, Val(:T_ice))
+@test Statistics.mean(h_I) != cs.model_sims.ice_sim.params.h_I_ini
