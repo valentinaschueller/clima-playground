@@ -240,7 +240,21 @@ end
 function plot_ice_heat_convergence(; plot_title="ice_heat_convergence", iterations=5, kwargs...)
     p = SimulationParameters{Float64}(Δt_min=600, t_max=3600, Δt_cpl=3600, a_I=1.0, n_t_A=10, C_AI=1.82, C_AO=1.3, ice_model_type=:heat_ice)
 
+    a_Is = range(0, 1, 500)
+    ϱ_theory = similar(a_Is)
+    for (k, a_I) in enumerate(a_Is)
+        setproperty!(p, :a_I, a_I)
+        ϱ_theory[k] = compute_ϱ_ana(p)
+    end
+
     gr()
+    plot(
+        a_Is,
+        ϱ_theory;
+        label=L"\varrho(\omega_\mathrm{max})",
+        color=:black,
+        kwargs...
+    )
 
     a_Is = range(0, 1, 15)
     ϱs_atm = similar(a_Is)
@@ -248,7 +262,7 @@ function plot_ice_heat_convergence(; plot_title="ice_heat_convergence", iteratio
         setproperty!(p, :a_I, a_I)
         _, ϱs_atm[k], _ = run_simulation(p, iterations=iterations)
     end
-    plot(
+    plot!(
         a_Is,
         ϱs_atm;
         label=L"$\varrho_\mathrm{num}$, coarse",
