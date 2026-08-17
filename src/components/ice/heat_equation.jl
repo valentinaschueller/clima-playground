@@ -25,6 +25,7 @@ function Wfact_heat_ice(W, Y, p, dtγ, t)
     div_matrix = CC.MatrixFields.operator_matrix(ᶜdivᵥ)
     grad_matrix = CC.MatrixFields.operator_matrix(ᶠgradᵥ)
     @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_I / (p.ρ_I * p.c_I)) * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
+    return nothing
 end
 
 function heat_ice_rhs!(dT, T, p::SimulationParameters, t)
@@ -61,7 +62,7 @@ function init(odesolver, p::SimulationParameters, output_dir, ::Val{:heat_ice})
     ode_function = get_heat_odefunction(ics, Val(p.timestepping))
     problem = CTS.ODEProblem(ode_function, ics, (p.t_0, p.t_0 + p.t_max), p)
 
-    Δt = p.Δt_min / p.n_t_O
+    Δt = p.Δt_min / p.n_t_I
     sea_ice_temperature = CD.DiagnosticVariable(;
         short_name="T_I",
         long_name="Sea Ice Temperature",
