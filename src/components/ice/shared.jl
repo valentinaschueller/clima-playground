@@ -40,6 +40,9 @@ function T_Is(p, h_I, t)
         denominator += p.C_AI
     end
     T_eq = (conduction + SW_net(t, p) + LW_net(t, p, 273) + p.J_q(t) + J_s(t, p, 273)) / denominator
+    if T_eq ≥ 0
+        @warn "Melting ice!"
+    end
     return min(T_eq + 273.0, 273.0)
 end
 
