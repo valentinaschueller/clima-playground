@@ -20,6 +20,7 @@ function get_coupled_sim(p::SimulationParameters)
     mkpath(output_dir)
     dir_paths = (
         output=output_dir,
+        output_dir_root=output_dir,
         artifacts=output_dir,
         regrid=output_dir,
         checkpoints_dir=output_dir,
@@ -62,6 +63,7 @@ function get_coupled_sim(p::SimulationParameters)
         tspan,
         p.Δt_cpl,
         Ref(tspan[begin]),
+        Ref(0),
         Ref(-1),
         model_sims,
         (;), # callbacks
@@ -69,6 +71,7 @@ function get_coupled_sim(p::SimulationParameters)
         nothing, # thermo_params
         nothing, # diagnostic_handlers
         true, # save_cache
+        (;), # flux_accumulators
     )
     return cs
 end
@@ -76,7 +79,7 @@ end
 """Sets u0 = u(t), t0 = t, and empties u."""
 function reinit!(cs::Interfacer.CoupledSimulation, t)
     for sim in cs.model_sims
-        SciMLBase.reinit!(sim.integrator, sim.integrator.u, t0=t)
+        CTS.reinit!(sim.integrator, sim.integrator.u, t0=t)
     end
 end
 
