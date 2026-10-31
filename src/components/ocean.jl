@@ -2,7 +2,7 @@ import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
 import ClimaDiagnostics as CD
-import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
+import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix
 import LinearAlgebra
 import Statistics: mean
 
@@ -21,10 +21,13 @@ function Wfact_oce(W, Y, p, dtγ, t)
         bottom=CC.Operators.SetValue(C3(0.0)),
         top=CC.Operators.SetValue(C3(0.0)),
     )
-    ᶠgradᵥ = CC.Operators.GradientC2F()
+    ᶠgradᵥ = CC.Operators.GradientC2F(
+        top=CC.Operators.SetGradient(0.0), 
+        bottom=CC.Operators.SetGradient(0.0),
+    )
     div_matrix = CC.MatrixFields.operator_matrix(ᶜdivᵥ)
     grad_matrix = CC.MatrixFields.operator_matrix(ᶠgradᵥ)
-    @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_O / (p.ρ_O * p.c_O)) * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
+    @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_O / (p.ρ_O * p.c_O)) * div_matrix() * grad_matrix() - (LinearAlgebra.I,)
     return nothing
 end
 

@@ -2,7 +2,7 @@ import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
 import ClimaDiagnostics as CD
-import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
+import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix
 import LinearAlgebra
 import Statistics: mean
 
@@ -17,14 +17,17 @@ end
 
 function Wfact_heat_ice(W, Y, p, dtγ, t)
     C3 = CC.Geometry.WVector
-    ᶜdivᵥ = CC.Operators.DivergenceF2C()
+    ᶜdivᵥ = CC.Operators.DivergenceF2C(
+        top=CC.Operators.SetValue(0.0), 
+        bottom=CC.Operators.SetValue(0.0),
+    )
     ᶠgradᵥ = CC.Operators.GradientC2F(;
-        bottom=CC.Operators.SetValue(C3(0.0)),
-        top=CC.Operators.SetValue(C3(0.0)),
+        top=CC.Operators.SetGradient(0.0), 
+        bottom=CC.Operators.SetGradient(0.0),
     )
     div_matrix = CC.MatrixFields.operator_matrix(ᶜdivᵥ)
     grad_matrix = CC.MatrixFields.operator_matrix(ᶠgradᵥ)
-    @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_I / (p.ρ_I * p.c_I)) * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
+    @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_I / (p.ρ_I * p.c_I)) * div_matrix() * grad_matrix() - (LinearAlgebra.I,)
     return nothing
 end
 

@@ -2,7 +2,7 @@ import ClimaCore as CC
 import ClimaTimeSteppers as CTS
 import ClimaCoupler: Checkpointer, Interfacer
 import ClimaDiagnostics as CD
-import ClimaCore.MatrixFields: @name, ⋅, FieldMatrixWithSolver, FieldMatrix
+import ClimaCore.MatrixFields: @name, FieldMatrixWithSolver, FieldMatrix
 import Statistics: mean
 
 export HeatEquationAtmos, heat_atm_rhs!, atmos_init
@@ -16,14 +16,17 @@ end
 
 function Wfact_atm(W, Y, p, dtγ, t)
     C3 = CC.Geometry.WVector
-    ᶠgradᵥ = CC.Operators.GradientC2F()
+    ᶠgradᵥ = CC.Operators.GradientC2F(
+        top=CC.Operators.SetGradient(0.0), 
+        bottom=CC.Operators.SetGradient(0.0),
+    )
     ᶜdivᵥ = CC.Operators.DivergenceF2C(;
         bottom=CC.Operators.SetValue(C3(0.0)),
         top=CC.Operators.SetValue(C3(0.0)),
     )
     div_matrix = CC.MatrixFields.operator_matrix(ᶜdivᵥ)
     grad_matrix = CC.MatrixFields.operator_matrix(ᶠgradᵥ)
-    @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_A / (p.ρ_A * p.c_A)) * div_matrix() ⋅ grad_matrix() - (LinearAlgebra.I,)
+    @. W.matrix[@name(data), @name(data)] = (dtγ * p.k_A / (p.ρ_A * p.c_A)) * div_matrix() * grad_matrix() - (LinearAlgebra.I,)
     return nothing
 end
 
