@@ -57,7 +57,7 @@ function get_coupled_sim(p::SimulationParameters)
 
     tspan = (p.t_0, p.t_max)
     cs = Interfacer.CoupledSimulation{FT}(
-        Ref(start_date),
+        start_date,
         coupler_fields,
         nothing, # conservation checks
         tspan,
