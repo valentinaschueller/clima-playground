@@ -17,10 +17,13 @@ end
 
 function Wfact_heat_ice(W, Y, p, dtγ, t)
     C3 = CC.Geometry.WVector
-    ᶜdivᵥ = CC.Operators.DivergenceF2C()
+    ᶜdivᵥ = CC.Operators.DivergenceF2C(
+        top=CC.Operators.SetValue(0.0), 
+        bottom=CC.Operators.SetValue(0.0),
+    )
     ᶠgradᵥ = CC.Operators.GradientC2F(;
-        bottom=CC.Operators.SetValue(C3(0.0)),
-        top=CC.Operators.SetValue(C3(0.0)),
+        top=CC.Operators.SetGradient(0.0), 
+        bottom=CC.Operators.SetGradient(0.0),
     )
     div_matrix = CC.MatrixFields.operator_matrix(ᶜdivᵥ)
     grad_matrix = CC.MatrixFields.operator_matrix(ᶠgradᵥ)
